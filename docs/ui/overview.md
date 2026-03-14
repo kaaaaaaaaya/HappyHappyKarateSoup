@@ -16,8 +16,9 @@
 graph TD
     %% PC側のフロー
     subgraph PC[PCモニター側]
-        P_Login[ログイン画面] --> P_Home[ホーム画面]
-        P_Home --> P_Ready[コントローラー接続画面<br>QRコード表示]
+        P_Home[ホーム画面] -->|ログインして遊ぶ| P_Login[ログイン画面]
+        P_Login --> P_Ready[コントローラー接続画面<br>QRコード表示]
+        P_Home -->|ゲストで遊ぶ| P_Ready
         P_Ready --> P_Select[具材選択画面]
         P_Select --> P_Game[ゲーム画面<br>パンチで具材カット]
         P_Game -. 優先度低 .-> P_Mix[かき混ぜ画面]
