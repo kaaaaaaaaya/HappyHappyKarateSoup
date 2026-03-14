@@ -1,0 +1,1 @@
+READ .agent/rules/*.md
