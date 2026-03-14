@@ -11,6 +11,10 @@ struct RemoteControllerView: View {
 
     var body: some View {
         GeometryReader { geo in
+            // 端末の向きに関係なく、常に横向き前提でレイアウト計算する
+            let landscapeShortEdge = min(geo.size.width, geo.size.height)
+            let isPortrait = geo.size.height > geo.size.width
+
             ZStack {
                 GameLikeBackground()
 
@@ -19,13 +23,14 @@ struct RemoteControllerView: View {
 
                     controlPad
                         .frame(
-                            width: min(geo.size.height * 0.8, 420),
-                            height: min(geo.size.height * 0.8, 420)
+                            width: min(landscapeShortEdge * 0.8, 420),
+                            height: min(landscapeShortEdge * 0.8, 420)
                         )
 
                     Spacer()
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .rotationEffect(.degrees(isPortrait ? 90 : 0))
             }
             .ignoresSafeArea()
         }
@@ -195,6 +200,6 @@ private struct GridPattern: Shape {
     }
 }
 
-#Preview("Landscape") {
+#Preview("Landscape", traits: .landscapeRight) {
     RemoteControllerView()
 }
