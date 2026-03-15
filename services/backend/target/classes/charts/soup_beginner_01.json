@@ -1,0 +1,45 @@
+{
+  "chartId": "soup_beginner_01",
+  "soupName": "はじめてのやさしい野菜スープ",
+  "version": 1,
+  "schemaVersion": 1,
+  "bpm": 110,
+  "durationMs": 30000,
+  "events": [
+    {
+      "timeMs": 1200,
+      "action": "tsuki",
+      "ingredientType": "carrot",
+      "lane": "left",
+      "windowMs": 200
+    },
+    {
+      "timeMs": 2400,
+      "action": "tsuki",
+      "ingredientType": "onion",
+      "lane": "center",
+      "windowMs": 200
+    },
+    {
+      "timeMs": 3600,
+      "action": "shuto",
+      "ingredientType": "mushroom",
+      "lane": "right",
+      "windowMs": 180
+    },
+    {
+      "timeMs": 5000,
+      "action": "tsuki",
+      "ingredientType": "potato",
+      "lane": "left",
+      "windowMs": 180
+    },
+    {
+      "timeMs": 6600,
+      "action": "shuto",
+      "ingredientType": "cabbage",
+      "lane": "center",
+      "windowMs": 180
+    }
+  ]
+}
