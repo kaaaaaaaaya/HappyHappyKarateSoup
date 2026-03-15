@@ -19,7 +19,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/admin/**").authenticated()
-                        .requestMatchers("/api/charts/**", "/actuator/health", "/actuator/info", "/actuator/prometheus").permitAll()
+                    .requestMatchers("/api/charts/**", "/api/scores/**", "/actuator/health", "/actuator/info", "/actuator/prometheus").permitAll()
                         .anyRequest().permitAll())
                 .httpBasic(Customizer.withDefaults());
 
