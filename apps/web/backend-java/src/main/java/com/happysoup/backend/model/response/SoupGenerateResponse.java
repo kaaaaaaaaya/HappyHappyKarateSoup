@@ -7,7 +7,6 @@ import java.util.List;
 public record SoupGenerateResponse(
         List<String> ingredients,
         String imageDataUrl,
-        String imagePrompt,
         FlavorProfileResponse flavor,
         String comment
         ) {

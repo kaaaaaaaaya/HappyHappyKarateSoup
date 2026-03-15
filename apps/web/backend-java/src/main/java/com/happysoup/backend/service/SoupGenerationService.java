@@ -35,7 +35,6 @@ public class SoupGenerationService {
         return new SoupGenerateResponse(
                 ingredients,
                 generatedImage.imageDataUrl(),
-                generatedImage.imagePrompt(),
                 flavor,
                 comment
         );

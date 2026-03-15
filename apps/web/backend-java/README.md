@@ -35,7 +35,6 @@ HappyHappyKarateSoup の Web バックエンド（Java / Spring Boot）です。
 {
   "ingredients": ["tomato", "onion", "miso"],
   "imageDataUrl": "data:image/png;base64,...",
-  "imagePrompt": "...",
   "flavor": {
     "sweet": 20,
     "sour": 35,

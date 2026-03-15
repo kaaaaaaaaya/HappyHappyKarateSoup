@@ -11,7 +11,6 @@ INGREDIENTS_CSV="${INGREDIENTS_CSV:-tomato,onion,miso}"
 mkdir -p "$OUTPUT_DIR"
 
 JSON_OUT="$OUTPUT_DIR/response.json"
-PROMPT_OUT="$OUTPUT_DIR/image_prompt.txt"
 DATA_URL_OUT="$OUTPUT_DIR/image_data_url.txt"
 PNG_OUT="$OUTPUT_DIR/image.png"
 SUMMARY_OUT="$OUTPUT_DIR/summary.txt"
@@ -30,26 +29,23 @@ curl -sS -X POST "$BASE_URL/api/soup/generate" \
   --data @"$OUTPUT_DIR/request.json" \
   > "$JSON_OUT"
 
-python3 - "$JSON_OUT" "$PROMPT_OUT" "$DATA_URL_OUT" "$PNG_OUT" "$SUMMARY_OUT" <<'PY'
+python3 - "$JSON_OUT" "$DATA_URL_OUT" "$PNG_OUT" "$SUMMARY_OUT" <<'PY'
 import base64
 import json
 import pathlib
 import sys
 
 json_path = pathlib.Path(sys.argv[1])
-prompt_path = pathlib.Path(sys.argv[2])
-data_url_path = pathlib.Path(sys.argv[3])
-png_path = pathlib.Path(sys.argv[4])
-summary_path = pathlib.Path(sys.argv[5])
+data_url_path = pathlib.Path(sys.argv[2])
+png_path = pathlib.Path(sys.argv[3])
+summary_path = pathlib.Path(sys.argv[4])
 
 obj = json.loads(json_path.read_text(encoding='utf-8'))
 
-image_prompt = obj.get('imagePrompt', '') or ''
 image_data_url = obj.get('imageDataUrl', '') or ''
 flavor = obj.get('flavor', {})
 comment = obj.get('comment', '') or ''
 
-prompt_path.write_text(image_prompt, encoding='utf-8')
 data_url_path.write_text(image_data_url, encoding='utf-8')
 
 saved_png = False
@@ -69,7 +65,6 @@ summary_lines = [
 summary_path.write_text("\n".join(summary_lines) + "\n", encoding='utf-8')
 
 print(f"saved: {json_path}")
-print(f"saved: {prompt_path}")
 print(f"saved: {data_url_path}")
 if saved_png:
     print(f"saved: {png_path}")
