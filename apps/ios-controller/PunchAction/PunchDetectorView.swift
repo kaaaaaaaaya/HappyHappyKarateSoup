@@ -1,39 +1,134 @@
 import SwiftUI
 import CoreMotion
+#if canImport(UIKit)
+import UIKit
+#endif
 
 // スマホを持ってパンチの動きを検知し、punch_illustration.png を表示するView
 struct PunchDetectorView: View {
     @StateObject private var detector = PunchDetector()
 
     var body: some View {
-        ZStack {
-            PunchBackground()
+        GeometryReader { geo in
+            // 端末の向きに関係なく、常に横向き前提でレイアウト計算する
+            let landscapeLongEdge = max(geo.size.width, geo.size.height)
+            let landscapeShortEdge = min(geo.size.width, geo.size.height)
+            let isPortrait = geo.size.height > geo.size.width
 
-            // パンチ時にイラストをアニメーション表示
-            if detector.isPunching {
-                Image("punch_illustration")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(maxWidth: 320, maxHeight: 320)
-                    .transition(
-                        .asymmetric(
-                            insertion: .scale(scale: 0.4).combined(with: .opacity),
-                            removal:   .scale(scale: 1.4).combined(with: .opacity)
+            ZStack {
+                if detector.isPunching {
+                    Color.white
+                } else if isPortrait {
+                    Color.black
+                } else {
+                    PunchBackground()
+                }
+
+                // 横向き前提で表示したい要素群
+                ZStack {
+                    // パンチ時にイラストをアニメーション表示
+                    if detector.isPunching {
+                        punchIllustrationView(
+                            isPortrait: isPortrait,
+                            maxSize: min(landscapeShortEdge * 0.72, 320)
                         )
-                    )
-            }
+                            .transition(
+                                .asymmetric(
+                                    insertion: .scale(scale: 0.4).combined(with: .opacity),
+                                    removal:   .scale(scale: 1.4).combined(with: .opacity)
+                                )
+                            )
+                    }
 
-            // センサー未対応の端末向けメッセージ
-            if !detector.isAvailable {
-                Text("モーションセンサーが利用できません")
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.6))
+                    // センサー未対応の端末向けメッセージ
+                    if !detector.isAvailable {
+                        Text("モーションセンサーが利用できません")
+                            .font(.caption)
+                            .foregroundStyle(
+                                detector.isPunching
+                                    ? Color.black.opacity(0.65)
+                                    : Color.white.opacity(0.6)
+                            )
+                            .rotationEffect(.degrees(isPortrait ? 90 : 0))
+                    }
+                }
+                .frame(width: landscapeLongEdge, height: landscapeShortEdge)
+                .position(x: geo.size.width / 2, y: geo.size.height / 2)
+
+                #if targetEnvironment(simulator)
+                VStack {
+                    Spacer()
+
+                    Button {
+                        detector.simulatePunchOnce()
+                    } label: {
+                        Label("テストパンチ", systemImage: "hand.raised.fill")
+                            .font(.system(.headline, design: .rounded))
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                            .background(.ultraThinMaterial, in: Capsule())
+                    }
+                    .tint(.white)
+                    .foregroundStyle(.white)
+                    .padding(.bottom, 24)
+                }
+                .rotationEffect(.degrees(isPortrait ? 90 : 0))
+                #endif
             }
+            .ignoresSafeArea()
         }
-        .ignoresSafeArea()
         .animation(.spring(response: 0.18, dampingFraction: 0.55), value: detector.isPunching)
-        .onAppear  { detector.start() }
+        .onAppear {
+            detector.start()
+        }
         .onDisappear { detector.stop() }
+    }
+
+    @ViewBuilder
+    private func punchIllustrationView(isPortrait: Bool, maxSize: CGFloat) -> some View {
+        if let loadedImage = loadPunchImage() {
+            loadedImage
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: maxSize, maxHeight: maxSize)
+                .rotationEffect(.degrees(isPortrait ? 90 : 0))
+        } else {
+            #if targetEnvironment(simulator)
+            ZStack {
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .fill(.black.opacity(0.35))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 24, style: .continuous)
+                            .stroke(.white.opacity(0.35), lineWidth: 1)
+                    )
+
+                Text("punch_illustration が見つかりません")
+                    .font(.caption)
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+                    .padding(12)
+            }
+            .frame(maxWidth: maxSize, maxHeight: maxSize)
+            .rotationEffect(.degrees(isPortrait ? 90 : 0))
+            #else
+            EmptyView()
+            #endif
+        }
+    }
+
+    private func loadPunchImage() -> Image? {
+#if canImport(UIKit)
+        if let uiImage = UIImage(named: "punch_illustration")
+            ?? UIImage(named: "punch_illustration.png") {
+            return Image(uiImage: uiImage)
+        }
+
+        if let path = Bundle.main.path(forResource: "punch_illustration", ofType: "png"),
+           let uiImage = UIImage(contentsOfFile: path) {
+            return Image(uiImage: uiImage)
+        }
+#endif
+        return nil
     }
 }
 
@@ -84,6 +179,10 @@ final class PunchDetector: ObservableObject {
     func stop() {
         motionManager.stopDeviceMotionUpdates()
         phase = .idle
+    }
+
+    func simulatePunchOnce() {
+        triggerPunch()
     }
 
     private func evaluate(motion: CMDeviceMotion) {
@@ -190,6 +289,7 @@ private struct PunchBackground: View {
 
 // MARK: - Preview
 
-#Preview {
+
+#Preview("Landscape", traits: .landscapeRight) {
     PunchDetectorView()
 }
