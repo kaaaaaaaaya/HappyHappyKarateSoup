@@ -1,0 +1,35 @@
+# OS
+.DS_Store
+**/.DS_Store
+
+# IDE / Editor
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.iml
+
+# Eclipse workspace / project files
+.metadata/
+.classpath
+.project
+.settings/
+.factorypath
+.recommenders/
+
+# Logs
+*.log
+logs/
+
+# Environment files
+.env
+**/.env
+
+# Build artifacts
+**/.gradle/
+**/build/
+**/out/
+
+# Node artifacts
+**/node_modules/
+**/dist/
+**/dist-ssr/

@@ -1,0 +1,13 @@
+.gradle/
+build/
+.env
+*.iml
+out/
+.DS_Store
+tmp/
+
+# Eclipse
+.classpath
+.project
+.settings/
+.factorypath

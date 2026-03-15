@@ -1,0 +1,7 @@
+Create a top-down vivid photo style image of a finished soup.
+Ingredients hint: {{ingredients}}
+Requirements:
+- anime cartoon steam
+- rich color contrast
+- appetizing composition
+- no text overlay
