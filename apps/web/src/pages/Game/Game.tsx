@@ -81,7 +81,7 @@ export default function Game() {
                   zIndex: 100,
                   // @ ts-ignore
                   '--start-x': `${item.startX}px`,
-                  '--end-x': `${item.startX * 3}px`,
+                  '--end-x': `${item.startX * 2}px`, // レールに沿う感じに調整したいところ
                 } as React.CSSProperties}
               >
                 <div style={{ fontSize: '50px', lineHeight: '1' }}>
