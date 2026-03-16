@@ -9,7 +9,7 @@ import { useGameLogic } from './useGameLogic'; // 先ほど作ったフックを
 //         判定ゾーンの上下のライン強調が反映されてない
 //         ゾーンと鍋がずれてる
 
-// CSSアニメーションの定義（見た目に関わるのでここに残す）
+// CSSアニメーションの定義
 const animationStyles = `
   @import url('https://fonts.googleapis.com/css2?family=DotGothic16&display=swap');
 
@@ -33,7 +33,7 @@ const animationStyles = `
 
 export default function Game() {
   // フックから必要な状態を受け取るだけ！（超スッキリ✨）
-  const { phase, count, ingredients } = useGameLogic();
+  const { phase, count, ingredients, handleAction, removeIngredient } = useGameLogic();
 
   return (
     <div style={{ textAlign: 'center', padding: '50px' }}>
@@ -52,6 +52,7 @@ export default function Game() {
           <h2>ゲームプレイ（パンチ画面）</h2>
           <p>タイミングを合わせてスマホを突き出せ！</p>
           
+          {/*ゲーム画面内の設定*/}
           <div style={{ 
             margin: '30px auto', 
             width: "100%" , 
@@ -64,9 +65,12 @@ export default function Game() {
             overflow: 'hidden',
             perspective: '500px'
             }}>
+
+            {/* 具材 */}
             {ingredients.map((item) => (
               <div
                 key={item.id}
+                onAnimationEnd={() => removeIngredient(item.id)}
                 style={{
                   position: 'absolute',
                   left: '50%',
@@ -78,7 +82,7 @@ export default function Game() {
                   zIndex: 100,
                   // @ ts-ignore
                   '--start-x': `${item.startX}px`,
-                  '--end-x': `${item.startX * 3}px`,
+                  '--end-x': `${item.startX * 2}px`, // レールに沿う感じに調整したいところ
                 } as React.CSSProperties}
               >
                 <div style={{ fontSize: '50px', lineHeight: '1' }}>
