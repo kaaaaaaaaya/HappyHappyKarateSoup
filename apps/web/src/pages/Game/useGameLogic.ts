@@ -1,68 +1,140 @@
-// useGameLogic.ts
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Phase, Ingredient, ActionType } from './types';
+import charData from '../../testdatas/charData-demo.json'; // 譜面データをインポート
+
+// 譜面データの型 (バックエンドからのレスポンスを想定)
+// [タイミング(ms), パンチorチョップ, 絵文字, レーン(-100〜100)]
+type ChartItem = [number, ActionType, string, number];
 
 export const useGameLogic = () => {
   const [phase, setPhase] = useState<Phase>('countdown');
   const [count, setCount] = useState(3);
-  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+  const [activeIngredients, setActiveIngredients] = useState<Ingredient[]>([]);
+  
+  // 譜面データを保持
+  // chart : variable, 処理中の譜面データを保持
+  // setChart : function, 譜面データを更新するための関数
+  // 初期値は空配列[], データはChartItem型かつ配列であることを指定
+  const [chart, setChart] = useState<ChartItem[]>([]);
+  
+  // ゲーム開始時刻を保持
+  const startTimeRef = useRef<number>(0);
+  // 処理済みの譜面インデックス
+  const chartIndexRef = useRef<number>(0);
 
-  // 1. カウントダウン制御
+  // 🌟 具材を削除する関数（アニメーション終了時や叩いた時に使用）
+  const removeIngredient = useCallback((id: number) => {
+    setActiveIngredients((prev) => prev.filter((item) => item.id !== id));
+  }, []);
+
+
+  const handleAction = useCallback((actionType: ActionType) => {
+    if (activeIngredients.length === 0) return;
+
+    const now = performance.now() - startTimeRef.current;
+    
+    // 一番手前にいる（ターゲット時間が最も早い）具材を探す
+    const target = activeIngredients[0];
+    const diff = Math.abs(now - target.id); // 理想のタイミングとの差分(ms)
+
+    // 判定条件
+    const isCorrectType = target.type === actionType;
+    let result = '';
+
+    if (!isCorrectType) {
+      result = 'Miss (Bad Action)';
+    } else if (diff < 150) { // 判定幅を少し広めに調整
+      result = 'Perfect!!';
+    } else if (diff < 300) {
+      result = 'Good';
+    } else if (diff < 450) {
+      result = 'OK';
+    } else {
+      result = 'Too Early/Late';
+    }
+
+    console.log(`${result} | Error: ${Math.round(now - target.id)}ms | Target: ${target.emoji}`);
+    
+    // 🌟 叩いたら消す（removeIngredientを再利用）
+    removeIngredient(target.id);
+  }, [activeIngredients, removeIngredient]);
+
+
+  // --- 1. カウントダウン制御 ---
   useEffect(() => {
     if (phase === 'countdown' && count > 0) {
+      //Countが0以上の間は、1000msごとに次の1秒のタイマーを予約
       const timer = setTimeout(() => setCount((c) => c - 1), 1000);
       return () => clearTimeout(timer);
     } else if (phase === 'countdown' && count === 0) {
-      setTimeout(() => setPhase('playing'), 1000);
+      // 譜面を取得する（現在はデモデータ）
+      // 🌟 エラー回避のため、setTimeoutの中にセット処理をまとめる
+      setTimeout(() => {
+        setChart(charData as ChartItem[]); 
+        setPhase('playing'); //譜面切り替えと同時にplayingフェーズに移行
+        startTimeRef.current = performance.now(); // 精度の高い開始時間を記録
+        chartIndexRef.current = 0; // インデックスをリセット
+      }, 1000);
     }
   }, [phase, count]);
 
-  // 2. 材料のランダム生成ロジック
+  // --- 2. ゲームループ (譜面に従って材料を出現させる) ---
   useEffect(() => {
-    if (phase !== 'playing') return;
+    if (phase !== 'playing' || chart.length === 0) return;
 
-    let timerId: ReturnType<typeof setTimeout>;
+    //メモリリーク防止変数
+    //requestAnimationFrameは、ブラウザのリペイントに合わせて指定した関数を繰り返し呼び出すためのAPI
+    //コンポーネントの消去後のクリーンアップに必要
+    let requestRef: number;
 
-    const spawn = () => {
-      const newIngredient: Ingredient = {
-        id: Date.now(),
-        emoji: ['🥕', '🍖', '🥔', '🧅'][Math.floor(Math.random() * 4)],
-        startX: Math.random() * 200 - 100, // -100px から 100px
-      };
+    const update = () => {
+      const elapsed = performance.now() - startTimeRef.current;
+      const animationDuration = 1500; // アニメーションの総時間(ms)
 
-      setIngredients((prev) => [...prev, newIngredient]);
+      // 譜面をチェックして、出現させるべきタイミングのものがあれば activeIngredients に追加
+      // ※タイミング(ms)の 1500ms 前に出現させる
+      if (chartIndexRef.current < chart.length) {
+        const [targetTime, type, emoji, lane] = chart[chartIndexRef.current];
+        
+        if (elapsed >= targetTime - animationDuration) {
+          const newIngredient: Ingredient = {
+            id: targetTime, // 判定時に使うため、ターゲットとなる時間をIDにする
+            emoji: emoji,
+            startX: lane, // %単位にする
+            type: type,
+          };
 
-      // アニメーション終了後に配列から削除
-      setTimeout(() => {
-        setIngredients((prev) => prev.filter((item) => item.id !== newIngredient.id));
-      }, 1500);
-
-      // 次の出現までの時間をランダムに設定
-      const nextDelay = Math.random() * (1300 - 700) + 700;
-      timerId = setTimeout(spawn, nextDelay);
+          setActiveIngredients((prev) => [...prev, newIngredient]);
+          chartIndexRef.current++;
+        }
+      }
+      requestRef = requestAnimationFrame(update);
     };
 
-    spawn();
-    return () => clearTimeout(timerId);
-  }, [phase]);
+    requestRef = requestAnimationFrame(update);
+    return () => cancelAnimationFrame(requestRef);
+  }, [phase, chart]);
 
-  // 3. 判定ロジックの関数
-  const handlePunch = (actionType: ActionType) => {
-  // ここに「今の時間」と「絵文字の時間」を比較する計算を書く
-    console.log(`${actionType}のアクションが発生！判定します！`);
-  };  
 
-  // 4. キーボード入力検知
-  // 【今のPC用】キーボードが押されたら関数を呼ぶ
-  window.addEventListener('keydown', (e) => {
-    if (e.key === 'j') handlePunch('punch');
-    if (e.key === 'k') handlePunch('chop');
-  });
+  // --- 4. キーボードリスナー ---
+  useEffect(() => {
+    if (phase !== 'playing') return;
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase();
+      if (key === 'j') handleAction('punch');
+      if (key === 'k') handleAction('chop');
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [phase, handleAction]);
 
-  // UI側に渡したいデータだけを return する
-  return {
-    phase,
-    count,
-    ingredients
+  return { 
+    phase, 
+    count, 
+    ingredients: activeIngredients, 
+    handleAction, 
+    removeIngredient 
   };
 };

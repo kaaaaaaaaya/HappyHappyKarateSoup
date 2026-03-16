@@ -8,4 +8,5 @@ export type Ingredient = {
   id: number;
   emoji: string;
   startX: number;
+  type: ActionType;
 };

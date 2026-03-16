@@ -9,7 +9,7 @@ import { useGameLogic } from './useGameLogic'; // 先ほど作ったフックを
 //         判定ゾーンの上下のライン強調が反映されてない
 //         ゾーンと鍋がずれてる
 
-// CSSアニメーションの定義（見た目に関わるのでここに残す）
+// CSSアニメーションの定義
 const animationStyles = `
   @import url('https://fonts.googleapis.com/css2?family=DotGothic16&display=swap');
 
@@ -33,7 +33,7 @@ const animationStyles = `
 
 export default function Game() {
   // フックから必要な状態を受け取るだけ！（超スッキリ✨）
-  const { phase, count, ingredients } = useGameLogic();
+  const { phase, count, ingredients, handleAction, removeIngredient } = useGameLogic();
 
   return (
     <div style={{ textAlign: 'center', padding: '50px' }}>
@@ -70,6 +70,7 @@ export default function Game() {
             {ingredients.map((item) => (
               <div
                 key={item.id}
+                onAnimationEnd={() => removeIngredient(item.id)}
                 style={{
                   position: 'absolute',
                   left: '50%',
