@@ -9,4 +9,5 @@ export type Ingredient = {
   emoji: string;
   startX: number;
   type: ActionType;
+  missed?: boolean; // 判定されないまま画面外に行った具材を識別するためのフラグ
 };

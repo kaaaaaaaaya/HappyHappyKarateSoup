@@ -100,14 +100,14 @@ export const useGameLogic = () => {
     //1秒に60回の頻度で呼び出される
     const update = () => {
       const elapsed = performance.now() - startTimeRef.current; // ゲーム開始からの経過時間を高精度で取得
-      const animationDuration = 1500; // アニメーションの総時間(ms)
+      const animationDuration = 2000; // アニメーションの総時間(ms)
 
       // 譜面データの中で、まだ処理していないものがあるかチェック
       if (chartIndexRef.current < chart.length) {
         // 譜面データから次に処理するアイテムの情報を取得
         const [targetTime, type, emoji, lane] = chart[chartIndexRef.current];
         
-        // 経過時間がターゲット時間の1500ms前に達したら具材を出現させる
+        // 経過時間がターゲット時間の2000ms前に達したら具材を出現させる
         if (elapsed >= targetTime - animationDuration) {
           const newIngredient: Ingredient = { //ingredient型のオブジェクトを新規生成
             id: targetTime, // 判定時に使うため、ターゲットとなる時間をIDにする
@@ -121,6 +121,19 @@ export const useGameLogic = () => {
           chartIndexRef.current++; // 次の譜面アイテムに進む
         }
       }
+
+      // 画面外に出た具材のミスフラグを立てる
+      setActiveIngredients((prev) =>
+        prev.map((item) => {
+          // まだミスになっていない 且つ 判定時間を200ms過ぎたもの
+          if (!item.missed && elapsed > item.id + 200) {
+            console.log(`Miss (No Action) | Target: ${item.emoji}`);
+            return { ...item, missed: true }; // ミスフラグを立てる
+          }
+          return item;
+        })
+      );      
+
       requestRef = requestAnimationFrame(update);
     };
 
