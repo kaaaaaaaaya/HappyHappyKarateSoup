@@ -25,7 +25,7 @@ const animationStyles = `
       opacity: 1; /* 手前に来るまで表示をキープ */
     }
     100% { 
-      transform: translate3d(calc(-50% + var(--end-x)), 400%, 0px) scale(2.5); 
+      transform: translate3d(calc(-50% + var(--end-x)), 1000%, 0px) scale(6); 
       opacity: 0.7; /* 最後：消える直前で再び透明になる */
     }
   }
@@ -78,11 +78,17 @@ export default function Game() {
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
-                  animation: 'moveForward 1.5s ease-in forwards',
+                  animation: 'moveForward 3.0s ease-in forwards', //useGameLogicでの値より大きくする
                   zIndex: 100,
+
+                  //Missフラグがある場合の処理
+                  opacity: item.missed ? 0.2: 1, // missedフラグが立っている場合は半透明にする
+                  filter: item.missed ? 'grayscale(100%)' : 'none', // missedフラグが立っている場合はグレースケールにする
+                  transition: 'opacity 0s, filter 0.2s', // opacityとfilterの変化にスムーズなトランジションを追加
+
                   // @ ts-ignore
                   '--start-x': `${item.startX}px`,
-                  '--end-x': `${item.startX * 2}px`, // レールに沿う感じに調整したいところ
+                  '--end-x': `${item.startX * 7}px`, // レールに沿う感じに調整したいところ
                 } as React.CSSProperties}
               >
                 <div style={{ fontSize: '50px', lineHeight: '1' }}>

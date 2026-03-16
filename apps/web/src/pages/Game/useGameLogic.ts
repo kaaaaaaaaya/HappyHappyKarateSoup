@@ -22,42 +22,49 @@ export const useGameLogic = () => {
   // 処理済みの譜面インデックス
   const chartIndexRef = useRef<number>(0);
 
-  // 🌟 具材を削除する関数（アニメーション終了時や叩いた時に使用）
+  // 具材を削除する関数（アニメーション終了時や叩いた時に使用）
   const removeIngredient = useCallback((id: number) => {
     setActiveIngredients((prev) => prev.filter((item) => item.id !== id));
   }, []);
 
-
+  //入力を受け取って結果を判定する関数
   const handleAction = useCallback((actionType: ActionType) => {
     if (activeIngredients.length === 0) return;
 
-    const now = performance.now() - startTimeRef.current;
+    //判定実施時の経過時間(ms)
+    const now = performance.now() - startTimeRef.current; 
     
     // 一番手前にいる（ターゲット時間が最も早い）具材を探す
+    // バックエンドから取得する場合はdiffに直接差分の値を代入
     const target = activeIngredients[0];
     const diff = Math.abs(now - target.id); // 理想のタイミングとの差分(ms)
+    
+    if (diff >= 600) return; // 判定範囲外は無視
+    //ここをバックエンドで処理するなら、フロントには有効なデータだけ送られてくる？
+    //もしフロントに無効なデータも送られてくるなら、差分の計算ごとフロントにおかせてほしい
 
     // 判定条件
     const isCorrectType = target.type === actionType;
     let result = '';
 
-    if (!isCorrectType) {
-      result = 'Miss (Bad Action)';
-    } else if (diff < 150) { // 判定幅を少し広めに調整
+    if (!isCorrectType) { // タイミングが近いのにタイプが違う場合もMissとする
+      result = 'Miss (different Action)';
+    } else if (diff < 200) { 
       result = 'Perfect!!';
-    } else if (diff < 300) {
+    } else if (diff < 350) {
       result = 'Good';
-    } else if (diff < 450) {
+    } else if (diff < 500) {
       result = 'OK';
     } else {
-      result = 'Too Early/Late';
+      result = 'Miss (Too Early/Late)';
     }
 
+    //有効な判定に対して、結果とタイミングの差分をコンソールに表示
     console.log(`${result} | Error: ${Math.round(now - target.id)}ms | Target: ${target.emoji}`);
     
-    // 🌟 叩いたら消す（removeIngredientを再利用）
+    // 叩いたら消す（removeIngredientを再利用）
     removeIngredient(target.id);
-  }, [activeIngredients, removeIngredient]);
+  }, [activeIngredients, startTimeRef, removeIngredient]);
 
 
   // --- 1. カウントダウン制御 ---
@@ -68,7 +75,7 @@ export const useGameLogic = () => {
       return () => clearTimeout(timer);
     } else if (phase === 'countdown' && count === 0) {
       // 譜面を取得する（現在はデモデータ）
-      // 🌟 エラー回避のため、setTimeoutの中にセット処理をまとめる
+      // エラー回避のため、setTimeoutの中にセット処理をまとめる
       setTimeout(() => {
         setChart(charData as ChartItem[]); 
         setPhase('playing'); //譜面切り替えと同時にplayingフェーズに移行
@@ -80,34 +87,53 @@ export const useGameLogic = () => {
 
   // --- 2. ゲームループ (譜面に従って材料を出現させる) ---
   useEffect(() => {
+
+    // ゲームがプレイ中で、かつ譜面データがある場合にのみループを開始
     if (phase !== 'playing' || chart.length === 0) return;
 
-    //メモリリーク防止変数
+    // requestRef : メモリリーク防止変数
     //requestAnimationFrameは、ブラウザのリペイントに合わせて指定した関数を繰り返し呼び出すためのAPI
     //コンポーネントの消去後のクリーンアップに必要
     let requestRef: number;
 
+    //update関数は、ゲームの状態を更新するためのループ関数
+    //1秒に60回の頻度で呼び出される
     const update = () => {
-      const elapsed = performance.now() - startTimeRef.current;
-      const animationDuration = 1500; // アニメーションの総時間(ms)
+      const elapsed = performance.now() - startTimeRef.current; // ゲーム開始からの経過時間を高精度で取得
+      const animationDuration = 2000; // アニメーションの総時間(ms)
 
-      // 譜面をチェックして、出現させるべきタイミングのものがあれば activeIngredients に追加
-      // ※タイミング(ms)の 1500ms 前に出現させる
+      // 譜面データの中で、まだ処理していないものがあるかチェック
       if (chartIndexRef.current < chart.length) {
+        // 譜面データから次に処理するアイテムの情報を取得
         const [targetTime, type, emoji, lane] = chart[chartIndexRef.current];
         
+        // 経過時間がターゲット時間の2000ms前に達したら具材を出現させる
         if (elapsed >= targetTime - animationDuration) {
-          const newIngredient: Ingredient = {
+          const newIngredient: Ingredient = { //ingredient型のオブジェクトを新規生成
             id: targetTime, // 判定時に使うため、ターゲットとなる時間をIDにする
             emoji: emoji,
             startX: lane, // %単位にする
             type: type,
           };
 
-          setActiveIngredients((prev) => [...prev, newIngredient]);
-          chartIndexRef.current++;
+          // 新しい具材をactiveIngredientsの配列に追加
+          setActiveIngredients((prev) => [...prev, newIngredient]); 
+          chartIndexRef.current++; // 次の譜面アイテムに進む
         }
       }
+
+      // 画面外に出た具材のミスフラグを立てる
+      setActiveIngredients((prev) =>
+        prev.map((item) => {
+          // まだミスになっていない 且つ 判定時間を200ms過ぎたもの
+          if (!item.missed && elapsed > item.id + 200) {
+            console.log(`Miss (No Action) | Target: ${item.emoji}`);
+            return { ...item, missed: true }; // ミスフラグを立てる
+          }
+          return item;
+        })
+      );      
+
       requestRef = requestAnimationFrame(update);
     };
 
@@ -116,7 +142,7 @@ export const useGameLogic = () => {
   }, [phase, chart]);
 
 
-  // --- 4. キーボードリスナー ---
+  // --- 3. キーボードリスナー ---
   useEffect(() => {
     if (phase !== 'playing') return;
     
