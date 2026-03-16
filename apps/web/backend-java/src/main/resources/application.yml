@@ -1,0 +1,19 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: backend-java
+
+gemini:
+  api-key: ${GEMINI_API_KEY:}
+  base-url: https://generativelanguage.googleapis.com
+  use-vertex-ai: ${GEMINI_USE_VERTEX_AI:true}
+  project-id: ${GEMINI_PROJECT_ID:}
+  location: ${GEMINI_LOCATION:us-central1}
+  text-model: ${GEMINI_TEXT_MODEL:gemini-2.5-flash}
+  image-model: ${GEMINI_IMAGE_MODEL:gemini-2.5-flash-image}
+
+app:
+  cors:
+    allowed-origins: http://localhost:5173
