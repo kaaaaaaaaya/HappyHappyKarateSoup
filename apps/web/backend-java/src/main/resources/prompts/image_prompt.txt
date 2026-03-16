@@ -1,0 +1,7 @@
+Create a top-down vivid photo style image of a finished soup.
+Ingredients: {{ingredients}}
+Requirements:
+- rich color contrast
+- appetizing composition
+- no text overlay
+- use only the specified ingredients, no additional items

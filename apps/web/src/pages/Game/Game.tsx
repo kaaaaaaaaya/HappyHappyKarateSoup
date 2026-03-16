@@ -1,6 +1,8 @@
 // Game.tsx
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useGameLogic } from './useGameLogic'; // 先ほど作ったフックを読み込む
+import { postSoupGenerate } from '../../api/soupApi';
 
 
 //Zindex ; 背景:0, レールの背景:50, レールの線:60, 絵文字:100, 鍋の画像:10, 判定ゾーン:55
@@ -32,13 +34,37 @@ const animationStyles = `
 `;
 
 export default function Game() {
+  const navigate = useNavigate();
+  const [isGenerating, setIsGenerating] = useState(false);
   // フックから必要な状態を受け取る
   const { phase, count, ingredients, handleAction, removeIngredient } = useGameLogic();
+
+  // [EN] Sends ingredients to backend and moves to result screen with generated data.
+  // [JA] 材料をバックエンドへ送信し、生成結果を持ってリザルト画面へ遷移します。
+  const handleFinishGame = async () => {
+    setIsGenerating(true);
+
+    try {
+      // [EN] Temporary payload for frontend-backend integration.
+      // [JA] フロント・バックエンド連携確認のための暫定材料データです。
+      const generated = await postSoupGenerate({
+        ingredients: ['tomato', 'onion', 'miso'],
+      });
+
+      sessionStorage.setItem('latestSoupResult', JSON.stringify(generated));
+      navigate('/result', { state: { generated } });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to generate result';
+      navigate('/result', { state: { error: message } });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   return (
     <div style={{ textAlign: 'center', padding: '50px' }}>
       <style>{animationStyles}</style>
-      
+
       {phase === 'countdown' ? (
         <div>
           <h2>ゲーム準備</h2>
@@ -74,7 +100,7 @@ export default function Game() {
                 style={{
                   position: 'absolute',
                   left: '50%',
-                  top: '0%', 
+                  top: '0%',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
@@ -94,37 +120,38 @@ export default function Game() {
                 <div style={{ fontSize: '50px', lineHeight: '1' }}>
                   {item.emoji}
                 </div>
-                <div style={{ 
-                  fontFamily: "'DotGothic16', sans-serif", 
-                  fontSize: '20px', 
+                <div style={{
+                  fontFamily: "'DotGothic16', sans-serif",
+                  fontSize: '20px',
                   color: item.emoji === '🍖' ? '#ff3b3b' : '#32cd32',
                   textShadow: '1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff',
-                  marginTop: '5px' 
+                  marginTop: '5px'
                 }}>
                   {item.emoji === '🍖' ? 'Punch!!' : 'Chop!'}
                 </div>
               </div>
             ))}
-            
+
             {/* 鍋の画像 */}
-            <div style={{ 
-              position: 'absolute', 
-              bottom: '0', 
-              left: '0', 
-              width: '103.5%', 
+            <div style={{
+              position: 'absolute',
+              bottom: '0',
+              left: '0',
+              width: '103.5%',
               height: '12%', /* 画像がしっかり見えるように高さを広げました */
-              display: 'flex-start', 
+              display: 'flex-start',
               scale: '4', /* 画像を大きくして存在感アップ！ */
               alignItems: 'flex-start', /* 画像が下にベタ付けになるように変更 */
-              justifyContent: 'center', 
-              zIndex: 10 
+              justifyContent: 'center',
+              zIndex: 10
             }}>
+              
               <img 
                 src="/images/cooking_pot.png" 
                 style={{ 
                   height: '100%', /* 親のdivの高さ(120px)に合わせる */
                   objectFit: 'contain' /* 画像の縦横比を崩さずに綺麗に収める */
-                }} 
+                }}
               />
             </div>
 
@@ -215,11 +242,22 @@ export default function Game() {
           </div>
 
           <div style={{ marginTop: '50px' }}>
-            <Link to="/result">
-              <button style={{ padding: '15px 30px', fontSize: '18px', cursor: 'pointer', backgroundColor: '#f44336', color: '#fff', border: 'none', borderRadius: '5px' }}>
-                ゲーム終了（リザルトへ）
-              </button>
-            </Link>
+            <button
+              onClick={handleFinishGame}
+              disabled={isGenerating}
+              style={{
+                padding: '15px 30px',
+                fontSize: '18px',
+                cursor: isGenerating ? 'not-allowed' : 'pointer',
+                backgroundColor: '#f44336',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '5px',
+                opacity: isGenerating ? 0.7 : 1,
+              }}
+            >
+              {isGenerating ? '生成中...' : 'ゲーム終了（リザルトへ）'}
+            </button>
           </div>
         </div>
       )}
