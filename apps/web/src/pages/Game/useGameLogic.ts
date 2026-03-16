@@ -1,55 +1,166 @@
-// useGameLogic.ts
-import { useState, useEffect } from 'react';
-import type { Phase, Ingredient } from './types';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import type { Phase, Ingredient, ActionType } from './types';
+import charData from '../../testdatas/charData-demo.json'; // 譜面データをインポート
+
+// 譜面データの型 (バックエンドからのレスポンスを想定)
+// [タイミング(ms), パンチorチョップ, 絵文字, レーン(-100〜100)]
+type ChartItem = [number, ActionType, string, number];
 
 export const useGameLogic = () => {
   const [phase, setPhase] = useState<Phase>('countdown');
   const [count, setCount] = useState(3);
-  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+  const [activeIngredients, setActiveIngredients] = useState<Ingredient[]>([]);
+  
+  // 譜面データを保持
+  // chart : variable, 処理中の譜面データを保持
+  // setChart : function, 譜面データを更新するための関数
+  // 初期値は空配列[], データはChartItem型かつ配列であることを指定
+  const [chart, setChart] = useState<ChartItem[]>([]);
+  
+  // ゲーム開始時刻を保持
+  const startTimeRef = useRef<number>(0);
+  // 処理済みの譜面インデックス
+  const chartIndexRef = useRef<number>(0);
 
-  // 1. カウントダウン制御
+  // 具材を削除する関数（アニメーション終了時や叩いた時に使用）
+  const removeIngredient = useCallback((id: number) => {
+    setActiveIngredients((prev) => prev.filter((item) => item.id !== id));
+  }, []);
+
+  //入力を受け取って結果を判定する関数
+  const handleAction = useCallback((actionType: ActionType) => {
+    if (activeIngredients.length === 0) return;
+
+    //判定実施時の経過時間(ms)
+    const now = performance.now() - startTimeRef.current; 
+    
+    // 一番手前にいる（ターゲット時間が最も早い）具材を探す
+    // バックエンドから取得する場合はdiffに直接差分の値を代入
+    const target = activeIngredients[0];
+    const diff = Math.abs(now - target.id); // 理想のタイミングとの差分(ms)
+    
+    if (diff >= 600) return; // 判定範囲外は無視
+    //ここをバックエンドで処理するなら、フロントには有効なデータだけ送られてくる？
+    //もしフロントに無効なデータも送られてくるなら、差分の計算ごとフロントにおかせてほしい
+
+    // 判定条件
+    const isCorrectType = target.type === actionType;
+    let result = '';
+
+    if (!isCorrectType) { // タイミングが近いのにタイプが違う場合もMissとする
+      result = 'Miss (different Action)';
+    } else if (diff < 200) { 
+      result = 'Perfect!!';
+    } else if (diff < 350) {
+      result = 'Good';
+    } else if (diff < 500) {
+      result = 'OK';
+    } else {
+      result = 'Miss (Too Early/Late)';
+    }
+
+    //有効な判定に対して、結果とタイミングの差分をコンソールに表示
+    console.log(`${result} | Error: ${Math.round(now - target.id)}ms | Target: ${target.emoji}`);
+    
+    // 叩いたら消す（removeIngredientを再利用）
+    removeIngredient(target.id);
+  }, [activeIngredients, startTimeRef, removeIngredient]);
+
+
+  // --- 1. カウントダウン制御 ---
   useEffect(() => {
     if (phase === 'countdown' && count > 0) {
+      //Countが0以上の間は、1000msごとに次の1秒のタイマーを予約
       const timer = setTimeout(() => setCount((c) => c - 1), 1000);
       return () => clearTimeout(timer);
     } else if (phase === 'countdown' && count === 0) {
-      setTimeout(() => setPhase('playing'), 1000);
+      // 譜面を取得する（現在はデモデータ）
+      // エラー回避のため、setTimeoutの中にセット処理をまとめる
+      setTimeout(() => {
+        setChart(charData as ChartItem[]); 
+        setPhase('playing'); //譜面切り替えと同時にplayingフェーズに移行
+        startTimeRef.current = performance.now(); // 精度の高い開始時間を記録
+        chartIndexRef.current = 0; // インデックスをリセット
+      }, 1000);
     }
   }, [phase, count]);
 
-  // 2. 材料のランダム生成ロジック
+  // --- 2. ゲームループ (譜面に従って材料を出現させる) ---
   useEffect(() => {
-    if (phase !== 'playing') return;
 
-    let timerId: ReturnType<typeof setTimeout>;
+    // ゲームがプレイ中で、かつ譜面データがある場合にのみループを開始
+    if (phase !== 'playing' || chart.length === 0) return;
 
-    const spawn = () => {
-      const newIngredient: Ingredient = {
-        id: Date.now(),
-        emoji: ['🥕', '🍖', '🥔', '🧅'][Math.floor(Math.random() * 4)],
-        startX: Math.random() * 200 - 100, // -100px から 100px
-      };
+    // requestRef : メモリリーク防止変数
+    //requestAnimationFrameは、ブラウザのリペイントに合わせて指定した関数を繰り返し呼び出すためのAPI
+    //コンポーネントの消去後のクリーンアップに必要
+    let requestRef: number;
 
-      setIngredients((prev) => [...prev, newIngredient]);
+    //update関数は、ゲームの状態を更新するためのループ関数
+    //1秒に60回の頻度で呼び出される
+    const update = () => {
+      const elapsed = performance.now() - startTimeRef.current; // ゲーム開始からの経過時間を高精度で取得
+      const animationDuration = 2000; // アニメーションの総時間(ms)
 
-      // アニメーション終了後に配列から削除
-      setTimeout(() => {
-        setIngredients((prev) => prev.filter((item) => item.id !== newIngredient.id));
-      }, 1500);
+      // 譜面データの中で、まだ処理していないものがあるかチェック
+      if (chartIndexRef.current < chart.length) {
+        // 譜面データから次に処理するアイテムの情報を取得
+        const [targetTime, type, emoji, lane] = chart[chartIndexRef.current];
+        
+        // 経過時間がターゲット時間の2000ms前に達したら具材を出現させる
+        if (elapsed >= targetTime - animationDuration) {
+          const newIngredient: Ingredient = { //ingredient型のオブジェクトを新規生成
+            id: targetTime, // 判定時に使うため、ターゲットとなる時間をIDにする
+            emoji: emoji,
+            startX: lane, // %単位にする
+            type: type,
+          };
 
-      // 次の出現までの時間をランダムに設定
-      const nextDelay = Math.random() * (1300 - 700) + 700;
-      timerId = setTimeout(spawn, nextDelay);
+          // 新しい具材をactiveIngredientsの配列に追加
+          setActiveIngredients((prev) => [...prev, newIngredient]); 
+          chartIndexRef.current++; // 次の譜面アイテムに進む
+        }
+      }
+
+      // 画面外に出た具材のミスフラグを立てる
+      setActiveIngredients((prev) =>
+        prev.map((item) => {
+          // まだミスになっていない 且つ 判定時間を200ms過ぎたもの
+          if (!item.missed && elapsed > item.id + 200) {
+            console.log(`Miss (No Action) | Target: ${item.emoji}`);
+            return { ...item, missed: true }; // ミスフラグを立てる
+          }
+          return item;
+        })
+      );      
+
+      requestRef = requestAnimationFrame(update);
     };
 
-    spawn();
-    return () => clearTimeout(timerId);
-  }, [phase]);
+    requestRef = requestAnimationFrame(update);
+    return () => cancelAnimationFrame(requestRef);
+  }, [phase, chart]);
 
-  // UI側に渡したいデータだけを return する
-  return {
-    phase,
-    count,
-    ingredients
+
+  // --- 3. キーボードリスナー ---
+  useEffect(() => {
+    if (phase !== 'playing') return;
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase();
+      if (key === 'j') handleAction('punch');
+      if (key === 'k') handleAction('chop');
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [phase, handleAction]);
+
+  return { 
+    phase, 
+    count, 
+    ingredients: activeIngredients, 
+    handleAction, 
+    removeIngredient 
   };
 };

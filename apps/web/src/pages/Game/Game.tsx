@@ -11,7 +11,7 @@ import { postSoupGenerate } from '../../api/soupApi';
 //         判定ゾーンの上下のライン強調が反映されてない
 //         ゾーンと鍋がずれてる
 
-// CSSアニメーションの定義（見た目に関わるのでここに残す）
+// CSSアニメーションの定義
 const animationStyles = `
   @import url('https://fonts.googleapis.com/css2?family=DotGothic16&display=swap');
 
@@ -27,7 +27,7 @@ const animationStyles = `
       opacity: 1; /* 手前に来るまで表示をキープ */
     }
     100% { 
-      transform: translate3d(calc(-50% + var(--end-x)), 400%, 0px) scale(2.5); 
+      transform: translate3d(calc(-50% + var(--end-x)), 1000%, 0px) scale(6); 
       opacity: 0.7; /* 最後：消える直前で再び透明になる */
     }
   }
@@ -37,7 +37,7 @@ export default function Game() {
   const navigate = useNavigate();
   const [isGenerating, setIsGenerating] = useState(false);
   // フックから必要な状態を受け取るだけ！（超スッキリ✨）
-  const { phase, count, ingredients } = useGameLogic();
+  const { phase, count, ingredients, handleAction, removeIngredient } = useGameLogic();
 
   // [EN] Sends ingredients to backend and moves to result screen with generated data.
   // [JA] 材料をバックエンドへ送信し、生成結果を持ってリザルト画面へ遷移します。
@@ -77,10 +77,11 @@ export default function Game() {
         <div>
           <h2>ゲームプレイ（パンチ画面）</h2>
           <p>タイミングを合わせてスマホを突き出せ！</p>
-
-          <div style={{
-            margin: '30px auto',
-            width: "100%",
+          
+          {/*ゲーム画面内の設定*/}
+          <div style={{ 
+            margin: '30px auto', 
+            width: "100%" , 
             aspectRatio: '16 / 9',
             backgroundImage: 'url("/images/kitchen.png")', // 画像ファイルへのパス
             backgroundSize: 'auto auto',   // 画像をコンテナいっぱいに拡大縮小
@@ -89,10 +90,13 @@ export default function Game() {
             position: 'relative',
             overflow: 'hidden',
             perspective: '500px'
-          }}>
+            }}>
+
+            {/* 具材 */}
             {ingredients.map((item) => (
               <div
                 key={item.id}
+                onAnimationEnd={() => removeIngredient(item.id)}
                 style={{
                   position: 'absolute',
                   left: '50%',
@@ -100,11 +104,17 @@ export default function Game() {
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
-                  animation: 'moveForward 1.5s ease-in forwards',
+                  animation: 'moveForward 3.0s ease-in forwards', //useGameLogicでの値より大きくする
                   zIndex: 100,
+
+                  //Missフラグがある場合の処理
+                  opacity: item.missed ? 0.2: 1, // missedフラグが立っている場合は半透明にする
+                  filter: item.missed ? 'grayscale(100%)' : 'none', // missedフラグが立っている場合はグレースケールにする
+                  transition: 'opacity 0s, filter 0.2s', // opacityとfilterの変化にスムーズなトランジションを追加
+
                   // @ ts-ignore
                   '--start-x': `${item.startX}px`,
-                  '--end-x': `${item.startX * 3}px`,
+                  '--end-x': `${item.startX * 7}px`, // レールに沿う感じに調整したいところ
                 } as React.CSSProperties}
               >
                 <div style={{ fontSize: '50px', lineHeight: '1' }}>
