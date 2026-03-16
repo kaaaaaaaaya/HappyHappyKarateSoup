@@ -1,6 +1,6 @@
 // useGameLogic.ts
 import { useState, useEffect } from 'react';
-import type { Phase, Ingredient } from './types';
+import type { Phase, Ingredient, ActionType } from './types';
 
 export const useGameLogic = () => {
   const [phase, setPhase] = useState<Phase>('countdown');
@@ -45,6 +45,19 @@ export const useGameLogic = () => {
     spawn();
     return () => clearTimeout(timerId);
   }, [phase]);
+
+  // 3. 判定ロジックの関数
+  const handlePunch = (actionType: ActionType) => {
+  // ここに「今の時間」と「絵文字の時間」を比較する計算を書く
+    console.log(`${actionType}のアクションが発生！判定します！`);
+  };  
+
+  // 4. キーボード入力検知
+  // 【今のPC用】キーボードが押されたら関数を呼ぶ
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'j') handlePunch('punch');
+    if (e.key === 'k') handlePunch('chop');
+  });
 
   // UI側に渡したいデータだけを return する
   return {
