@@ -32,7 +32,7 @@ const animationStyles = `
 `;
 
 export default function Game() {
-  // フックから必要な状態を受け取るだけ！（超スッキリ✨）
+  // フックから必要な状態を受け取る
   const { phase, count, ingredients, handleAction, removeIngredient } = useGameLogic();
 
   return (
@@ -120,7 +120,7 @@ export default function Game() {
               zIndex: 10 
             }}>
               <img 
-                src="/images/cooking_pot.png" /* 🌟 ここに実際の画像ファイルへのパスを指定します */
+                src="/images/cooking_pot.png" 
                 style={{ 
                   height: '100%', /* 親のdivの高さ(120px)に合わせる */
                   objectFit: 'contain' /* 画像の縦横比を崩さずに綺麗に収める */
@@ -138,31 +138,27 @@ export default function Game() {
             backgroundImage: 'linear-gradient(to bottom, rgba(255, 255, 255, 0) 40%, rgba(255, 255, 255, 0.2) 50%, rgba(255, 255, 255, 0.4) 100%)',
             zIndex: 50, // 背景画像より手前、絵文字(zIndex:100)より奥に配置
             
-            // 🌟ここが魔法！4つの頂点(X Y)を指定して台形に切り抜く
+            // 4つの頂点(X Y)を指定して台形に切り抜く
             // 1: 左上 (中央から左に50px)
             // 2: 右上 (中央から右に50px)
-
             // 3: 右下 (画面の右下スミ)
             // 4: 左下 (画面の左下スミ)
             clipPath: 'polygon(calc(50% - 10%) 40%, calc(50% + 10%) 40%, 100% 100%, 0% 100%)'
           }}></div>
 
-          {/* 🌟 判定ゾーン（台形：高さ80%〜95%の位置に配置） */}
+          {/* 判定ゾーン（台形：高さ80%〜90%の位置に配置） */}
           <div style={{
             position: 'absolute',
             top: '0', 
             left: '0',
             width: '100%',
             height: '100%',
-            // 判定ゾーンの色（サイバーなエメラルドグリーン・不透明度30%）
-            backgroundColor: 'rgba(0, 255, 204, 0.3)', 
-            // 上下をくっきりさせるために、少し強めの上下グラデーションを入れてもカッコいいです
-            borderTop: '2px solid rgba(0, 255, 204, 0.8)',
-            borderBottom: '4px solid rgba(0, 255, 204, 1)',
+            // 判定ゾーンの色
+            backgroundColor: 'rgba(255, 180, 45, 0.3)', 
             zIndex: 55, // 道(50)より上で、線(60)より下
             
-            // レーンの広がりに合わせて、80%と95%の高さの横幅を計算して切り抜いています
-            clipPath: 'polygon(12.5% 80%, 87.5% 80%, 93.75% 90%, 6.25% 90%)'
+            // レーンの広がりに合わせて、80%と90%の高さの横幅を計算して切り抜いています
+            clipPath: 'polygon(13.5% 80%, 86.5% 80%, 93.75% 90%, 6.25% 90%)'
           }}></div>
       
           {/* 2. レーンの線（SVGで描画） */}
@@ -175,7 +171,7 @@ export default function Game() {
             zIndex: 60,
             pointerEvents: 'none'
           }}>
-            {/* 🌟 1. ここで「線のグラデーション」を定義します */}
+            {/* 1. 「線のグラデーション」を定義 */}
             <defs>
               <linearGradient id="lineFade" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="white" stopOpacity="0" />
@@ -184,19 +180,36 @@ export default function Game() {
               </linearGradient>
             </defs>
 
-            {/* 🌟 2. 線のスタート(y1)を40%に伸ばし、色(stroke)に上で作ったグラデーションを指定します */}
-            {/* 左端の線 (奥に行くので 100px -> 80px に少し狭めています) */}
+            {/* 2. 線のスタート(y1)を40%に伸ばし、色(stroke)に上で作ったグラデーションを指定します */}
+            {/* 左端の線 */}
             <line x1="calc(50% - 10%)" y1="40%" x2="0%" y2="100%" stroke="url(#lineFade)" strokeWidth="2" />
             
-            {/* 左から1/3の線 (33.33px -> 26.6px) */}
+            {/* 左から1/3の線 */}
             <line x1="calc(50% - 3.3%)" y1="40%" x2="33.33%" y2="100%" stroke="url(#lineFade)" strokeWidth="2" />
             
-            {/* 左から2/3の線 (33.33px -> 26.6px) */}
+            {/* 左から2/3の線 */}
             <line x1="calc(50% + 3.3%)" y1="40%" x2="66.67%" y2="100%" stroke="url(#lineFade)" strokeWidth="2" />
             
-            {/* 右端の線 (100px -> 80px) */}
+            {/* 右端の線 */}
             <line x1="calc(50% + 10%)" y1="40%" x2="100%" y2="100%" stroke="url(#lineFade)" strokeWidth="2" />
 
+            {/* 上側のライン (y=80% の位置) */}
+            <line 
+              x1="13.5%" y1="80%" 
+              x2="86.5%" y2="80%" 
+              stroke="rgba(255, 220, 180, 0.8)" 
+              strokeWidth="3"
+              style={{ filter: 'drop-shadow(0 0 10px rgba(255, 220, 180, 1))' }} 
+            />
+
+            {/* 下側のライン (y=90% の位置) */}
+            <line 
+              x1="6.75%" y1="90%" 
+              x2="93.25%" y2="90%" 
+              stroke="rgba(255, 220, 180, 1)" 
+              strokeWidth="6" 
+              style={{ filter: 'drop-shadow(0 0 10px rgba(255, 220, 180, 1))' }}
+            />
             
           </svg>
           </div>
