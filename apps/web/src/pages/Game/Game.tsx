@@ -52,6 +52,7 @@ export default function Game() {
           <h2>ゲームプレイ（パンチ画面）</h2>
           <p>タイミングを合わせてスマホを突き出せ！</p>
           
+          {/*ゲーム画面内の設定*/}
           <div style={{ 
             margin: '30px auto', 
             width: "100%" , 
@@ -64,6 +65,8 @@ export default function Game() {
             overflow: 'hidden',
             perspective: '500px'
             }}>
+
+            {/* 具材 */}
             {ingredients.map((item) => (
               <div
                 key={item.id}
