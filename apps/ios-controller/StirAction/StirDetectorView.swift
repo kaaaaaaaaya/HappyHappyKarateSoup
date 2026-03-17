@@ -313,7 +313,7 @@ import SwiftUI
         }
     }
 
-    #Preview("Stir") {
+    #Preview("Stir", traits: .landscapeRight) {
         StirDetectorView()
     }
 
