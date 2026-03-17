@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Connect from './pages/Connect';
-import SelectIngredient from './pages/SelectIngredient';
+import SelectIngredient from './pages/SelectIngredient/SelectIngredient';
 import Game from './pages/Game/Game';
 import Result from './pages/Result/Result';
 
