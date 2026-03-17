@@ -1,36 +1,31 @@
 import { Link } from 'react-router-dom';
 import { useLocation } from 'react-router-dom';
+
+// ダミーデータのインポート 
+import testdata from '../../testdatas/resultdata.json'; 
+// レーダーチャートコンポーネントのインポート
+import FlavorRadarChart from './writeChart.tsx'; 
+
+// 生成結果を格納する型 SoupGenerateResponse
+// |-材料リスト  ingredients: string[];
+// |-生成画像URL  imageDataUrl: string;
+// |-味の数値6項目  flavor: FlavorProfile;
+// |-コメント  comment: string;
 import type { SoupGenerateResponse } from '../../api/soupApi';
-import FlavorRadarChart from './writeChart.tsx'; // レーダーチャートコンポーネントをインポート
 
-type ResultLocationState = {
+type ResultLocationState = { // 生成結果とエラー情報を格納する型
   generated?: SoupGenerateResponse;
-  error?: string;
-};
-
-// Dummy Data
-// Result.tsx の冒頭に追加
-const DUMMY_RESULT: SoupGenerateResponse = {
-  comment: "お見事！パンチの効いたスパイスと、素材の甘みが絶妙にマッチした『情熱の太陽スープ』が完成しました。一口飲めば、全身にエネルギーが満ち溢れるような力強い味わいです。",
-  imageDataUrl: "https://placehold.jp/24/ff9800/ffffff/320x320.png?text=Dummy%20Soup", // 暫定画像
-  ingredients: ['🍖 肉', '🥕 人参', '🧅 玉ねぎ'],
-  flavor: {
-    sweet: 70,
-    sour: 30,
-    salty: 50,
-    bitter: 10,
-    umami: 90,
-    spicy: 85,
-  }
+  error?: string; //エラーメッセージを文字列で格納
 };
 
 export default function Result() {
-  const location = useLocation();
-  const state = (location.state as ResultLocationState | null) ?? null;
+  const location = useLocation(); // ルーティングで渡された状態を取得
+  const state = (location.state as ResultLocationState | null) ?? null; //location.stateをResultLocationState型にキャストし、nullの場合はnullを代入
 
+  // 生成結果の優先順位: 1. stateから取得 2. sessionStorageから取得 3. ダミーデータを使用
   const stored = sessionStorage.getItem('latestSoupResult');
   const storedResult = stored ? (JSON.parse(stored) as SoupGenerateResponse) : null;
-  const result = state?.generated ?? storedResult ?? DUMMY_RESULT; // state → sessionStorage → ダミーデータの順で優先的に使用
+  const result = state?.generated ?? storedResult ?? (testdata as SoupGenerateResponse);
 
   const comment = result?.comment ?? 'コメントはまだ生成されていません。';
   const imageDataUrl = result?.imageDataUrl ?? '';
