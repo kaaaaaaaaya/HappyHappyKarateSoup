@@ -4,7 +4,7 @@ import Login from './pages/Login';
 import Connect from './pages/Connect';
 import SelectIngredient from './pages/SelectIngredient';
 import Game from './pages/Game/Game';
-import Result from './pages/Result';
+import Result from './pages/Result/Result';
 
 function App() {
   return (

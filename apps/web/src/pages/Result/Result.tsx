@@ -1,10 +1,27 @@
 import { Link } from 'react-router-dom';
 import { useLocation } from 'react-router-dom';
-import type { SoupGenerateResponse } from '../api/soupApi';
+import type { SoupGenerateResponse } from '../../api/soupApi';
+import FlavorRadarChart from './writeChart.tsx'; // レーダーチャートコンポーネントをインポート
 
 type ResultLocationState = {
   generated?: SoupGenerateResponse;
   error?: string;
+};
+
+// Dummy Data
+// Result.tsx の冒頭に追加
+const DUMMY_RESULT: SoupGenerateResponse = {
+  comment: "お見事！パンチの効いたスパイスと、素材の甘みが絶妙にマッチした『情熱の太陽スープ』が完成しました。一口飲めば、全身にエネルギーが満ち溢れるような力強い味わいです。",
+  imageDataUrl: "https://placehold.jp/24/ff9800/ffffff/320x320.png?text=Dummy%20Soup", // 暫定画像
+  ingredients: ['🍖 肉', '🥕 人参', '🧅 玉ねぎ'],
+  flavor: {
+    sweet: 70,
+    sour: 30,
+    salty: 50,
+    bitter: 10,
+    umami: 90,
+    spicy: 85,
+  }
 };
 
 export default function Result() {
@@ -13,7 +30,7 @@ export default function Result() {
 
   const stored = sessionStorage.getItem('latestSoupResult');
   const storedResult = stored ? (JSON.parse(stored) as SoupGenerateResponse) : null;
-  const result = state?.generated ?? storedResult;
+  const result = state?.generated ?? storedResult ?? DUMMY_RESULT; // state → sessionStorage → ダミーデータの順で優先的に使用
 
   const comment = result?.comment ?? 'コメントはまだ生成されていません。';
   const imageDataUrl = result?.imageDataUrl ?? '';
@@ -38,16 +55,9 @@ export default function Result() {
 
         <div style={{ textAlign: 'left' }}>
           <h2 style={{ color: '#ff9800' }}>ランク: S</h2>
-          <p>スコア: 9,850 pt</p>
+          <p>スコア: 9,850 Gpt</p>
           {result?.flavor ? (
-            <div style={{ marginTop: '10px', fontSize: '14px', lineHeight: 1.8 }}>
-              <div>甘味: {result.flavor.sweet}</div>
-              <div>酸味: {result.flavor.sour}</div>
-              <div>塩味: {result.flavor.salty}</div>
-              <div>苦味: {result.flavor.bitter}</div>
-              <div>うま味: {result.flavor.umami}</div>
-              <div>辛味: {result.flavor.spicy}</div>
-            </div>
+            <FlavorRadarChart flavor={result.flavor} size={300} />
           ) : (
             <div style={{ width: '150px', height: '150px', backgroundColor: '#e0e0e0', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
               [レーダーチャート]
