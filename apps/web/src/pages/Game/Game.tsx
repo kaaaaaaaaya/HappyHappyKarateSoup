@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGameLogic } from './useGameLogic'; // 先ほど作ったフックを読み込む
 import { postSoupGenerate } from '../../api/soupApi';
+import type { SoupGenerateResponse } from '../../api/soupApi';
 
 
 //Zindex ; 背景:0, レールの背景:50, レールの線:60, 絵文字:100, 鍋の画像:10, 判定ゾーン:55
@@ -108,6 +109,27 @@ export default function Game() {
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  // [EN] Skips API call and moves to result screen with dummy data.
+  // [JA] API 呼び出しをスキップし、ダミーデータでリザルト画面へ遷移します。
+  const handleGoResultWithDummy = () => {
+    const dummy: SoupGenerateResponse = {
+      ingredients: ['tomato', 'onion', 'miso'],
+      imageDataUrl: '/images/miso.png',
+      flavor: {
+        sweet: 60,
+        sour: 40,
+        salty: 70,
+        bitter: 10,
+        umami: 90,
+        spicy: 5,
+      },
+      comment: 'ダミーデータ表示です。トマトと味噌の旨味が合わさって最高の一杯！',
+    };
+
+    sessionStorage.setItem('latestSoupResult', JSON.stringify(dummy));
+    navigate('/result', { state: { generated: dummy } });
   };
 
   return (
@@ -303,10 +325,29 @@ export default function Game() {
                 border: 'none',
                 borderRadius: '5px',
                 opacity: isGenerating ? 0.7 : 1,
+                marginRight: '12px',
               }}
             >
-              {isGenerating ? '生成中...' : 'ゲーム終了（リザルトへ）'}
+              {isGenerating ? '生成中...' : '画像を生成してリザルトへ'}
             </button>
+
+            <button
+              onClick={handleGoResultWithDummy}
+              disabled={isGenerating}
+              style={{
+                padding: '15px 30px',
+                fontSize: '18px',
+                cursor: isGenerating ? 'not-allowed' : 'pointer',
+                backgroundColor: '#607d8b',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '5px',
+                opacity: isGenerating ? 0.7 : 1,
+              }}
+            >
+              すぐリザルトへ（ダミーデータ）
+            </button>
+
             {generationError && (
               <p style={{ marginTop: '12px', color: '#d32f2f' }}>
                 生成に失敗しました: {generationError}
