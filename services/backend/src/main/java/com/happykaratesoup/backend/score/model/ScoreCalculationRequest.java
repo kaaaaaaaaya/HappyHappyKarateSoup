@@ -1,11 +1,18 @@
 package com.happykaratesoup.backend.score.model;
 
-import jakarta.validation.constraints.Min;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 
+/**
+ * Record for score calculation request.
+ * Accepts game play data including max combo and judgment counts.
+ * 
+ * スコア計算リクエスト用レコード
+ * 最大コンボ数と判定カウントを含むゲームプレイデータを受け取ります。
+ */
 public record ScoreCalculationRequest(
-        @NotNull @Min(0) Integer perfect,
-        @NotNull @Min(0) Integer good,
-        @NotNull @Min(0) Integer bad
+        @JsonProperty("score_data")
+        @Valid @NotNull ScoreData scoreData
 ) {
 }
