@@ -1,5 +1,5 @@
 // SelectIngredient.tsx
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useSelectIngredient } from './useSelectIngredient';
 import { FOOD_EMOJIS } from './emojis'; // 追加した絵文字リストもインポート
 
