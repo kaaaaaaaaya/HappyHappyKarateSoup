@@ -224,18 +224,18 @@ export default function Game() {
             <line 
               x1="13.5%" y1="80%" 
               x2="86.5%" y2="80%" 
-              stroke="rgba(255, 220, 180, 0.8)" 
+              stroke="rgba(255, 236, 215, 0.8)" 
               strokeWidth="3"
-              style={{ filter: 'drop-shadow(0 0 10px rgba(255, 220, 180, 1))' }} 
+              style={{ filter: 'drop-shadow(0 0 10px rgba(255, 236, 215, 1))' }} 
             />
 
             {/* 下側のライン (y=90% の位置) */}
             <line 
               x1="6.75%" y1="90%" 
               x2="93.25%" y2="90%" 
-              stroke="rgba(255, 220, 180, 1)" 
+              stroke="rgba(255, 236, 215, 1)" 
               strokeWidth="6" 
-              style={{ filter: 'drop-shadow(0 0 10px rgba(255, 220, 180, 1))' }}
+              style={{ filter: 'drop-shadow(0 0 20px rgba(255, 236, 215, 1))' }}
             />
             
           </svg>
