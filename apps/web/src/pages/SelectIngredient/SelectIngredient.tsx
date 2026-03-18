@@ -108,14 +108,12 @@ export default function SelectIngredient() {
       {/* ゲームへ進むボタン（3つ選ぶまで押せない） */}
       <div style={{ marginTop: '50px' }}>
         {isReady ? (
-          //<Link to="/game">
-            <button 
-              onClick={handleComplete} // クリックで選択完了の処理を実行
-              style={{ padding: '15px 30px', fontSize: '18px', cursor: 'pointer', backgroundColor: '#2196f3', color: '#fff', border: 'none', borderRadius: '5px', fontWeight: 'bold' }}
-              >
-              決定（ゲームへ）
-            </button>
-          //</Link>
+          <button 
+            onClick={handleComplete} // クリックで選択完了の処理を実行
+            style={{ padding: '15px 30px', fontSize: '18px', cursor: 'pointer', backgroundColor: '#2196f3', color: '#fff', border: 'none', borderRadius: '5px', fontWeight: 'bold' }}
+            >
+            決定（ゲームへ）
+          </button>
         ) : (
           <button disabled style={{ padding: '15px 30px', fontSize: '18px', cursor: 'not-allowed', backgroundColor: '#ccc', color: '#fff', border: 'none', borderRadius: '5px' }}>
             材料をあと {3 - selectedChar.length} 個選んでね
