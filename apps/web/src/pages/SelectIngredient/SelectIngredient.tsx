@@ -1,11 +1,13 @@
 // SelectIngredient.tsx
-import { Link } from 'react-router-dom';
-// 先ほど作ったフックを読み込む
+import { useNavigate } from 'react-router-dom';
 import { useSelectIngredient } from './useSelectIngredient';
 import { FOOD_EMOJIS } from './emojis'; // 追加した絵文字リストもインポート
 
 export default function SelectIngredient() {
-  // 裏側のロジックから必要なものを全て取り出す！
+  // 画面遷移のためのフック
+  const navigate = useNavigate();
+
+  // 裏側のロジックから必要なデータや関数を取得
   const {
     availableItems,
     selectedChar,
@@ -15,6 +17,28 @@ export default function SelectIngredient() {
     addCustomIngredient,
     isReady
   } = useSelectIngredient();
+
+  const handleComplete = () => {
+    const payloadData = availableItems.filter(item => selectedChar.includes(item.id));
+
+    console.log('選択された具材:', payloadData);
+    // =======================================================
+    // try {
+    //  // ここでAPIに送信するコードを追加
+    //
+    //   // ゲーム画面にもstateを用いて選択された具材の情報を渡す
+    //   // state[selectedIngredients]に具材の情報を格納
+    //   navigate('/game', { state: { selectedIngredients: payloadData } });
+    // } catch (error) {
+    //   console.error('具材情報のBE送信に失敗しました:', error);
+    //  alert("具材情報の送信に失敗しました。もう一度試してください。");
+    // }
+    // =======================================================
+
+    // API通信コード追加後：通信が成功しないと遷移しない
+    // 現在は通信無しで遷移
+    navigate('/game', { state: { selectedIngredients: payloadData } });
+  };
 
   return (
     <div style={{ textAlign: 'center', padding: '50px' }}>
@@ -30,7 +54,7 @@ export default function SelectIngredient() {
           return (
             <div
               key={item.id}
-              onClick={() => toggleSelection(item.id)}
+              onClick={() => toggleSelection(item.id)} // クリックで選択・解除
               style={{
                 padding: '20px',
                 border: isSelected ? '5px solid #ff9800' : '2px solid #ccc',
@@ -66,11 +90,10 @@ export default function SelectIngredient() {
           <p style={{ marginTop: '0' }}>追加する絵文字を選んでね</p>
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
             
-            {/* 🌟 修正ポイント：取り出す1個のデータの名前を「food」にします */}
             {FOOD_EMOJIS.map(food => (
               <span
                 key={food.emoji} 
-                onClick={() => addCustomIngredient(food)} 
+                onClick={() => addCustomIngredient(food)}  // クリックで具材追加
                 
                 style={{ fontSize: '30px', cursor: 'pointer', padding: '5px', border: '1px solid #ccc', borderRadius: '5px', backgroundColor: 'white' }}
               >
@@ -85,11 +108,14 @@ export default function SelectIngredient() {
       {/* ゲームへ進むボタン（3つ選ぶまで押せない） */}
       <div style={{ marginTop: '50px' }}>
         {isReady ? (
-          <Link to="/game">
-            <button style={{ padding: '15px 30px', fontSize: '18px', cursor: 'pointer', backgroundColor: '#2196f3', color: '#fff', border: 'none', borderRadius: '5px', fontWeight: 'bold' }}>
+          //<Link to="/game">
+            <button 
+              onClick={handleComplete} // クリックで選択完了の処理を実行
+              style={{ padding: '15px 30px', fontSize: '18px', cursor: 'pointer', backgroundColor: '#2196f3', color: '#fff', border: 'none', borderRadius: '5px', fontWeight: 'bold' }}
+              >
               決定（ゲームへ）
             </button>
-          </Link>
+          //</Link>
         ) : (
           <button disabled style={{ padding: '15px 30px', fontSize: '18px', cursor: 'not-allowed', backgroundColor: '#ccc', color: '#fff', border: 'none', borderRadius: '5px' }}>
             材料をあと {3 - selectedChar.length} 個選んでね
