@@ -1,8 +1,9 @@
 // Game.tsx
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGameLogic } from './useGameLogic'; // 先ほど作ったフックを読み込む
 import { postSoupGenerate } from '../../api/soupApi';
+import type { SoupGenerateResponse } from '../../api/soupApi';
 
 
 //Zindex ; 背景:0, レールの背景:50, レールの線:60, 絵文字:100, 鍋の画像:10, 判定ゾーン:55
@@ -33,32 +34,102 @@ const animationStyles = `
   }
 `;
 
+// [EN] Converts Blob to Data URL string.
+// [JA] Blob を Data URL 文字列へ変換します。
+const blobToDataUrl = (blob: Blob): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve((reader.result as string) ?? '');
+    reader.onerror = () => reject(new Error('Failed to read image blob'));
+    reader.readAsDataURL(blob);
+  });
+
 export default function Game() {
   const navigate = useNavigate();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
   // フックから必要な状態を受け取る
-  const { phase, count, ingredients, handleAction, removeIngredient } = useGameLogic();
+  const { phase, count, ingredients, removeIngredient } = useGameLogic();
+
+  // [EN] Sets default reference image (miso.png) in sessionStorage if not present.
+  // [JA] sessionStorage に参照画像がない場合、miso.png を既定値として保存します。
+  useEffect(() => {
+    if (sessionStorage.getItem('referenceImageDataUrl')) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const setDefaultReferenceImage = async () => {
+      try {
+        const response = await fetch('/images/miso.png');
+        if (!response.ok) {
+          return;
+        }
+
+        const blob = await response.blob();
+        const dataUrl = await blobToDataUrl(blob);
+        if (!cancelled && dataUrl) {
+          sessionStorage.setItem('referenceImageDataUrl', dataUrl);
+        }
+      } catch (error) {
+        console.warn('Failed to set default reference image:', error);
+      }
+    };
+
+    void setDefaultReferenceImage();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // [EN] Sends ingredients to backend and moves to result screen with generated data.
   // [JA] 材料をバックエンドへ送信し、生成結果を持ってリザルト画面へ遷移します。
   const handleFinishGame = async () => {
     setIsGenerating(true);
+    setGenerationError(null);
+    sessionStorage.removeItem('latestSoupResult');
 
     try {
+      const referenceImageDataUrl = sessionStorage.getItem('referenceImageDataUrl') ?? undefined;
+
       // [EN] Temporary payload for frontend-backend integration.
       // [JA] フロント・バックエンド連携確認のための暫定材料データです。
       const generated = await postSoupGenerate({
         ingredients: ['tomato', 'onion', 'miso'],
+        referenceImageDataUrl,
       });
 
       sessionStorage.setItem('latestSoupResult', JSON.stringify(generated));
       navigate('/result', { state: { generated } });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to generate result';
-      navigate('/result', { state: { error: message } });
+      setGenerationError(message);
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  // [EN] Skips API call and moves to result screen with dummy data.
+  // [JA] API 呼び出しをスキップし、ダミーデータでリザルト画面へ遷移します。
+  const handleGoResultWithDummy = () => {
+    const dummy: SoupGenerateResponse = {
+      ingredients: ['tomato', 'onion', 'miso'],
+      imageDataUrl: '/images/miso.png',
+      flavor: {
+        sweet: 60,
+        sour: 40,
+        salty: 70,
+        bitter: 10,
+        umami: 90,
+        spicy: 5,
+      },
+      comment: 'ダミーデータ表示です。トマトと味噌の旨味が合わさって最高の一杯！',
+    };
+
+    sessionStorage.setItem('latestSoupResult', JSON.stringify(dummy));
+    navigate('/result', { state: { generated: dummy } });
   };
 
   return (
@@ -77,11 +148,11 @@ export default function Game() {
         <div>
           <h2>ゲームプレイ（パンチ画面）</h2>
           <p>タイミングを合わせてスマホを突き出せ！</p>
-          
+
           {/*ゲーム画面内の設定*/}
-          <div style={{ 
-            margin: '30px auto', 
-            width: "100%" , 
+          <div style={{
+            margin: '30px auto',
+            width: "100%",
             aspectRatio: '16 / 9',
             backgroundImage: 'url("/images/kitchen.png")', // 画像ファイルへのパス
             backgroundSize: 'auto auto',   // 画像をコンテナいっぱいに拡大縮小
@@ -90,7 +161,7 @@ export default function Game() {
             position: 'relative',
             overflow: 'hidden',
             perspective: '500px'
-            }}>
+          }}>
 
             {/* 具材 */}
             {ingredients.map((item) => (
@@ -108,7 +179,7 @@ export default function Game() {
                   zIndex: 100,
 
                   //Missフラグがある場合の処理
-                  opacity: item.missed ? 0.2: 1, // missedフラグが立っている場合は半透明にする
+                  opacity: item.missed ? 0.2 : 1, // missedフラグが立っている場合は半透明にする
                   filter: item.missed ? 'grayscale(100%)' : 'none', // missedフラグが立っている場合はグレースケールにする
                   transition: 'opacity 0s, filter 0.2s', // opacityとfilterの変化にスムーズなトランジションを追加
 
@@ -145,10 +216,10 @@ export default function Game() {
               justifyContent: 'center',
               zIndex: 10
             }}>
-              
-              <img 
-                src="/images/cooking_pot.png" 
-                style={{ 
+
+              <img
+                src="/images/cooking_pot.png"
+                style={{
                   height: '100%', /* 親のdivの高さ(120px)に合わせる */
                   objectFit: 'contain' /* 画像の縦横比を崩さずに綺麗に収める */
                 }}
@@ -157,21 +228,21 @@ export default function Game() {
 
             {/*レール背景*/}
             <div style={{
-            position: 'absolute',
-            top: '0', 
-            left: '0',
-            width: '100%',
-            height: '100%',
-            backgroundImage: 'linear-gradient(to bottom, rgba(255, 255, 255, 0) 40%, rgba(255, 255, 255, 0.2) 50%, rgba(255, 255, 255, 0.4) 100%)',
-            zIndex: 50, // 背景画像より手前、絵文字(zIndex:100)より奥に配置
-            
-            // 4つの頂点(X Y)を指定して台形に切り抜く
-            // 1: 左上 (中央から左に50px)
-            // 2: 右上 (中央から右に50px)
-            // 3: 右下 (画面の右下スミ)
-            // 4: 左下 (画面の左下スミ)
-            clipPath: 'polygon(calc(50% - 10%) 40%, calc(50% + 10%) 40%, 100% 100%, 0% 100%)'
-          }}></div>
+              position: 'absolute',
+              top: '0',
+              left: '0',
+              width: '100%',
+              height: '100%',
+              backgroundImage: 'linear-gradient(to bottom, rgba(255, 255, 255, 0) 40%, rgba(255, 255, 255, 0.2) 50%, rgba(255, 255, 255, 0.4) 100%)',
+              zIndex: 50, // 背景画像より手前、絵文字(zIndex:100)より奥に配置
+
+              // 4つの頂点(X Y)を指定して台形に切り抜く
+              // 1: 左上 (中央から左に50px)
+              // 2: 右上 (中央から右に50px)
+              // 3: 右下 (画面の右下スミ)
+              // 4: 左下 (画面の左下スミ)
+              clipPath: 'polygon(calc(50% - 10%) 40%, calc(50% + 10%) 40%, 100% 100%, 0% 100%)'
+            }}></div>
 
           {/* 判定ゾーン（台形：高さ80%〜90%の位置に配置） */}
           <div style={{
@@ -207,35 +278,35 @@ export default function Game() {
               </linearGradient>
             </defs>
 
-            {/* 2. 線のスタート(y1)を40%に伸ばし、色(stroke)に上で作ったグラデーションを指定します */}
-            {/* 左端の線 */}
-            <line x1="calc(50% - 10%)" y1="40%" x2="0%" y2="100%" stroke="url(#lineFade)" strokeWidth="2" />
-            
-            {/* 左から1/3の線 */}
-            <line x1="calc(50% - 3.3%)" y1="40%" x2="33.33%" y2="100%" stroke="url(#lineFade)" strokeWidth="2" />
-            
-            {/* 左から2/3の線 */}
-            <line x1="calc(50% + 3.3%)" y1="40%" x2="66.67%" y2="100%" stroke="url(#lineFade)" strokeWidth="2" />
-            
-            {/* 右端の線 */}
-            <line x1="calc(50% + 10%)" y1="40%" x2="100%" y2="100%" stroke="url(#lineFade)" strokeWidth="2" />
+              {/* 2. 線のスタート(y1)を40%に伸ばし、色(stroke)に上で作ったグラデーションを指定します */}
+              {/* 左端の線 */}
+              <line x1="calc(50% - 10%)" y1="40%" x2="0%" y2="100%" stroke="url(#lineFade)" strokeWidth="2" />
+
+              {/* 左から1/3の線 */}
+              <line x1="calc(50% - 3.3%)" y1="40%" x2="33.33%" y2="100%" stroke="url(#lineFade)" strokeWidth="2" />
+
+              {/* 左から2/3の線 */}
+              <line x1="calc(50% + 3.3%)" y1="40%" x2="66.67%" y2="100%" stroke="url(#lineFade)" strokeWidth="2" />
+
+              {/* 右端の線 */}
+              <line x1="calc(50% + 10%)" y1="40%" x2="100%" y2="100%" stroke="url(#lineFade)" strokeWidth="2" />
 
             {/* 上側のライン (y=80% の位置) */}
             <line 
               x1="13.5%" y1="80%" 
               x2="86.5%" y2="80%" 
-              stroke="rgba(255, 236, 215, 0.8)" 
+              stroke="rgba(255, 220, 180, 0.8)" 
               strokeWidth="3"
-              style={{ filter: 'drop-shadow(0 0 10px rgba(255, 236, 215, 1))' }} 
+              style={{ filter: 'drop-shadow(0 0 10px rgba(255, 220, 180, 1))' }} 
             />
 
             {/* 下側のライン (y=90% の位置) */}
             <line 
               x1="6.75%" y1="90%" 
               x2="93.25%" y2="90%" 
-              stroke="rgba(255, 236, 215, 1)" 
+              stroke="rgba(255, 220, 180, 1)" 
               strokeWidth="6" 
-              style={{ filter: 'drop-shadow(0 0 20px rgba(255, 236, 215, 1))' }}
+              style={{ filter: 'drop-shadow(0 0 10px rgba(255, 220, 180, 1))' }}
             />
             
           </svg>
@@ -254,10 +325,34 @@ export default function Game() {
                 border: 'none',
                 borderRadius: '5px',
                 opacity: isGenerating ? 0.7 : 1,
+                marginRight: '12px',
               }}
             >
-              {isGenerating ? '生成中...' : 'ゲーム終了（リザルトへ）'}
+              {isGenerating ? '生成中...' : '画像を生成してリザルトへ'}
             </button>
+
+            <button
+              onClick={handleGoResultWithDummy}
+              disabled={isGenerating}
+              style={{
+                padding: '15px 30px',
+                fontSize: '18px',
+                cursor: isGenerating ? 'not-allowed' : 'pointer',
+                backgroundColor: '#607d8b',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '5px',
+                opacity: isGenerating ? 0.7 : 1,
+              }}
+            >
+              すぐリザルトへ（ダミーデータ）
+            </button>
+
+            {generationError && (
+              <p style={{ marginTop: '12px', color: '#d32f2f' }}>
+                生成に失敗しました: {generationError}
+              </p>
+            )}
           </div>
         </div>
       )}
