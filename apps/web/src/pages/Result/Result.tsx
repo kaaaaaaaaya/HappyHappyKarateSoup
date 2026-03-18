@@ -13,13 +13,15 @@ import FlavorRadarChart from './writeChart.tsx';
 // |-コメント  comment: string;
 import type { SoupGenerateResponse } from '../../api/soupApi';
 
+type ScoreResponse = {
+  totalScore: number; // 総合スコア
+}
+
 type ResultLocationState = { // 生成結果とエラー情報を格納する型
   generated?: SoupGenerateResponse;
+  scoreResponse?: ScoreResponse;
   error?: string; //エラーメッセージを文字列で格納
 };
-
-//memo
-//スコア今ベタ打ちだからどうにかしないと
 
 export default function Result() {
   const location = useLocation(); // ルーティングで渡された状態を取得
@@ -32,6 +34,8 @@ export default function Result() {
 
   const comment = result?.comment ?? 'コメントはまだ生成されていません。';
   const imageDataUrl = result?.imageDataUrl ?? '';
+
+  const totalScore = state?.scoreResponse?.totalScore ?? 0; // スコアがない場合は0をデフォルト値とする
 
   return (
     <div style={{ textAlign: 'center', padding: '50px' }}>
@@ -53,7 +57,7 @@ export default function Result() {
 
         <div style={{ textAlign: 'left' }}>
           <h2 style={{ color: '#ff9800' }}>ランク: S</h2>
-          <p>スコア: 9,850 Gpt</p>
+          <p>スコア: {totalScore > 0 ? totalScore.toLocaleString() : '---'} Gpt</p>
           {result?.flavor ? (
             <FlavorRadarChart flavor={result.flavor} size={300} />
           ) : (
