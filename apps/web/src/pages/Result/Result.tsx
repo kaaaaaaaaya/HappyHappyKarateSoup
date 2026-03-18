@@ -1,10 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useLocation } from 'react-router-dom';
-
-// ダミーデータのインポート 
-import testdata from '../../testdatas/resultdata.json'; 
 // レーダーチャートコンポーネントのインポート
-import FlavorRadarChart from './writeChart.tsx'; 
+import FlavorRadarChart from './writeChart.tsx';
 
 // 生成結果を格納する型 SoupGenerateResponse
 // |-材料リスト  ingredients: string[];
@@ -22,10 +19,10 @@ export default function Result() {
   const location = useLocation(); // ルーティングで渡された状態を取得
   const state = (location.state as ResultLocationState | null) ?? null; //location.stateをResultLocationState型にキャストし、nullの場合はnullを代入
 
-  // 生成結果の優先順位: 1. stateから取得 2. sessionStorageから取得 3. ダミーデータを使用
+  // 生成結果の優先順位: 1. stateから取得 2. sessionStorageから取得
   const stored = sessionStorage.getItem('latestSoupResult');
   const storedResult = stored ? (JSON.parse(stored) as SoupGenerateResponse) : null;
-  const result = state?.generated ?? storedResult ?? (testdata as SoupGenerateResponse);
+  const result = state?.generated ?? storedResult;
 
   const comment = result?.comment ?? 'コメントはまだ生成されていません。';
   const imageDataUrl = result?.imageDataUrl ?? '';
@@ -65,6 +62,7 @@ export default function Result() {
         <p><strong>AIからのコメント:</strong></p>
         <p>{comment}</p>
         {state?.error && <p style={{ color: '#d32f2f' }}>APIエラー: {state.error}</p>}
+        {!result && !state?.error && <p style={{ color: '#616161' }}>生成結果がまだありません。</p>}
       </div>
 
       <div style={{ marginTop: '50px' }}>

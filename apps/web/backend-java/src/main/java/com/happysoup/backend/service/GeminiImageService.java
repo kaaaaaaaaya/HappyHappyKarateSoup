@@ -51,12 +51,18 @@ public class GeminiImageService {
     // [EN] Generates image prompt and image data URL.
     // [JA] 画像プロンプトを作り、画像 Data URL を生成します。
     public GeneratedImage generateSoupImage(List<String> ingredients) {
+        return generateSoupImage(ingredients, null);
+    }
+
+    // [EN] Generates image prompt and image data URL with optional reference image.
+    // [JA] 任意の参照画像を使って、画像プロンプトと画像 Data URL を生成します。
+    public GeneratedImage generateSoupImage(List<String> ingredients, String referenceImageDataUrl) {
         String promptTemplate = readPromptTemplate();
         String imagePrompt = promptTemplate.replace("{{ingredients}}", String.join(", ", ingredients));
 
         String base64;
         try {
-            base64 = geminiClient.generateImageBase64(properties.imageModel(), imagePrompt);
+            base64 = geminiClient.generateImageBase64(properties.imageModel(), imagePrompt, referenceImageDataUrl);
         } catch (RuntimeException ex) {
             // [EN] Fallback for unavailable image model: continue API response without image.
             // [JA] 画像モデルが利用不可の場合は、画像なしでAPIレスポンスを継続します。

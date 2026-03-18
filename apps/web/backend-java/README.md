@@ -26,9 +26,13 @@ HappyHappyKarateSoup の Web バックエンド（Java / Spring Boot）です。
 ### POST リクエスト例
 ```json
 {
-  "ingredients": ["tomato", "onion", "miso"]
+  "ingredients": ["tomato", "onion", "miso"],
+  "referenceImageDataUrl": "data:image/png;base64,..."
 }
 ```
+
+- `referenceImageDataUrl` は任意です。
+- 形式は `data:image/<type>;base64,<...>` を想定します。
 
 ### レスポンス例
 ```json
@@ -57,12 +61,9 @@ Client
       ├→ GeminiImageService.generateSoupImage(ingredients)
       │   ├→ resources/prompts/image_prompt.txt を読込
       │   └→ GeminiClient.generateImageBase64(...)
-      ├→ GeminiFlavorService.generateFlavorProfile(ingredients)
-      │   ├→ resources/prompts/flavor_prompt.txt を読込
-      │   └→ GeminiClient.generateText(...)
-      └→ GeminiCommentService.generateComment(ingredients)
-          ├→ resources/prompts/comment_prompt.txt を読込
-          └→ GeminiClient.generateText(...)
+      └→ GeminiFlavorCommentService.generateFlavorAndComment(ingredients)
+          ├→ resources/prompts/flavor_comment_prompt.txt を読込
+          └→ GeminiClient.generateText(...) （味スコア+コメントを1回で生成）
     → SoupGenerateResponse を組み立てて返却
 ```
 
@@ -76,6 +77,7 @@ Client
 ## 注意
 - `imageDataUrl` が空文字のときは、Gemini の画像モデルレスポンスにインライン画像が含まれていません。
 - その場合は、画像生成モデル名やAPI仕様を確認してください。
+- Vertex AI 利用時、`imagen-*` 系モデルは `:generateContent` ではなく `:predict` エンドポイントを使用します。
 
 
 ## ディレクトリ / ファイル構成（詳細）
@@ -109,7 +111,8 @@ apps/web/backend-java/
     │   │       ├── SoupGenerationService.java
     │   │       ├── GeminiImageService.java
     │   │       ├── GeminiFlavorService.java
-    │   │       └── GeminiCommentService.java
+    │   │       ├── GeminiCommentService.java
+    │   │       └── GeminiFlavorCommentService.java
     │   └── resources/
     │       ├── application.yml
     │       └── prompts/
@@ -165,11 +168,14 @@ apps/web/backend-java/
 - `service/GeminiImageService.java`
   - 画像生成専用サービス。
   - `resources/prompts/image_prompt.txt` を読み込み、`{{ingredients}}` を置換して画像生成。
+- `service/GeminiFlavorCommentService.java`
+  - 味スコアとコメントを1回の Gemini テキスト生成でまとめて生成するサービス。
+  - `resources/prompts/flavor_comment_prompt.txt` を読み込み、JSONをパースして味スコアとコメントを返却。
 - `service/GeminiFlavorService.java`
-  - 味スコア生成専用サービス。
+  - （旧）味スコア生成専用サービス。
   - `resources/prompts/flavor_prompt.txt` を読み込み、JSONをパースして0〜100に正規化。
 - `service/GeminiCommentService.java`
-  - コメント生成専用サービス。
+  - （旧）コメント生成専用サービス。
   - `resources/prompts/comment_prompt.txt` を読み込み、短いコメントを生成。
 
 #### main/resources
@@ -210,6 +216,8 @@ Base64 の `imageDataUrl` は長くなりやすいため、標準出力ではな
   - `bash scripts/post_generate_to_files.sh`
 - 材料を変更
   - `INGREDIENTS_CSV="tomato,onion,miso,chili" bash scripts/post_generate_to_files.sh`
+- 参照画像を付けて送信（ローカル画像を Data URL 化して送信）
+  - `REFERENCE_IMAGE_PATH="/absolute/path/to/miso.png" bash scripts/post_generate_to_files.sh`
 - 出力先を変更
   - `OUTPUT_DIR="./tmp/my-run" bash scripts/post_generate_to_files.sh`
 

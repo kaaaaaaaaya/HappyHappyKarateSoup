@@ -35,6 +35,6 @@ public class SoupController {
     // [JA] 材料を受け取り、生成結果を返します。
     @PostMapping("/generate")
     public SoupGenerateResponse generate(@Valid @RequestBody SoupGenerateRequest request) {
-        return soupGenerationService.generate(request.ingredients());
+        return soupGenerationService.generate(request.ingredients(), request.referenceImageDataUrl());
     }
 }
