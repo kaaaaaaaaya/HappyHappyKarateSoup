@@ -18,6 +18,9 @@ type ResultLocationState = { // 生成結果とエラー情報を格納する型
   error?: string; //エラーメッセージを文字列で格納
 };
 
+//memo
+//スコア今ベタ打ちだからどうにかしないと
+
 export default function Result() {
   const location = useLocation(); // ルーティングで渡された状態を取得
   const state = (location.state as ResultLocationState | null) ?? null; //location.stateをResultLocationState型にキャストし、nullの場合はnullを代入

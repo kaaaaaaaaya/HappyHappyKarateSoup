@@ -1,6 +1,8 @@
+// useGameLogic.ts
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Phase, Ingredient, ActionType } from './types';
 import charData from '../../testdatas/charData-demo.json'; // 譜面データをインポート
+import { useScoreLogic } from './useScoreLogic'; // 分割したスコアロジックをインポート
 
 // 譜面データの型 (バックエンドからのレスポンスを想定)
 // [タイミング(ms), パンチorチョップ, 絵文字, レーン(-100〜100)]
@@ -21,6 +23,9 @@ export const useGameLogic = () => {
   const startTimeRef = useRef<number>(0);
   // 処理済みの譜面インデックス
   const chartIndexRef = useRef<number>(0);
+
+  // スコアと判定のロジックを呼び出す
+  const { combo, scoreData, processJudgment } = useScoreLogic();
 
   // 具材を削除する関数（アニメーション終了時や叩いた時に使用）
   const removeIngredient = useCallback((id: number) => {
@@ -43,28 +48,17 @@ export const useGameLogic = () => {
     //ここをバックエンドで処理するなら、フロントには有効なデータだけ送られてくる？
     //もしフロントに無効なデータも送られてくるなら、差分の計算ごとフロントにおかせてほしい
 
-    // 判定条件
     const isCorrectType = target.type === actionType;
-    let result = '';
 
-    if (!isCorrectType) { // タイミングが近いのにタイプが違う場合もMissとする
-      result = 'Miss (different Action)';
-    } else if (diff < 200) { 
-      result = 'Perfect!!';
-    } else if (diff < 350) {
-      result = 'Good';
-    } else if (diff < 500) {
-      result = 'OK';
-    } else {
-      result = 'Miss (Too Early/Late)';
-    }
+    // 判定処理とスコア記録を行う（見逃しもここで処理する）
+    const { result } = processJudgment(actionType, diff, isCorrectType);
 
     //有効な判定に対して、結果とタイミングの差分をコンソールに表示
     console.log(`${result} | Error: ${Math.round(now - target.id)}ms | Target: ${target.emoji}`);
     
     // 叩いたら消す（removeIngredientを再利用）
     removeIngredient(target.id);
-  }, [activeIngredients, startTimeRef, removeIngredient]);
+  }, [activeIngredients, startTimeRef, removeIngredient, processJudgment]);
 
 
   // --- 1. カウントダウン制御 ---
@@ -127,7 +121,11 @@ export const useGameLogic = () => {
         prev.map((item) => {
           // まだミスになっていない 且つ 判定時間を200ms過ぎたもの
           if (!item.missed && elapsed > item.id + 200) {
-            console.log(`Miss (No Action) | Target: ${item.emoji}`);
+            
+            // 見逃し判定
+            const { result } = processJudgment('none', 0, false);
+            console.log(`${result} | Target: ${item.emoji}`);
+
             return { ...item, missed: true }; // ミスフラグを立てる
           }
           return item;
@@ -139,7 +137,7 @@ export const useGameLogic = () => {
 
     requestRef = requestAnimationFrame(update);
     return () => cancelAnimationFrame(requestRef);
-  }, [phase, chart]);
+  }, [phase, chart, processJudgment]);
 
 
   // --- 3. キーボードリスナー ---
@@ -161,6 +159,8 @@ export const useGameLogic = () => {
     count, 
     ingredients: activeIngredients, 
     handleAction, 
-    removeIngredient 
+    removeIngredient,
+    combo,
+    scoreData,
   };
 };
