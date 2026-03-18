@@ -1,5 +1,6 @@
 export type SoupGenerateRequest = {
     ingredients: string[];
+    referenceImageDataUrl?: string;
 };
 
 export type FlavorProfile = {

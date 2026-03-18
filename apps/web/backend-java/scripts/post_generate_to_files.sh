@@ -7,6 +7,7 @@ set -euo pipefail
 BASE_URL="${BASE_URL:-http://localhost:8080}"
 OUTPUT_DIR="${OUTPUT_DIR:-./tmp/generate-output}"
 INGREDIENTS_CSV="${INGREDIENTS_CSV:-tomato,onion,miso}"
+REFERENCE_IMAGE_PATH="${REFERENCE_IMAGE_PATH:-}"
 
 mkdir -p "$OUTPUT_DIR"
 
@@ -15,13 +16,27 @@ DATA_URL_OUT="$OUTPUT_DIR/image_data_url.txt"
 PNG_OUT="$OUTPUT_DIR/image.png"
 SUMMARY_OUT="$OUTPUT_DIR/summary.txt"
 
-python3 - "$INGREDIENTS_CSV" <<'PY' > "$OUTPUT_DIR/request.json"
+python3 - "$INGREDIENTS_CSV" "$REFERENCE_IMAGE_PATH" <<'PY' > "$OUTPUT_DIR/request.json"
+import base64
 import json
+import mimetypes
+import pathlib
 import sys
 
 ingredients_csv = sys.argv[1]
+reference_image_path = sys.argv[2]
 ingredients = [x.strip() for x in ingredients_csv.split(',') if x.strip()]
-print(json.dumps({"ingredients": ingredients}, ensure_ascii=False))
+
+payload = {"ingredients": ingredients}
+
+if reference_image_path:
+    p = pathlib.Path(reference_image_path)
+    if p.exists() and p.is_file():
+        mime_type = mimetypes.guess_type(str(p))[0] or "image/png"
+        b64 = base64.b64encode(p.read_bytes()).decode("ascii")
+        payload["referenceImageDataUrl"] = f"data:{mime_type};base64,{b64}"
+
+print(json.dumps(payload, ensure_ascii=False))
 PY
 
 curl -sS -X POST "$BASE_URL/api/soup/generate" \
