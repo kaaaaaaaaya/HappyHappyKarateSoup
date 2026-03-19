@@ -21,6 +21,7 @@ struct ContentView: View {
     @State private var isScanning = false
     @State private var scannedCode: String = ""
     @State private var isControllerPresented = false
+    @State private var controllerDebugMessage: String = ""
 
     var body: some View {
         VStack(spacing: 16) {
@@ -37,11 +38,22 @@ struct ContentView: View {
         .padding()
         .onAppear(perform: requestCameraAccessIfNeeded)
         .fullScreenCover(isPresented: $isControllerPresented) {
-            ControllerView(scannedCode: scannedCode) {
-                scannedCode = ""
-                isScanning = true
-                isControllerPresented = false
-            }
+            ControllerView(
+                scannedCode: scannedCode,
+                debugMessage: controllerDebugMessage,
+                onDirection: { direction in
+                    sendControlCommand(direction, from: scannedCode)
+                },
+                onConfirm: {
+                    sendControlCommand("confirm", from: scannedCode)
+                },
+                onClose: {
+                    scannedCode = ""
+                    controllerDebugMessage = ""
+                    isScanning = true
+                    isControllerPresented = false
+                }
+            )
         }
     }
 
@@ -175,9 +187,59 @@ struct ContentView: View {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        URLSession.shared.dataTask(with: request) { _, _, error in
+        URLSession.shared.dataTask(with: request) { _, response, error in
             if let error {
-                print("Failed to notify room join: \(error.localizedDescription)")
+                DispatchQueue.main.async {
+                    controllerDebugMessage = "join failed: \(error.localizedDescription)"
+                }
+                return
+            }
+
+            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
+            DispatchQueue.main.async {
+                controllerDebugMessage = "join status: \(statusCode)"
+            }
+        }.resume()
+    }
+
+    // [EN] Sends controller button command to backend for room control.
+    // [JA] コントローラのボタン入力コマンドを部屋制御用バックエンドへ送信します。
+    private func sendControlCommand(_ command: String, from scannedValue: String) {
+        guard let components = URLComponents(string: scannedValue),
+              let roomId = components.queryItems?.first(where: { $0.name == "roomId" })?.value,
+              !roomId.isEmpty else {
+            return
+        }
+
+        let apiBase = components.queryItems?
+            .first(where: { $0.name == "apiBase" })?
+            .value?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let resolvedBaseUrl = (apiBase?.isEmpty == false ? apiBase! : "http://localhost:8080")
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+
+        guard let encodedRoomId = roomId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+              let encodedCommand = command.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+              let url = URL(string: "\(resolvedBaseUrl)/api/controller/rooms/\(encodedRoomId)/commands/\(encodedCommand)") else {
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        URLSession.shared.dataTask(with: request) { _, response, error in
+            if let error {
+                DispatchQueue.main.async {
+                    controllerDebugMessage = "cmd \(command): failed (\(error.localizedDescription))"
+                }
+                return
+            }
+
+            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
+            DispatchQueue.main.async {
+                controllerDebugMessage = "cmd \(command): status \(statusCode)"
             }
         }.resume()
     }
@@ -298,7 +360,17 @@ final class PreviewView: UIView {
 }
 
 private struct ControllerView: View {
+    enum Direction {
+        case up
+        case down
+        case left
+        case right
+    }
+
     let scannedCode: String
+    let debugMessage: String
+    var onDirection: (String) -> Void
+    var onConfirm: () -> Void
     var onClose: () -> Void
 
     var body: some View {
@@ -338,16 +410,36 @@ private struct ControllerView: View {
                         .truncationMode(.middle)
                 }
 
+                    if !debugMessage.isEmpty {
+                        Text(debugMessage)
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(.white.opacity(0.92))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(.black.opacity(0.35))
+                        .clipShape(Capsule())
+                    }
+
                 Spacer()
 
                 VStack(spacing: 18) {
-                    PadButton(symbol: "chevron.up", tint: .cyan)
-                    HStack(spacing: 18) {
-                        PadButton(symbol: "chevron.left", tint: .orange)
-                        PadButton(title: "決定", tint: .pink, diameter: 110)
-                        PadButton(symbol: "chevron.right", tint: .orange)
+                    PadButton(symbol: "chevron.up", tint: .cyan) {
+                        onDirection("up")
                     }
-                    PadButton(symbol: "chevron.down", tint: .cyan)
+                    HStack(spacing: 18) {
+                        PadButton(symbol: "chevron.left", tint: .orange) {
+                            onDirection("left")
+                        }
+                        PadButton(title: "決定", tint: .pink, diameter: 110) {
+                            onConfirm()
+                        }
+                        PadButton(symbol: "chevron.right", tint: .orange) {
+                            onDirection("right")
+                        }
+                    }
+                    PadButton(symbol: "chevron.down", tint: .cyan) {
+                        onDirection("down")
+                    }
                 }
 
                 Spacer()
@@ -366,9 +458,10 @@ private struct PadButton: View {
     var title: String? = nil
     var tint: Color
     var diameter: CGFloat = 88
+    var action: () -> Void
 
     var body: some View {
-        Button(action: {}) {
+        Button(action: action) {
             Circle()
                 .fill(
                     LinearGradient(

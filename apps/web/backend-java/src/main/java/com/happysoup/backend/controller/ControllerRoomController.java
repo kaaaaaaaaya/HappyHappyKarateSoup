@@ -26,7 +26,13 @@ public class ControllerRoomController {
     @PostMapping("/{roomId}/register")
     public Map<String, Object> registerRoom(@PathVariable String roomId) {
         controllerRoomService.registerRoom(roomId);
-        return Map.of("roomId", roomId, "connected", false);
+        var roomState = controllerRoomService.getRoomState(roomId);
+        return Map.of(
+                "roomId", roomId,
+                "connected", roomState.connected(),
+                "commandSequence", roomState.commandSequence(),
+                "latestCommand", roomState.latestCommand() == null ? "" : roomState.latestCommand()
+        );
     }
 
     // [EN] iOS side notifies that controller joined this room.
@@ -34,14 +40,38 @@ public class ControllerRoomController {
     @PostMapping("/{roomId}/join")
     public Map<String, Object> joinRoom(@PathVariable String roomId) {
         controllerRoomService.joinRoom(roomId);
-        return Map.of("roomId", roomId, "connected", true);
+        var roomState = controllerRoomService.getRoomState(roomId);
+        return Map.of(
+                "roomId", roomId,
+                "connected", roomState.connected(),
+                "commandSequence", roomState.commandSequence(),
+                "latestCommand", roomState.latestCommand() == null ? "" : roomState.latestCommand()
+        );
+    }
+
+    // [EN] iOS controller posts directional/confirm commands.
+    // [JA] iOS コントローラから方向キー/決定コマンドを送信します。
+    @PostMapping("/{roomId}/commands/{command}")
+    public Map<String, Object> postCommand(@PathVariable String roomId, @PathVariable String command) {
+        var roomState = controllerRoomService.postCommand(roomId, command);
+        return Map.of(
+                "roomId", roomId,
+                "connected", roomState.connected(),
+                "commandSequence", roomState.commandSequence(),
+                "latestCommand", roomState.latestCommand() == null ? "" : roomState.latestCommand()
+        );
     }
 
     // [EN] Web side polls room connection state.
     // [JA] Web 側が部屋の接続状態をポーリング取得します。
     @GetMapping("/{roomId}/status")
     public Map<String, Object> getRoomStatus(@PathVariable String roomId) {
-        boolean connected = controllerRoomService.isRoomConnected(roomId);
-        return Map.of("roomId", roomId, "connected", connected);
+        var roomState = controllerRoomService.getRoomState(roomId);
+        return Map.of(
+                "roomId", roomId,
+                "connected", roomState.connected(),
+                "commandSequence", roomState.commandSequence(),
+                "latestCommand", roomState.latestCommand() == null ? "" : roomState.latestCommand()
+        );
     }
 }

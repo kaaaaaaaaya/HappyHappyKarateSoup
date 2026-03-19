@@ -193,11 +193,19 @@ apps/web/backend-java/
   - 依存解決や設定不備の初期検知に利用。
 
 ## セットアップ
-1. `.env.example` を参考に環境変数を設定
-2. ルート: [apps/web/backend-java](.)
+1. `.env.local.example` を `.env.local` にコピーして値を設定
+2. ルート: `apps/web/backend-java`
 3. 起動:
-   - `./gradlew bootRun`（Gradle Wrapper追加後）
-   - または `gradle bootRun`
+   - `bash scripts/run_dev_backend.sh`
+
+### 起動時の注意
+- `bash scripts/run_dev_backend.sh` は `.env` と `.env.local` を自動読込します。
+- `GEMINI_USE_VERTEX_AI=true` の場合、以下が未設定だと起動時にエラーで停止します。
+  - `GEMINI_PROJECT_ID`
+  - `GEMINI_LOCATION`
+  - `GOOGLE_APPLICATION_CREDENTIALS`
+- 手動で起動する場合は Maven の明示指定を使ってください。
+  - `mvn org.springframework.boot:spring-boot-maven-plugin:3.4.3:run`
 
 ## POSTテスト結果をファイルへ保存する
 

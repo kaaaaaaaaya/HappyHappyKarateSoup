@@ -12,6 +12,7 @@ import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.util.List;
+import java.util.stream.Stream;
 
 // [EN] Central configuration for beans such as WebClient and CORS.
 // [JA] WebClient や CORS などの共通設定を定義します。
@@ -20,6 +21,19 @@ import java.util.List;
 public class AppConfig {
 
     private static final int GEMINI_WEBCLIENT_MAX_IN_MEMORY_SIZE = 10 * 1024 * 1024;
+    private static final List<String> DEFAULT_ALLOWED_ORIGIN_PATTERNS = List.of(
+            "http://localhost:*",
+            "http://127.0.0.1:*",
+            "http://192.168.*.*:*",
+            "http://10.*.*.*:*",
+            "http://172.16.*.*:*",
+            "http://172.17.*.*:*",
+            "http://172.18.*.*:*",
+            "http://172.19.*.*:*",
+            "http://172.2*.*.*:*",
+            "http://172.30.*.*:*",
+            "http://172.31.*.*:*"
+    );
 
     // [EN] Creates a WebClient used for Gemini API calls.
     // [JA] Gemini API 呼び出しに利用する WebClient を生成します。
@@ -46,7 +60,16 @@ public class AppConfig {
     @Bean
     public CorsFilter corsFilter(@Value("${app.cors.allowed-origins}") String allowedOrigins) {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of(allowedOrigins.split(",")));
+        List<String> allowedOriginPatterns = Stream.concat(
+                DEFAULT_ALLOWED_ORIGIN_PATTERNS.stream(),
+                Stream.of(allowedOrigins.split(","))
+                    .map(String::trim)
+                    .filter(origin -> !origin.isEmpty())
+            )
+            .distinct()
+            .toList();
+
+        config.setAllowedOriginPatterns(allowedOriginPatterns);
         config.setAllowedMethods(List.of("GET", "POST", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
