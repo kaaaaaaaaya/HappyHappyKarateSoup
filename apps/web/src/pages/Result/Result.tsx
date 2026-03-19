@@ -85,8 +85,6 @@ export default function Result() {
     };
   }, [connectedRoomId, navigate]);
 
-  const totalScore = state?.scoreResponse?.totalScore ?? 0; // スコアがない場合は0をデフォルト値とする
-
   return (
     <div style={{ textAlign: 'center', padding: '50px' }}>
       <h2>リザルト画面</h2>
@@ -108,7 +106,7 @@ export default function Result() {
         <div style={{ textAlign: 'left' }}>
 
           <h2 style={{ color: '#ff9800' }}>ランク: {rankValue}</h2>
-          <p>スコア: {totalScore > 0 ? totalScore.toLocaleString() : '---'} Gpt</p>
+          <p>スコア: {scoreValue.toLocaleString()} Gpt</p>
 
           {result?.flavor ? (
             <FlavorRadarChart flavor={result.flavor} size={300} />
