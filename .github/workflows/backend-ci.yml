@@ -31,3 +31,8 @@ jobs:
 
       - name: Run tests
         run: mvn -B test
+        env:
+          SPRING_DATASOURCE_URL: jdbc:h2:mem:test
+          SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.h2.Driver
+          SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.H2Dialect
+          GEMINI_USE_VERTEX_AI: "false"
