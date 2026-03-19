@@ -1,5 +1,7 @@
+import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 // レーダーチャートコンポーネントのインポート
 import FlavorRadarChart from './writeChart.tsx';
 
@@ -9,6 +11,7 @@ import FlavorRadarChart from './writeChart.tsx';
 // |-味の数値6項目  flavor: FlavorProfile;
 // |-コメント  comment: string;
 import type { SoupGenerateResponse } from '../../api/soupApi';
+import { fetchControllerRoomStatus } from '../../api/controllerRoomApi';
 
 
 type ResultData = SoupGenerateResponse & {
@@ -24,8 +27,11 @@ type ResultLocationState = { // 生成結果とエラー情報を格納する型
 };
 
 export default function Result() {
+  const navigate = useNavigate();
   const location = useLocation(); // ルーティングで渡された状態を取得
   const state = (location.state as ResultLocationState | null) ?? null; //location.stateをResultLocationState型にキャストし、nullの場合はnullを代入
+  const lastCommandSequenceRef = useRef(0);
+  const isSequenceInitializedRef = useRef(false);
 
   // 生成結果の優先順位: 1. stateから取得 2. sessionStorageから取得
   const storedResultData = sessionStorage.getItem('latestResultData');
@@ -43,6 +49,41 @@ export default function Result() {
 
   const comment = result?.comment ?? 'コメントはまだ生成されていません。';
   const imageDataUrl = result?.imageDataUrl ?? '';
+  const connectedRoomId = sessionStorage.getItem('connectedRoomId') ?? '';
+  const isControllerFocusVisible = !!connectedRoomId;
+
+  useEffect(() => {
+    if (!connectedRoomId) {
+      return;
+    }
+
+    const timerId = window.setInterval(async () => {
+      try {
+        const status = await fetchControllerRoomStatus(connectedRoomId);
+        const currentSequence = status.commandSequence ?? 0;
+        const latestCommand = status.latestCommand ?? '';
+
+        if (!isSequenceInitializedRef.current) {
+          lastCommandSequenceRef.current = currentSequence;
+          isSequenceInitializedRef.current = true;
+          return;
+        }
+
+        if (currentSequence > lastCommandSequenceRef.current) {
+          lastCommandSequenceRef.current = currentSequence;
+          if (latestCommand === 'confirm') {
+            navigate('/');
+          }
+        }
+      } catch (error) {
+        console.error('Failed to poll controller command on result page:', error);
+      }
+    }, 250);
+
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, [connectedRoomId, navigate]);
 
   const totalScore = state?.scoreResponse?.totalScore ?? 0; // スコアがない場合は0をデフォルト値とする
 
@@ -89,7 +130,18 @@ export default function Result() {
       <div style={{ marginTop: '50px' }}>
         <p>iPhoneのコントローラー（決定）で操作</p>
         <Link to="/">
-          <button style={{ padding: '15px 30px', fontSize: '18px', cursor: 'pointer' }}>
+          <button
+            style={{
+              padding: '15px 30px',
+              fontSize: '18px',
+              cursor: 'pointer',
+              border: isControllerFocusVisible ? '4px solid #42a5f5' : '1px solid #999',
+              backgroundColor: isControllerFocusVisible ? '#e3f2fd' : '#fff',
+              borderRadius: '8px',
+              fontWeight: isControllerFocusVisible ? 'bold' : 'normal',
+              transition: '0.2s'
+            }}
+          >
             ホームに戻る
           </button>
         </Link>

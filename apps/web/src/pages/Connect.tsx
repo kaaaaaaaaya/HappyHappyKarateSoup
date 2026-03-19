@@ -32,9 +32,25 @@ export default function Connect() {
 
     const setupAndWatchRoom = async () => {
       try {
-        await registerControllerRoom(roomId);
+        const registeredState = await registerControllerRoom(roomId);
+        if (registeredState.connected && !cancelled) {
+          sessionStorage.setItem('connectedRoomId', roomId);
+          navigate('/select', { state: { roomId } });
+          return undefined;
+        }
       } catch (error) {
         console.error('Failed to register room:', error);
+      }
+
+      try {
+        const initialStatus = await fetchControllerRoomStatus(roomId);
+        if (initialStatus.connected && !cancelled) {
+          sessionStorage.setItem('connectedRoomId', roomId);
+          navigate('/select', { state: { roomId } });
+          return undefined;
+        }
+      } catch (error) {
+        console.error('Failed to fetch initial room status:', error);
       }
 
       const intervalId = window.setInterval(async () => {
@@ -47,7 +63,8 @@ export default function Connect() {
           if (status.connected) {
             window.clearInterval(intervalId);
             if (!cancelled) {
-              navigate('/select');
+              sessionStorage.setItem('connectedRoomId', roomId);
+              navigate('/select', { state: { roomId } });
             }
           }
         } catch (error) {

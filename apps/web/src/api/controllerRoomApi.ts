@@ -3,6 +3,8 @@ const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:808
 export type RoomStatusResponse = {
   roomId: string;
   connected: boolean;
+  commandSequence?: number;
+  latestCommand?: string;
 };
 
 export const registerControllerRoom = async (roomId: string): Promise<RoomStatusResponse> => {
