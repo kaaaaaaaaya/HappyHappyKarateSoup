@@ -1,6 +1,7 @@
 // Game.tsx
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { useGameLogic } from './useGameLogic'; // 先ほど作ったフックを読み込む
 import { postSoupGenerate } from '../../api/soupApi';
 import type { SoupGenerateResponse } from '../../api/soupApi';
@@ -44,12 +45,54 @@ const blobToDataUrl = (blob: Blob): Promise<string> =>
     reader.readAsDataURL(blob);
   });
 
+const FALLBACK_FLAVOR = {
+  sweet: 45,
+  sour: 30,
+  salty: 65,
+  bitter: 15,
+  umami: 75,
+  spicy: 20,
+};
+
+const FALLBACK_COMMENT = '本日のスープはバランス型。やさしい旨味とコクが広がる一杯です。';
+
+type SelectedIngredient = {
+  id: string;
+  emoji: string;
+  label: string;
+};
+
+type GameLocationState = {
+  selectedIngredients?: SelectedIngredient[];
+};
+
 export default function Game() {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const gameState = (location.state as GameLocationState | null) ?? null;
+  const selectedIngredients = gameState?.selectedIngredients ?? [];
+  const selectedIngredientEmojis = selectedIngredients.map((item) => item.emoji);
+  const selectedIngredientLabels = selectedIngredients.map((item) => item.label);
+
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
+  const [isGameFinished, setIsGameFinished] = useState(false);
+  const [isImageGenerating, setIsImageGenerating] = useState(false);
+  const [isImageReady, setIsImageReady] = useState(false);
+  const hasNavigatedRef = useRef(false);
+  const isFinishingRef = useRef(false);
+  const retryTimerRef = useRef<number | null>(null);
+  const soupGenerationPromiseRef = useRef<Promise<SoupGenerateResponse> | null>(null);
+  const soupGenerationResultRef = useRef<SoupGenerateResponse | null>(null);
   // フックから必要な状態を受け取る
-  const { phase, count, ingredients, removeIngredient } = useGameLogic();
+  const { phase, count, ingredients, removeIngredient, submitScore, totalScore, isChartFlowFinished } = useGameLogic({
+    selectedIngredientEmojis,
+  });
+
+  const ingredientPayload = selectedIngredientLabels.length > 0
+    ? selectedIngredientLabels
+    : ['tomato', 'onion', 'miso'];
 
   // [EN] Sets default reference image (miso.png) in sessionStorage if not present.
   // [JA] sessionStorage に参照画像がない場合、miso.png を既定値として保存します。
@@ -84,53 +127,140 @@ export default function Game() {
     };
   }, []);
 
-  // [EN] Sends ingredients to backend and moves to result screen with generated data.
-  // [JA] 材料をバックエンドへ送信し、生成結果を持ってリザルト画面へ遷移します。
-  const handleFinishGame = async () => {
-    setIsGenerating(true);
-    setGenerationError(null);
-    sessionStorage.removeItem('latestSoupResult');
+  // [EN] Starts soup generation as soon as gameplay starts to hide model latency.
+  // [JA] モデル生成の待ち時間を隠すため、ゲーム開始時に先行生成を開始します。
+  const startSoupGeneration = () => {
+    if (soupGenerationPromiseRef.current || soupGenerationResultRef.current) {
+      return;
+    }
 
-    try {
+    if (retryTimerRef.current !== null) {
+      window.clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
+
+    setIsImageGenerating(true);
+    setGenerationError(null);
+
+    soupGenerationPromiseRef.current = (async () => {
       const referenceImageDataUrl = sessionStorage.getItem('referenceImageDataUrl') ?? undefined;
 
-      // [EN] Temporary payload for frontend-backend integration.
-      // [JA] フロント・バックエンド連携確認のための暫定材料データです。
       const generated = await postSoupGenerate({
-        ingredients: ['tomato', 'onion', 'miso'],
+        ingredients: ingredientPayload,
         referenceImageDataUrl,
       });
 
-      sessionStorage.setItem('latestSoupResult', JSON.stringify(generated));
-      navigate('/result', { state: { generated } });
+      soupGenerationResultRef.current = generated;
+      setIsImageReady(true);
+      return generated;
+    })()
+      .catch((error) => {
+        const message = error instanceof Error ? error.message : 'Failed to generate result';
+        setGenerationError(message);
+        soupGenerationPromiseRef.current = null;
+
+        // [EN] Keep retrying image generation while staying on game screen.
+        // [JA] ゲーム画面に留まったまま画像生成を再試行します。
+        retryTimerRef.current = window.setTimeout(() => {
+          startSoupGeneration();
+        }, 3000);
+
+        throw error;
+      })
+      .finally(() => {
+        setIsImageGenerating(false);
+      });
+  };
+
+  useEffect(() => {
+    if (phase !== 'playing') {
+      return;
+    }
+
+    startSoupGeneration();
+  }, [phase]);
+
+  useEffect(() => {
+    return () => {
+      if (retryTimerRef.current !== null) {
+        window.clearTimeout(retryTimerRef.current);
+      }
+    };
+  }, []);
+
+  // [EN] Sends ingredients to backend and moves to result screen with generated data.
+  // [JA] 材料をバックエンドへ送信し、生成結果を持ってリザルト画面へ遷移します。
+  const handleFinishGame = async () => {
+    if (isFinishingRef.current || hasNavigatedRef.current) {
+      return;
+    }
+
+    if (!soupGenerationResultRef.current) {
+      setGenerationError('画像生成の完了を待っています...');
+      return;
+    }
+
+    isFinishingRef.current = true;
+    setIsGenerating(true);
+    sessionStorage.removeItem('latestSoupResult');
+    sessionStorage.removeItem('latestScoreResult');
+    sessionStorage.removeItem('latestResultData');
+
+    try {
+      // [EN] Score API failure should not block result navigation.
+      // [JA] score API が失敗しても、リザルト遷移は止めません。
+      let resolvedTotalScore = totalScore ?? 0;
+      try {
+        const scoreResponse = await submitScore();
+        resolvedTotalScore = scoreResponse.totalScore;
+        sessionStorage.setItem('latestScoreResult', JSON.stringify(scoreResponse));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to submit score';
+        setGenerationError(message);
+      }
+
+      // [EN] AI-generated image is required for result transition.
+      // [JA] リザルト遷移には生成AI画像を必須とします。
+      const generatedImageDataUrl = soupGenerationResultRef.current.imageDataUrl;
+
+      const resultData = {
+        ingredients: ingredientPayload,
+        imageDataUrl: generatedImageDataUrl,
+        flavor: FALLBACK_FLAVOR,
+        comment: FALLBACK_COMMENT,
+        totalScore: resolvedTotalScore,
+      };
+
+      sessionStorage.setItem('latestSoupResult', JSON.stringify(resultData));
+      sessionStorage.setItem('latestResultData', JSON.stringify(resultData));
+
+      hasNavigatedRef.current = true;
+      navigate('/result', { state: { generated: resultData } });
+      return;
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to generate result';
+      const message = error instanceof Error ? error.message : 'Failed to finish game';
       setGenerationError(message);
     } finally {
       setIsGenerating(false);
+      isFinishingRef.current = false;
     }
   };
 
-  // [EN] Skips API call and moves to result screen with dummy data.
-  // [JA] API 呼び出しをスキップし、ダミーデータでリザルト画面へ遷移します。
-  const handleGoResultWithDummy = () => {
-    const dummy: SoupGenerateResponse = {
-      ingredients: ['tomato', 'onion', 'miso'],
-      imageDataUrl: '/images/miso.png',
-      flavor: {
-        sweet: 60,
-        sour: 40,
-        salty: 70,
-        bitter: 10,
-        umami: 90,
-        spicy: 5,
-      },
-      comment: 'ダミーデータ表示です。トマトと味噌の旨味が合わさって最高の一杯！',
-    };
+  useEffect(() => {
+    if (!isChartFlowFinished) {
+      return;
+    }
 
-    sessionStorage.setItem('latestSoupResult', JSON.stringify(dummy));
-    navigate('/result', { state: { generated: dummy } });
-  };
+    setIsGameFinished(true);
+  }, [isChartFlowFinished]);
+
+  useEffect(() => {
+    if (!isGameFinished || !isImageReady || isGenerating || hasNavigatedRef.current) {
+      return;
+    }
+
+    void handleFinishGame();
+  }, [isGameFinished, isImageReady, isGenerating]);
 
   return (
     <div style={{ textAlign: 'center', padding: '50px' }}>
@@ -148,6 +278,12 @@ export default function Game() {
         <div>
           <h2>ゲームプレイ（パンチ画面）</h2>
           <p>タイミングを合わせてスマホを突き出せ！</p>
+          {isImageGenerating && <p>生成AIで画像を作成中...</p>}
+          {!isImageGenerating && isImageReady && !isGameFinished && <p>画像生成: 完了（ゲーム終了を待機中）</p>}
+          {!isImageGenerating && !isImageReady && generationError && <p>画像生成リトライ中...（3秒後に再試行）</p>}
+          {isGameFinished && !isImageReady && <p>ゲーム終了。画像生成完了を待っています...</p>}
+          {isGameFinished && isImageReady && <p>ゲーム終了。リザルトへ遷移します...</p>}
+          {totalScore !== null && <p>最新スコア: {totalScore}</p>}
 
           {/*ゲーム画面内の設定*/}
           <div style={{
@@ -315,37 +451,20 @@ export default function Game() {
           <div style={{ marginTop: '50px' }}>
             <button
               onClick={handleFinishGame}
-              disabled={isGenerating}
+              disabled={isGenerating || !isImageReady}
               style={{
                 padding: '15px 30px',
                 fontSize: '18px',
-                cursor: isGenerating ? 'not-allowed' : 'pointer',
+                cursor: (isGenerating || !isImageReady) ? 'not-allowed' : 'pointer',
                 backgroundColor: '#f44336',
                 color: '#fff',
                 border: 'none',
                 borderRadius: '5px',
-                opacity: isGenerating ? 0.7 : 1,
+                opacity: (isGenerating || !isImageReady) ? 0.7 : 1,
                 marginRight: '12px',
               }}
             >
-              {isGenerating ? '生成中...' : '画像を生成してリザルトへ'}
-            </button>
-
-            <button
-              onClick={handleGoResultWithDummy}
-              disabled={isGenerating}
-              style={{
-                padding: '15px 30px',
-                fontSize: '18px',
-                cursor: isGenerating ? 'not-allowed' : 'pointer',
-                backgroundColor: '#607d8b',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '5px',
-                opacity: isGenerating ? 0.7 : 1,
-              }}
-            >
-              すぐリザルトへ（ダミーデータ）
+              {isGenerating ? '遷移準備中...' : !isImageReady ? '画像生成待機中...' : 'リザルトへ'}
             </button>
 
             {generationError && (

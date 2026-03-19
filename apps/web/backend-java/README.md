@@ -18,6 +18,8 @@ HappyHappyKarateSoup の Web バックエンド（Java / Spring Boot）です。
   - `GEMINI_USE_VERTEX_AI=true`
   - `GEMINI_PROJECT_ID`, `GEMINI_LOCATION` を設定
   - Application Default Credentials を利用するため `GOOGLE_APPLICATION_CREDENTIALS` を設定
+  - 例: `GOOGLE_APPLICATION_CREDENTIALS=/Users/<your-user>/Kaya/HappyHappyKarateSoup/apps/web/backend-java/.secrets/vertex-ai-key.json`
+  - 鍵ファイルは `src/` 配下に置かず、`.secrets/` など Git 管理外パスに配置
 
 ## API
 - `GET /api/soup/health`

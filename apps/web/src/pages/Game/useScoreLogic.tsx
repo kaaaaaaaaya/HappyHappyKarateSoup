@@ -1,11 +1,15 @@
 // useScoreLogic.ts
 import { useState, useCallback } from 'react';
 import type { ActionType } from './types';
+import { postScoreCalculate } from '../../api/scoreApi';
 
 export const useScoreLogic = () => {
   //スコアデータの保存のためのstate
   const [combo, setCombo] = useState(0); // コンボ数を管理する状態
   const [maxCombo, setMaxCombo] = useState(0); // 最大コンボ数を管理する状態
+  const [totalScore, setTotalScore] = useState<number | null>(null); // APIから返るtotalScore
+  const [isSubmittingScore, setIsSubmittingScore] = useState(false); // 送信中フラグ
+  const [scoreSubmitError, setScoreSubmitError] = useState<string | null>(null); // 送信エラー
   const [judgments, setJudgments] = useState({ // 判定結果を管理する状態
     perfect: 0,
     good: 0,
@@ -65,9 +69,38 @@ export const useScoreLogic = () => {
     }
   };
 
+  // [EN] Sends current score data to backend and stores returned totalScore.
+  // [JA] 現在のスコアデータをバックエンドへ送信し、返却された totalScore を保持します。
+  const submitScore = useCallback(async () => {
+    setIsSubmittingScore(true);
+    setScoreSubmitError(null);
+
+    try {
+      const response = await postScoreCalculate({
+        score_data: {
+          max_combo: maxCombo,
+          judgments,
+        },
+      });
+
+      setTotalScore(response.totalScore);
+      return response;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to submit score';
+      setScoreSubmitError(message);
+      throw error;
+    } finally {
+      setIsSubmittingScore(false);
+    }
+  }, [maxCombo, judgments]);
+
   return {
     combo,
     scoreData,
-    processJudgment
+    processJudgment,
+    submitScore,
+    totalScore,
+    isSubmittingScore,
+    scoreSubmitError,
   };
 };
