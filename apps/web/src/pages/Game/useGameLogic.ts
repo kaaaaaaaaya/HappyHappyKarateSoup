@@ -1,12 +1,34 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Phase, Ingredient, ActionType } from './types';
 import charData from '../../testdatas/charData-demo.json'; // 譜面データをインポート
+import { useScoreLogic } from './useScoreLogic'; // 分割したスコアロジックをインポート
 
 // 譜面データの型 (バックエンドからのレスポンスを想定)
-// [タイミング(ms), パンチorチョップ, 絵文字, レーン(-100〜100)]
-type ChartItem = [number, ActionType, string, number];
+// [タイミング(ms), パンチorチョップ, ingredientIndex(0-2) or emoji, レーン(-100〜100)]
+type ChartItem = [number, ActionType, number | string, number];
 
-export const useGameLogic = () => {
+const generatedChartModules = import.meta.glob('../../testdatas/charData-random-*.json', {
+  eager: true,
+  import: 'default',
+}) as Record<string, ChartItem[]>;
+
+type UseGameLogicOptions = {
+  selectedIngredientEmojis?: string[];
+};
+
+const getRandomGeneratedChart = (): ChartItem[] => {
+  const generatedCharts = Object.values(generatedChartModules);
+
+  if (generatedCharts.length === 0) {
+    return charData as ChartItem[];
+  }
+
+  const randomIndex = Math.floor(Math.random() * generatedCharts.length);
+  return generatedCharts[randomIndex];
+};
+
+export const useGameLogic = (options: UseGameLogicOptions = {}) => {
+  const selectedIngredientEmojis = options.selectedIngredientEmojis ?? [];
   const [phase, setPhase] = useState<Phase>('countdown');
   const [count, setCount] = useState(3);
   const [activeIngredients, setActiveIngredients] = useState<Ingredient[]>([]);
@@ -19,9 +41,40 @@ export const useGameLogic = () => {
   
   // ゲーム開始時刻を保持
   const startTimeRef = useRef<number>(0);
+  // 最新の経過時間を保持（終了判定に利用）
+  const elapsedRef = useRef<number>(0);
   // 処理済みの譜面インデックス
   const chartIndexRef = useRef<number>(0);
 
+  // スコアと判定のロジックを呼び出す
+  const {
+    combo,
+    scoreData,
+    processJudgment,
+    submitScore,
+    totalScore,
+    isSubmittingScore,
+    scoreSubmitError,
+  } = useScoreLogic();
+
+  const resolveIngredientEmoji = useCallback((chartIngredient: number | string, chartIndex: number): string => {
+    // [EN] When chart provides index (generate_chart format), map to selected emojis first.
+    // [JA] 譜面がindex形式の場合は、まず選択具材の絵文字へマップします。
+    if (typeof chartIngredient === 'number') {
+      if (selectedIngredientEmojis.length > 0) {
+        return selectedIngredientEmojis[chartIngredient % selectedIngredientEmojis.length];
+      }
+      return '🍲';
+    }
+
+    // [EN] When chart provides emoji directly, still prioritize selected ingredients when available.
+    // [JA] 譜面が絵文字直指定でも、選択具材がある場合は選択具材を優先します。
+    if (selectedIngredientEmojis.length > 0) {
+      return selectedIngredientEmojis[chartIndex % selectedIngredientEmojis.length];
+    }
+
+    return chartIngredient;
+  }, [selectedIngredientEmojis]);
   // 具材を削除する関数（アニメーション終了時や叩いた時に使用）
   const removeIngredient = useCallback((id: number) => {
     setActiveIngredients((prev) => prev.filter((item) => item.id !== id));
@@ -43,28 +96,17 @@ export const useGameLogic = () => {
     //ここをバックエンドで処理するなら、フロントには有効なデータだけ送られてくる？
     //もしフロントに無効なデータも送られてくるなら、差分の計算ごとフロントにおかせてほしい
 
-    // 判定条件
     const isCorrectType = target.type === actionType;
-    let result = '';
 
-    if (!isCorrectType) { // タイミングが近いのにタイプが違う場合もMissとする
-      result = 'Miss (different Action)';
-    } else if (diff < 200) { 
-      result = 'Perfect!!';
-    } else if (diff < 350) {
-      result = 'Good';
-    } else if (diff < 500) {
-      result = 'OK';
-    } else {
-      result = 'Miss (Too Early/Late)';
-    }
+    // 判定処理とスコア記録を行う（見逃しもここで処理する）
+    const { result } = processJudgment(actionType, diff, isCorrectType);
 
     //有効な判定に対して、結果とタイミングの差分をコンソールに表示
     console.log(`${result} | Error: ${Math.round(now - target.id)}ms | Target: ${target.emoji}`);
     
     // 叩いたら消す（removeIngredientを再利用）
     removeIngredient(target.id);
-  }, [activeIngredients, startTimeRef, removeIngredient]);
+  }, [activeIngredients, startTimeRef, removeIngredient, processJudgment]);
 
 
   // --- 1. カウントダウン制御 ---
@@ -74,10 +116,10 @@ export const useGameLogic = () => {
       const timer = setTimeout(() => setCount((c) => c - 1), 1000);
       return () => clearTimeout(timer);
     } else if (phase === 'countdown' && count === 0) {
-      // 譜面を取得する（現在はデモデータ）
+      // 譜面を取得する（generate_chart で作られたランダム譜面を優先）
       // エラー回避のため、setTimeoutの中にセット処理をまとめる
       setTimeout(() => {
-        setChart(charData as ChartItem[]); 
+        setChart(getRandomGeneratedChart());
         setPhase('playing'); //譜面切り替えと同時にplayingフェーズに移行
         startTimeRef.current = performance.now(); // 精度の高い開始時間を記録
         chartIndexRef.current = 0; // インデックスをリセット
@@ -100,18 +142,19 @@ export const useGameLogic = () => {
     //1秒に60回の頻度で呼び出される
     const update = () => {
       const elapsed = performance.now() - startTimeRef.current; // ゲーム開始からの経過時間を高精度で取得
+      elapsedRef.current = elapsed;
       const animationDuration = 2000; // アニメーションの総時間(ms)
 
       // 譜面データの中で、まだ処理していないものがあるかチェック
       if (chartIndexRef.current < chart.length) {
         // 譜面データから次に処理するアイテムの情報を取得
-        const [targetTime, type, emoji, lane] = chart[chartIndexRef.current];
+        const [targetTime, type, chartIngredient, lane] = chart[chartIndexRef.current];
         
         // 経過時間がターゲット時間の2000ms前に達したら具材を出現させる
         if (elapsed >= targetTime - animationDuration) {
           const newIngredient: Ingredient = { //ingredient型のオブジェクトを新規生成
             id: targetTime, // 判定時に使うため、ターゲットとなる時間をIDにする
-            emoji: emoji,
+            emoji: resolveIngredientEmoji(chartIngredient, chartIndexRef.current),
             startX: lane, // %単位にする
             type: type,
           };
@@ -127,7 +170,9 @@ export const useGameLogic = () => {
         prev.map((item) => {
           // まだミスになっていない 且つ 判定時間を200ms過ぎたもの
           if (!item.missed && elapsed > item.id + 200) {
-            console.log(`Miss (No Action) | Target: ${item.emoji}`);
+            // 見逃し判定
+            const { result } = processJudgment('none', 0, false);
+            console.log(`${result} | Target: ${item.emoji}`);
             return { ...item, missed: true }; // ミスフラグを立てる
           }
           return item;
@@ -139,7 +184,7 @@ export const useGameLogic = () => {
 
     requestRef = requestAnimationFrame(update);
     return () => cancelAnimationFrame(requestRef);
-  }, [phase, chart]);
+  }, [phase, chart, processJudgment, resolveIngredientEmoji]);
 
 
   // --- 3. キーボードリスナー ---
@@ -156,11 +201,27 @@ export const useGameLogic = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [phase, handleAction]);
 
+  // [EN] True when enough time has passed after the last note timing.
+  // [JA] 最終ノート時刻を過ぎ、十分なバッファ時間が経過したら true になります。
+  const lastNoteTime = chart.length > 0 ? chart[chart.length - 1][0] : 0;
+  const chartFinishBufferMs = 3000; // 具材アニメーション完了待ちバッファ
+  const isChartFlowFinished =
+    phase === 'playing' &&
+    chart.length > 0 &&
+    elapsedRef.current >= lastNoteTime + chartFinishBufferMs;
+
   return { 
     phase, 
     count, 
     ingredients: activeIngredients, 
     handleAction, 
-    removeIngredient 
+    removeIngredient,
+    combo,
+    scoreData,
+    submitScore,
+    totalScore,
+    isSubmittingScore,
+    scoreSubmitError,
+    isChartFlowFinished,
   };
 };

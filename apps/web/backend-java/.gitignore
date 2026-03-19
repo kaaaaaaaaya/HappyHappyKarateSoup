@@ -1,10 +1,14 @@
 .gradle/
 build/
 .env
+.env.local
 *.iml
 out/
 .DS_Store
 tmp/
+.secrets/
+**/vertex-ai-key.json
+**/*-key.json
 
 # Eclipse
 .classpath
