@@ -1,7 +1,7 @@
 // useGameLogic.ts
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Phase, Ingredient, ActionType } from './types';
-import charData from '../../testdatas/charData-random-10.json'; // 譜面データをインポート
+import charData from '../../testdatas/demo/charData-demo-60s-01.json'; // 譜面データをインポート
 import { useScoreLogic } from './useScoreLogic'; // 分割したスコアロジックをインポート
 
 // 譜面データの型 (バックエンドからのレスポンスを想定)
@@ -33,13 +33,13 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
   const [phase, setPhase] = useState<Phase>('countdown');
   const [count, setCount] = useState(3);
   const [activeIngredients, setActiveIngredients] = useState<Ingredient[]>([]);
-  
+
   // 譜面データを保持
   // chart : variable, 処理中の譜面データを保持
   // setChart : function, 譜面データを更新するための関数
   // 初期値は空配列[], データはChartItem型かつ配列であることを指定
   const [chart, setChart] = useState<ChartItem[]>([]);
-  
+
   // ゲーム開始時刻を保持
   const startTimeRef = useRef<number>(0);
   // 最新の経過時間を保持（終了判定に利用）
@@ -89,13 +89,13 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
     if (activeIngredients.length === 0) return;
 
     //判定実施時の経過時間(ms)
-    const now = performance.now() - startTimeRef.current; 
-    
+    const now = performance.now() - startTimeRef.current;
+
     // 一番手前にいる（ターゲット時間が最も早い）具材を探す
     // バックエンドから取得する場合はdiffに直接差分の値を代入
     const target = activeIngredients[0];
     const diff = Math.abs(now - target.id); // 理想のタイミングとの差分(ms)
-    
+
     if (diff >= 600) return; // 判定範囲外は無視
     //ここをバックエンドで処理するなら、フロントには有効なデータだけ送られてくる？
     //もしフロントに無効なデータも送られてくるなら、差分の計算ごとフロントにおかせてほしい
@@ -107,7 +107,7 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
 
     //有効な判定に対して、結果とタイミングの差分をコンソールに表示
     console.log(`${result} | Error: ${Math.round(now - target.id)}ms | Target: ${target.emoji}`);
-    
+
     // 叩いたら消す（removeIngredientを再利用）
     removeIngredient(target.id);
   }, [activeIngredients, startTimeRef, removeIngredient, processJudgment]);
@@ -153,7 +153,7 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
       if (chartIndexRef.current < chart.length) {
         // 譜面データから次に処理するアイテムの情報を取得
         const [targetTime, type, chartIngredient, lane] = chart[chartIndexRef.current];
-        
+
         // 経過時間がターゲット時間の2000ms前に達したら具材を出現させる
         if (elapsed >= targetTime - animationDuration) {
           const newIngredient: Ingredient = { //ingredient型のオブジェクトを新規生成
@@ -164,7 +164,7 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
           };
 
           // 新しい具材をactiveIngredientsの配列に追加
-          setActiveIngredients((prev) => [...prev, newIngredient]); 
+          setActiveIngredients((prev) => [...prev, newIngredient]);
           chartIndexRef.current++; // 次の譜面アイテムに進む
         }
       }
@@ -181,7 +181,7 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
           }
           return item;
         })
-      );      
+      );
 
       requestRef = requestAnimationFrame(update);
     };
@@ -194,13 +194,13 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
   // --- 3. キーボードリスナー ---
   useEffect(() => {
     if (phase !== 'playing') return;
-    
+
     const handleKeyDown = (e: KeyboardEvent) => {
       const key = e.key.toLowerCase();
       if (key === 'j') handleAction('punch');
       if (key === 'k') handleAction('chop');
     };
-    
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [phase, handleAction]);
@@ -214,11 +214,11 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
     chart.length > 0 &&
     elapsedRef.current >= lastNoteTime + chartFinishBufferMs;
 
-  return { 
-    phase, 
-    count, 
-    ingredients: activeIngredients, 
-    handleAction, 
+  return {
+    phase,
+    count,
+    ingredients: activeIngredients,
+    handleAction,
     removeIngredient,
     combo,
     lastJudgment,
