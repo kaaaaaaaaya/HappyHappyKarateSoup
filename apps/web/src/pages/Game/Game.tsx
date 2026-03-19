@@ -32,6 +32,30 @@ const animationStyles = `
       transform: translate3d(calc(-50% + var(--end-x)), 1000%, 0px) scale(6); 
       opacity: 0.7; /* 最後：消える直前で再び透明になる */
     }
+  
+  @keyframes judgmentPop {
+    0% { 
+      transform: translate(-50%, -50%) scale(0.5); 
+      opacity: 0; 
+    }
+    15% { 
+      transform: translate(-50%, -50%) scale(1.2); /* 少し大きく跳ねる */
+      opacity: 1; 
+    }
+    30% {
+      transform: translate(-50%, -50%) scale(1.0); /* 定位置 */
+      opacity: 1;
+    }
+    100% { 
+      transform: translate(-50%, -50%) scale(1.0); 
+      opacity: 0; /* 速攻で消える */
+    }
+  }
+
+  @keyframes comboPop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
   }
 `;
 
@@ -86,9 +110,18 @@ export default function Game() {
   const soupGenerationPromiseRef = useRef<Promise<SoupGenerateResponse> | null>(null);
   const soupGenerationResultRef = useRef<SoupGenerateResponse | null>(null);
   // フックから必要な状態を受け取る
-  const { phase, count, ingredients, removeIngredient, submitScore, totalScore, rank, isChartFlowFinished } = useGameLogic({
-    selectedIngredientEmojis,
-  });
+  const { phase, 
+          count, 
+          ingredients, 
+          removeIngredient, 
+          combo,
+          lastJudgment,
+          submitScore, 
+          totalScore, 
+          rank, 
+          isChartFlowFinished } = useGameLogic({
+            selectedIngredientEmojis,
+          });
 
   const ingredientPayload = selectedIngredientLabels.length > 0
     ? selectedIngredientLabels
@@ -302,6 +335,51 @@ export default function Game() {
             perspective: '500px'
           }}>
 
+            {/* 1. 判定表示 */}
+            {lastJudgment && (
+              <div 
+                key={lastJudgment.key} // keyを変えることでアニメーションが毎回リセットされる
+                style={{
+                  position: 'absolute',
+                  top: '60%',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  fontSize: '48px',
+                  fontWeight: 'bold',
+                  fontFamily: "'DotGothic16', sans-serif",
+                  color: lastJudgment.text.includes('MISS') ? '#9e9e9e' : '#ffeb3b',
+                  textShadow: '3px 3px 0 #000',
+                  zIndex: 200,
+                  pointerEvents: 'none',
+                  animation: 'judgmentPop 0.2s ease-out forwards'
+                }}
+              >
+                {lastJudgment.text}
+              </div>
+            )}
+
+            {/* コンボ表示（例: 3 Combo!） */}
+            {combo > 0 && (
+              <div 
+                key={`combo-${combo}`}
+                style={{
+                  position: 'absolute',
+                  top: '10%',
+                  right: '5%',
+                  textAlign: 'right',
+                  fontFamily: "'DotGothic16', sans-serif",
+                  zIndex: 200,
+                  pointerEvents: 'none',
+                  animation: 'comboPop 0.1s ease-out'
+                }}
+              >
+                <div style={{ fontSize: '20px', color: '#fff', textShadow: '2px 2px 0 #000' }}>COMBO</div>
+                <div style={{ fontSize: '60px', color: '#ff5722', textShadow: '3px 3px 0 #000', lineHeight: '1' }}>
+                  {combo}
+                </div>
+              </div>
+            )}
+
             {/* 具材 */}
             {ingredients.map((item) => (
               <div
@@ -320,7 +398,7 @@ export default function Game() {
                   //Missフラグがある場合の処理
                   opacity: item.missed ? 0.2 : 1, // missedフラグが立っている場合は半透明にする
                   filter: item.missed ? 'grayscale(100%)' : 'none', // missedフラグが立っている場合はグレースケールにする
-                  transition: 'opacity 0s, filter 0.2s', // opacityとfilterの変化にスムーズなトランジションを追加
+                  //transition: 'opacity 0s, filter 0.2s', // opacityとfilterの変化にスムーズなトランジションを追加
 
                   // @ ts-ignore
                   '--start-x': `${item.startX}px`,
@@ -333,11 +411,11 @@ export default function Game() {
                 <div style={{
                   fontFamily: "'DotGothic16', sans-serif",
                   fontSize: '20px',
-                  color: item.emoji === '🍖' ? '#ff3b3b' : '#32cd32',
+                  color: item.type === 'punch' ? '#ff3b3b' : '#32cd32',
                   textShadow: '1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff',
                   marginTop: '5px'
                 }}>
-                  {item.emoji === '🍖' ? 'Punch!!' : 'Chop!'}
+                  {item.type === 'punch' ? 'Punch!!' : 'Chop!'}
                 </div>
               </div>
             ))}
@@ -383,39 +461,39 @@ export default function Game() {
               clipPath: 'polygon(calc(50% - 10%) 40%, calc(50% + 10%) 40%, 100% 100%, 0% 100%)'
             }}></div>
 
-            {/* 判定ゾーン（台形：高さ80%〜90%の位置に配置） */}
-            <div style={{
-              position: 'absolute',
-              top: '0',
-              left: '0',
-              width: '100%',
-              height: '100%',
-              // 判定ゾーンの色
-              backgroundColor: 'rgba(255, 180, 45, 0.3)',
-              zIndex: 55, // 道(50)より上で、線(60)より下
-
-              // レーンの広がりに合わせて、80%と90%の高さの横幅を計算して切り抜いています
-              clipPath: 'polygon(13.5% 80%, 86.5% 80%, 93.75% 90%, 6.25% 90%)'
-            }}></div>
-
-            {/* 2. レーンの線（SVGで描画） */}
-            <svg style={{
-              position: 'absolute',
-              top: '0',
-              left: '0',
-              width: '100%',
-              height: '100%',
-              zIndex: 60,
-              pointerEvents: 'none'
-            }}>
-              {/* 1. 「線のグラデーション」を定義 */}
-              <defs>
-                <linearGradient id="lineFade" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="white" stopOpacity="0" />
-                  <stop offset="45%" stopColor="white" stopOpacity="1" />
-                  <stop offset="100%" stopColor="white" stopOpacity="1" />
-                </linearGradient>
-              </defs>
+          {/* 判定ゾーン（台形：高さ80%〜90%の位置に配置） */}
+          <div style={{
+            position: 'absolute',
+            top: '0', 
+            left: '0',
+            width: '100%',
+            height: '100%',
+            // 判定ゾーンの色
+            backgroundColor: 'rgba(255, 180, 45, 0.3)', 
+            zIndex: 55, // 道(50)より上で、線(60)より下
+            
+            // レーンの広がりに合わせて、80%と90%の高さの横幅を計算して切り抜いています
+            clipPath: 'polygon(13.5% 80%, 86.5% 80%, 93.75% 90%, 6.25% 90%)'
+          }}></div>
+      
+          {/* 2. レーンの線（SVGで描画） */}
+          <svg style={{
+            position: 'absolute',
+            top: '0', 
+            left: '0',
+            width: '100%',
+            height: '100%',
+            zIndex: 60,
+            pointerEvents: 'none'
+          }}>
+            {/* 1. 「線のグラデーション」を定義 */}
+            <defs>
+              <linearGradient id="lineFade" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="white" stopOpacity="0" />
+                <stop offset="45%" stopColor="white" stopOpacity="1" />
+                <stop offset="100%" stopColor="white" stopOpacity="1" />
+              </linearGradient>
+            </defs>
 
               {/* 2. 線のスタート(y1)を40%に伸ばし、色(stroke)に上で作ったグラデーションを指定します */}
               {/* 左端の線 */}
@@ -430,25 +508,25 @@ export default function Game() {
               {/* 右端の線 */}
               <line x1="calc(50% + 10%)" y1="40%" x2="100%" y2="100%" stroke="url(#lineFade)" strokeWidth="2" />
 
-              {/* 上側のライン (y=80% の位置) */}
-              <line
-                x1="13.5%" y1="80%"
-                x2="86.5%" y2="80%"
-                stroke="rgba(255, 220, 180, 0.8)"
-                strokeWidth="3"
-                style={{ filter: 'drop-shadow(0 0 10px rgba(255, 220, 180, 1))' }}
-              />
+            {/* 上側のライン (y=80% の位置) */}
+            <line 
+              x1="13.5%" y1="80%" 
+              x2="86.5%" y2="80%" 
+              stroke="rgba(255, 220, 180, 0.8)" 
+              strokeWidth="3"
+              style={{ filter: 'drop-shadow(0 0 10px rgba(255, 220, 180, 1))' }} 
+            />
 
-              {/* 下側のライン (y=90% の位置) */}
-              <line
-                x1="6.75%" y1="90%"
-                x2="93.25%" y2="90%"
-                stroke="rgba(255, 220, 180, 1)"
-                strokeWidth="6"
-                style={{ filter: 'drop-shadow(0 0 10px rgba(255, 220, 180, 1))' }}
-              />
-
-            </svg>
+            {/* 下側のライン (y=90% の位置) */}
+            <line 
+              x1="6.75%" y1="90%" 
+              x2="93.25%" y2="90%" 
+              stroke="rgba(255, 220, 180, 1)" 
+              strokeWidth="6" 
+              style={{ filter: 'drop-shadow(0 0 10px rgba(255, 220, 180, 1))' }}
+            />
+            
+          </svg>
           </div>
 
           <div style={{ marginTop: '50px' }}>

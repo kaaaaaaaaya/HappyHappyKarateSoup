@@ -1,7 +1,7 @@
 // useGameLogic.ts
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Phase, Ingredient, ActionType } from './types';
-import charData from '../../testdatas/charData-demo.json'; // 譜面データをインポート
+import charData from '../../testdatas/charData-random-10.json'; // 譜面データをインポート
 import { useScoreLogic } from './useScoreLogic'; // 分割したスコアロジックをインポート
 
 // 譜面データの型 (バックエンドからのレスポンスを想定)
@@ -48,10 +48,12 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
   const chartIndexRef = useRef<number>(0);
 
   // スコアと判定のロジックを呼び出す
+
   const {
     combo,
     scoreData,
     processJudgment,
+    lastJudgment,
     submitScore,
     totalScore,
     rank,
@@ -219,6 +221,7 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
     handleAction, 
     removeIngredient,
     combo,
+    lastJudgment,
     scoreData,
     submitScore,
     totalScore,
