@@ -24,6 +24,33 @@ HappyHappyKarateSoup の Web バックエンド（Java / Spring Boot）です。
 ## API
 - `GET /api/soup/health`
 - `POST /api/soup/generate`
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `POST /api/auth/google`
+
+## 認証とユーザー保存
+- ユーザーは `app_users` テーブルに保存されます。
+- 主なカラム:
+  - `username`（一意）
+  - `email`（一意）
+  - `password_hash`（ローカルログイン時）
+  - `provider`（`LOCAL` / `GOOGLE`）
+  - `google_subject`（Googleログイン時）
+- `spring.jpa.hibernate.ddl-auto=update` により、起動時にテーブルが自動作成/更新されます。
+
+## Cloud SQL 設定
+- Cloud SQL(MySQL) 接続は環境変数で設定します。
+  - `DB_HOST`
+  - `DB_PORT`
+  - `DB_NAME`
+  - `DB_USERNAME`
+  - `DB_PASSWORD`
+- 例は `.env.local.example` を参照してください。
+
+## Google ログイン設定
+- バックエンドで Google IDトークンを検証するため、以下を設定します。
+  - `GOOGLE_OAUTH_CLIENT_ID`
+- フロントエンド側は `VITE_GOOGLE_CLIENT_ID` を設定してください。
 
 ### POST リクエスト例
 ```json

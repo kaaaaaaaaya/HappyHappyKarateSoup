@@ -4,6 +4,18 @@ server:
 spring:
   application:
     name: happy-happy-karate-soup-backend
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:happysoup}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Tokyo
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
 
 gemini:
   api-key: ${GEMINI_API_KEY:}
@@ -13,6 +25,10 @@ gemini:
   location: ${GEMINI_LOCATION:us-central1}
   text-model: ${GEMINI_TEXT_MODEL:gemini-2.5-flash}
   image-model: ${GEMINI_IMAGE_MODEL:gemini-2.5-flash-image}
+
+auth:
+  google:
+    client-id: ${GOOGLE_OAUTH_CLIENT_ID:}
 
 app:
   charts:
