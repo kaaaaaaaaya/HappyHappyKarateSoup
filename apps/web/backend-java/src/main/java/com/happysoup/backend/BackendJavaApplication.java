@@ -5,7 +5,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 // [EN] Entry point for HappyHappyKarateSoup backend service.
 // [JA] HappyHappyKarateSoup バックエンドサービスのエントリーポイントです。
-@SpringBootApplication
+@SpringBootApplication(scanBasePackages = {"com.happysoup.backend", "com.happykaratesoup.backend"})
 public class BackendJavaApplication {
 
     // [EN] Bootstraps the Spring Boot application.

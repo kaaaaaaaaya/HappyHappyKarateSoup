@@ -3,7 +3,7 @@ server:
 
 spring:
   application:
-    name: backend-java
+    name: happy-happy-karate-soup-backend
 
 gemini:
   api-key: ${GEMINI_API_KEY:}
@@ -15,5 +15,18 @@ gemini:
   image-model: ${GEMINI_IMAGE_MODEL:gemini-2.5-flash-image}
 
 app:
+  charts:
+    cache-seconds:
+      list: 60
+      detail: 300
   cors:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: always
