@@ -19,6 +19,7 @@ struct ContentView: View {
     @State private var cameraAuthorization: CameraAuthorizationState = .notDetermined
     @State private var isScanning = false
     @State private var scannedCode: String = ""
+    @State private var isControllerPresented = false
 
     var body: some View {
         VStack(spacing: 16) {
@@ -34,6 +35,13 @@ struct ContentView: View {
         }
         .padding()
         .onAppear(perform: requestCameraAccessIfNeeded)
+        .fullScreenCover(isPresented: $isControllerPresented) {
+            ControllerView(scannedCode: scannedCode) {
+                scannedCode = ""
+                isScanning = true
+                isControllerPresented = false
+            }
+        }
     }
 
     @ViewBuilder
@@ -44,6 +52,7 @@ struct ContentView: View {
                 QRScannerView(isScanning: $isScanning) { code in
                     scannedCode = code
                     isScanning = false
+                    isControllerPresented = true
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 16))
 
@@ -251,4 +260,103 @@ final class PreviewView: UIView {
 
 #Preview {
     ContentView()
+}
+
+private struct ControllerView: View {
+    let scannedCode: String
+    var onClose: () -> Void
+
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.05, green: 0.07, blue: 0.14),
+                    Color(red: 0.08, green: 0.02, blue: 0.16),
+                    Color(red: 0.02, green: 0.18, blue: 0.22)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+
+            VStack(spacing: 20) {
+                HStack {
+                    Text("Controller")
+                        .font(.system(size: 26, weight: .heavy, design: .rounded))
+                        .foregroundStyle(.white)
+                    Spacer()
+                    Button("終了") {
+                        onClose()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.pink)
+                }
+
+                if !scannedCode.isEmpty {
+                    Text("接続コード")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.8))
+                    Text(scannedCode)
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(.white.opacity(0.9))
+                        .lineLimit(2)
+                        .truncationMode(.middle)
+                }
+
+                Spacer()
+
+                VStack(spacing: 18) {
+                    PadButton(symbol: "chevron.up", tint: .cyan)
+                    HStack(spacing: 18) {
+                        PadButton(symbol: "chevron.left", tint: .orange)
+                        PadButton(title: "決定", tint: .pink, diameter: 110)
+                        PadButton(symbol: "chevron.right", tint: .orange)
+                    }
+                    PadButton(symbol: "chevron.down", tint: .cyan)
+                }
+
+                Spacer()
+
+                Text("QRコードを読み取り後、コントローラ画面に切り替わりました")
+                    .font(.footnote)
+                    .foregroundStyle(.white.opacity(0.8))
+            }
+            .padding(20)
+        }
+    }
+}
+
+private struct PadButton: View {
+    var symbol: String? = nil
+    var title: String? = nil
+    var tint: Color
+    var diameter: CGFloat = 88
+
+    var body: some View {
+        Button(action: {}) {
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [tint.opacity(0.95), tint.opacity(0.55)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .overlay(
+                    Group {
+                        if let symbol {
+                            Image(systemName: symbol)
+                                .font(.system(size: 30, weight: .black))
+                        } else if let title {
+                            Text(title)
+                                .font(.system(size: 26, weight: .heavy, design: .rounded))
+                        }
+                    }
+                    .foregroundStyle(.white)
+                )
+                .frame(width: diameter, height: diameter)
+                .shadow(color: tint.opacity(0.45), radius: 16, x: 0, y: 8)
+        }
+        .buttonStyle(.plain)
+    }
 }
