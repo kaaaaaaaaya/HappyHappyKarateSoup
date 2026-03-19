@@ -69,17 +69,6 @@ const blobToDataUrl = (blob: Blob): Promise<string> =>
     reader.readAsDataURL(blob);
   });
 
-const FALLBACK_FLAVOR = {
-  sweet: 45,
-  sour: 30,
-  salty: 65,
-  bitter: 15,
-  umami: 75,
-  spicy: 20,
-};
-
-const FALLBACK_COMMENT = '本日のスープはバランス型。やさしい旨味とコクが広がる一杯です。';
-
 type SelectedIngredient = {
   id: string;
   emoji: string;
@@ -110,18 +99,18 @@ export default function Game() {
   const soupGenerationPromiseRef = useRef<Promise<SoupGenerateResponse> | null>(null);
   const soupGenerationResultRef = useRef<SoupGenerateResponse | null>(null);
   // フックから必要な状態を受け取る
-  const { phase, 
-          count, 
-          ingredients, 
-          removeIngredient, 
-          combo,
-          lastJudgment,
-          submitScore, 
-          totalScore, 
-          rank, 
-          isChartFlowFinished } = useGameLogic({
-            selectedIngredientEmojis,
-          });
+  const { phase,
+    count,
+    ingredients,
+    removeIngredient,
+    combo,
+    lastJudgment,
+    submitScore,
+    totalScore,
+    rank,
+    isChartFlowFinished } = useGameLogic({
+      selectedIngredientEmojis,
+    });
 
   const ingredientPayload = selectedIngredientLabels.length > 0
     ? selectedIngredientLabels
@@ -256,13 +245,13 @@ export default function Game() {
 
       // [EN] AI-generated image is required for result transition.
       // [JA] リザルト遷移には生成AI画像を必須とします。
-      const generatedImageDataUrl = soupGenerationResultRef.current.imageDataUrl;
+      const generatedSoup = soupGenerationResultRef.current;
 
       const resultData = {
-        ingredients: ingredientPayload,
-        imageDataUrl: generatedImageDataUrl,
-        flavor: FALLBACK_FLAVOR,
-        comment: FALLBACK_COMMENT,
+        ingredients: generatedSoup.ingredients,
+        imageDataUrl: generatedSoup.imageDataUrl,
+        flavor: generatedSoup.flavor,
+        comment: generatedSoup.comment,
         totalScore: resolvedTotalScore,
         rank: resolvedRank, // [EN] Add rank to result. [JA] 結果にランクを追加
       };
@@ -337,7 +326,7 @@ export default function Game() {
 
             {/* 1. 判定表示 */}
             {lastJudgment && (
-              <div 
+              <div
                 key={lastJudgment.key} // keyを変えることでアニメーションが毎回リセットされる
                 style={{
                   position: 'absolute',
@@ -360,7 +349,7 @@ export default function Game() {
 
             {/* コンボ表示（例: 3 Combo!） */}
             {combo > 0 && (
-              <div 
+              <div
                 key={`combo-${combo}`}
                 style={{
                   position: 'absolute',
@@ -461,39 +450,39 @@ export default function Game() {
               clipPath: 'polygon(calc(50% - 10%) 40%, calc(50% + 10%) 40%, 100% 100%, 0% 100%)'
             }}></div>
 
-          {/* 判定ゾーン（台形：高さ80%〜90%の位置に配置） */}
-          <div style={{
-            position: 'absolute',
-            top: '0', 
-            left: '0',
-            width: '100%',
-            height: '100%',
-            // 判定ゾーンの色
-            backgroundColor: 'rgba(255, 180, 45, 0.3)', 
-            zIndex: 55, // 道(50)より上で、線(60)より下
-            
-            // レーンの広がりに合わせて、80%と90%の高さの横幅を計算して切り抜いています
-            clipPath: 'polygon(13.5% 80%, 86.5% 80%, 93.75% 90%, 6.25% 90%)'
-          }}></div>
-      
-          {/* 2. レーンの線（SVGで描画） */}
-          <svg style={{
-            position: 'absolute',
-            top: '0', 
-            left: '0',
-            width: '100%',
-            height: '100%',
-            zIndex: 60,
-            pointerEvents: 'none'
-          }}>
-            {/* 1. 「線のグラデーション」を定義 */}
-            <defs>
-              <linearGradient id="lineFade" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="white" stopOpacity="0" />
-                <stop offset="45%" stopColor="white" stopOpacity="1" />
-                <stop offset="100%" stopColor="white" stopOpacity="1" />
-              </linearGradient>
-            </defs>
+            {/* 判定ゾーン（台形：高さ80%〜90%の位置に配置） */}
+            <div style={{
+              position: 'absolute',
+              top: '0',
+              left: '0',
+              width: '100%',
+              height: '100%',
+              // 判定ゾーンの色
+              backgroundColor: 'rgba(255, 180, 45, 0.3)',
+              zIndex: 55, // 道(50)より上で、線(60)より下
+
+              // レーンの広がりに合わせて、80%と90%の高さの横幅を計算して切り抜いています
+              clipPath: 'polygon(13.5% 80%, 86.5% 80%, 93.75% 90%, 6.25% 90%)'
+            }}></div>
+
+            {/* 2. レーンの線（SVGで描画） */}
+            <svg style={{
+              position: 'absolute',
+              top: '0',
+              left: '0',
+              width: '100%',
+              height: '100%',
+              zIndex: 60,
+              pointerEvents: 'none'
+            }}>
+              {/* 1. 「線のグラデーション」を定義 */}
+              <defs>
+                <linearGradient id="lineFade" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="white" stopOpacity="0" />
+                  <stop offset="45%" stopColor="white" stopOpacity="1" />
+                  <stop offset="100%" stopColor="white" stopOpacity="1" />
+                </linearGradient>
+              </defs>
 
               {/* 2. 線のスタート(y1)を40%に伸ばし、色(stroke)に上で作ったグラデーションを指定します */}
               {/* 左端の線 */}
@@ -508,25 +497,25 @@ export default function Game() {
               {/* 右端の線 */}
               <line x1="calc(50% + 10%)" y1="40%" x2="100%" y2="100%" stroke="url(#lineFade)" strokeWidth="2" />
 
-            {/* 上側のライン (y=80% の位置) */}
-            <line 
-              x1="13.5%" y1="80%" 
-              x2="86.5%" y2="80%" 
-              stroke="rgba(255, 220, 180, 0.8)" 
-              strokeWidth="3"
-              style={{ filter: 'drop-shadow(0 0 10px rgba(255, 220, 180, 1))' }} 
-            />
+              {/* 上側のライン (y=80% の位置) */}
+              <line
+                x1="13.5%" y1="80%"
+                x2="86.5%" y2="80%"
+                stroke="rgba(255, 220, 180, 0.8)"
+                strokeWidth="3"
+                style={{ filter: 'drop-shadow(0 0 10px rgba(255, 220, 180, 1))' }}
+              />
 
-            {/* 下側のライン (y=90% の位置) */}
-            <line 
-              x1="6.75%" y1="90%" 
-              x2="93.25%" y2="90%" 
-              stroke="rgba(255, 220, 180, 1)" 
-              strokeWidth="6" 
-              style={{ filter: 'drop-shadow(0 0 10px rgba(255, 220, 180, 1))' }}
-            />
-            
-          </svg>
+              {/* 下側のライン (y=90% の位置) */}
+              <line
+                x1="6.75%" y1="90%"
+                x2="93.25%" y2="90%"
+                stroke="rgba(255, 220, 180, 1)"
+                strokeWidth="6"
+                style={{ filter: 'drop-shadow(0 0 10px rgba(255, 220, 180, 1))' }}
+              />
+
+            </svg>
           </div>
 
           <div style={{ marginTop: '50px' }}>
