@@ -78,7 +78,7 @@ export default function Login() {
             setError(null);
             const authResponse = await postGoogleLogin(idToken);
             storeAuth(authResponse);
-            navigate('/home-logged-in');
+            navigate('/connect');
           } catch (e) {
             const message = e instanceof Error ? e.message : 'Googleログインに失敗しました。';
             setError(message);
@@ -131,7 +131,7 @@ export default function Login() {
         : await postLogin(email.trim(), password);
 
       storeAuth(authResponse);
-      navigate('/home-logged-in');
+      navigate('/connect');
     } catch (e) {
       const message = e instanceof Error ? e.message : 'ログイン処理に失敗しました。';
       setError(message);

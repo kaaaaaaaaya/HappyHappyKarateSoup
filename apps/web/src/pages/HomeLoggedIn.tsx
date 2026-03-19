@@ -1,9 +1,14 @@
 import { useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { fetchControllerRoomStatus } from '../api/controllerRoomApi';
 
 export default function HomeLoggedIn() {
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
+  const [focusedButton, setFocusedButton] = useState<'start' | 'logout'>('start');
+  const connectedRoomId = sessionStorage.getItem('connectedRoomId') ?? '';
+  const lastCommandSequenceRef = useRef(0);
+  const isSequenceInitializedRef = useRef(false);
 
   useEffect(() => {
     // 認証状態を確認
@@ -20,6 +25,48 @@ export default function HomeLoggedIn() {
       navigate('/');
     }
   }, [navigate]);
+
+  useEffect(() => {
+    if (!connectedRoomId) {
+      return;
+    }
+
+    const timerId = window.setInterval(async () => {
+      try {
+        const status = await fetchControllerRoomStatus(connectedRoomId);
+        const currentSequence = status.commandSequence ?? 0;
+        const latestCommand = status.latestCommand ?? '';
+
+        if (!isSequenceInitializedRef.current) {
+          lastCommandSequenceRef.current = currentSequence;
+          isSequenceInitializedRef.current = true;
+          return;
+        }
+
+        if (currentSequence > lastCommandSequenceRef.current) {
+          lastCommandSequenceRef.current = currentSequence;
+          
+          if (latestCommand === 'up') {
+            setFocusedButton('start');
+          } else if (latestCommand === 'down') {
+            setFocusedButton('logout');
+          } else if (latestCommand === 'confirm') {
+            if (focusedButton === 'start') {
+              handleStartGame();
+            } else {
+              handleLogout();
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to poll controller command on home page:', error);
+      }
+    }, 250);
+
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, [connectedRoomId, focusedButton]);
 
   const handleLogout = () => {
     sessionStorage.removeItem('authToken');
@@ -50,7 +97,16 @@ export default function HomeLoggedIn() {
       <div style={{ marginTop: '30px', display: 'flex', flexDirection: 'column', gap: '20px', alignItems: 'center' }}>
         <button
           onClick={handleStartGame}
-          style={{ padding: '15px 30px', fontSize: '18px', cursor: 'pointer' }}
+          style={{
+            padding: '15px 30px',
+            fontSize: '18px',
+            cursor: 'pointer',
+            border: focusedButton === 'start' ? '4px solid #42a5f5' : '1px solid #999',
+            backgroundColor: focusedButton === 'start' ? '#e3f2fd' : '#fff',
+            borderRadius: '8px',
+            fontWeight: focusedButton === 'start' ? 'bold' : 'normal',
+            transition: '0.2s'
+          }}
         >
           ゲームを開始
         </button>
@@ -60,13 +116,23 @@ export default function HomeLoggedIn() {
             padding: '15px 30px',
             fontSize: '18px',
             cursor: 'pointer',
-            backgroundColor: '#f5f5f5',
-            border: '1px solid #ccc',
+            border: focusedButton === 'logout' ? '4px solid #42a5f5' : '1px solid #999',
+            backgroundColor: focusedButton === 'logout' ? '#e3f2fd' : '#fff',
+            borderRadius: '8px',
+            borderColor: focusedButton === 'logout' ? '#42a5f5' : '#ccc',
+            fontWeight: focusedButton === 'logout' ? 'bold' : 'normal',
+            transition: '0.2s'
           }}
         >
           ログアウト
         </button>
       </div>
+
+      {connectedRoomId && (
+        <p style={{ fontSize: '12px', color: '#999', marginTop: '30px' }}>
+          コントローラー接続済み: {connectedRoomId}
+        </p>
+      )}
     </div>
   );
 }
