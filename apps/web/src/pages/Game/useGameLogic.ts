@@ -54,6 +54,7 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
     processJudgment,
     submitScore,
     totalScore,
+    rank,
     isSubmittingScore,
     scoreSubmitError,
   } = useScoreLogic();
@@ -221,6 +222,7 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
     scoreData,
     submitScore,
     totalScore,
+    rank,
     isSubmittingScore,
     scoreSubmitError,
     isChartFlowFinished,

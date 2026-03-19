@@ -86,7 +86,7 @@ export default function Game() {
   const soupGenerationPromiseRef = useRef<Promise<SoupGenerateResponse> | null>(null);
   const soupGenerationResultRef = useRef<SoupGenerateResponse | null>(null);
   // フックから必要な状態を受け取る
-  const { phase, count, ingredients, removeIngredient, submitScore, totalScore, isChartFlowFinished } = useGameLogic({
+  const { phase, count, ingredients, removeIngredient, submitScore, totalScore, rank, isChartFlowFinished } = useGameLogic({
     selectedIngredientEmojis,
   });
 
@@ -210,9 +210,11 @@ export default function Game() {
       // [EN] Score API failure should not block result navigation.
       // [JA] score API が失敗しても、リザルト遷移は止めません。
       let resolvedTotalScore = totalScore ?? 0;
+      let resolvedRank = rank ?? 'C'; // [EN] Fallback rank if not set. [JA] ランクが未設定の場合のフォールバック
       try {
         const scoreResponse = await submitScore();
         resolvedTotalScore = scoreResponse.totalScore;
+        resolvedRank = scoreResponse.rank; // [EN] Get rank from API response. [JA] API レスポンスからランク取得
         sessionStorage.setItem('latestScoreResult', JSON.stringify(scoreResponse));
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to submit score';
@@ -229,6 +231,7 @@ export default function Game() {
         flavor: FALLBACK_FLAVOR,
         comment: FALLBACK_COMMENT,
         totalScore: resolvedTotalScore,
+        rank: resolvedRank, // [EN] Add rank to result. [JA] 結果にランクを追加
       };
 
       sessionStorage.setItem('latestSoupResult', JSON.stringify(resultData));

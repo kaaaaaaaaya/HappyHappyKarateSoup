@@ -8,6 +8,7 @@ export const useScoreLogic = () => {
   const [combo, setCombo] = useState(0); // コンボ数を管理する状態
   const [maxCombo, setMaxCombo] = useState(0); // 最大コンボ数を管理する状態
   const [totalScore, setTotalScore] = useState<number | null>(null); // APIから返るtotalScore
+  const [rank, setRank] = useState<string | null>(null); // [EN] Rank from backend. [JA] バックエンドから返るランク
   const [isSubmittingScore, setIsSubmittingScore] = useState(false); // 送信中フラグ
   const [scoreSubmitError, setScoreSubmitError] = useState<string | null>(null); // 送信エラー
   const [judgments, setJudgments] = useState({ // 判定結果を管理する状態
@@ -69,8 +70,8 @@ export const useScoreLogic = () => {
     }
   };
 
-  // [EN] Sends current score data to backend and stores returned totalScore.
-  // [JA] 現在のスコアデータをバックエンドへ送信し、返却された totalScore を保持します。
+  // [EN] Sends current score data to backend and stores returned totalScore and rank.
+  // [JA] 現在のスコアデータをバックエンドへ送信し、返却された totalScore と rank を保持します。
   const submitScore = useCallback(async () => {
     setIsSubmittingScore(true);
     setScoreSubmitError(null);
@@ -84,6 +85,7 @@ export const useScoreLogic = () => {
       });
 
       setTotalScore(response.totalScore);
+      setRank(response.rank); // [EN] Store rank from response. [JA] レスポンスからランクを保持
       return response;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to submit score';
@@ -100,6 +102,7 @@ export const useScoreLogic = () => {
     processJudgment,
     submitScore,
     totalScore,
+    rank, // [EN] Rank from backend score calculation. [JA] バックエンド採点からのランク
     isSubmittingScore,
     scoreSubmitError,
   };

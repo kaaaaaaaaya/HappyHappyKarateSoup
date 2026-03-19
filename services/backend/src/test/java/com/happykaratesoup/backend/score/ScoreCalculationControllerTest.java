@@ -26,13 +26,13 @@ class ScoreCalculationControllerTest {
     private MockMvc mockMvc;
 
     /**
-     * Test: Successful score calculation request.
-     * Sends a valid JSON request with judgment data and verifies the score response.
-     * Expected: HTTP 200 OK with calculated totalScore of 4125
+     * Test: Successful score calculation request with combo bonus and rank.
+     * Sends a valid JSON request with judgment data and verifies the score + rank response.
+     * Expected: HTTP 200 OK with calculated totalScore of 4545 (4125 base + 420 bonus) and rank S
      * 
-     * テスト: スコア計算リクエストの成功ケース
-     * 判定データを含む有効なJSONリクエストを送信し、スコアレスポンスを検証します。
-     * 期待値: HTTP 200 OK、calculated totalScore = 4125
+     * テスト: スコア計算リクエストの成功ケース（コンボボーナス＆ランク含む）
+     * 判定データを含む有効なJSONリクエストを送信し、スコアとランクレスポンスを検証します。
+     * 期待値: HTTP 200 OK、totalScore = 4545（4125ベース + 420ボーナス）、rank = S
      */
     @Test
     void shouldReturnCalculatedScore() throws Exception {
@@ -56,9 +56,12 @@ class ScoreCalculationControllerTest {
                 // Verify HTTP status is 200 OK
                 // HTTPステータスが200 OKであることを検証
                 .andExpect(status().isOk())
-                // Verify calculated totalScore is 4125
-                // 計算されたtotalScoreが4125であることを検証
-                .andExpect(jsonPath("$.totalScore").value(4125));
+                // [EN] Verify calculated totalScore = base (4125) + combo bonus (42*10=420) = 4545
+                // [JA] 計算されたtotalScore = ベース（4125）+ コンボボーナス（42*10=420）= 4545
+                .andExpect(jsonPath("$.totalScore").value(4545))
+                // [EN] Verify rank is S (score >= 1800)
+                // [JA] ランクが S（スコア >= 1800）であることを検証
+                .andExpect(jsonPath("$.rank").value("S"));
     }
 
     /**
