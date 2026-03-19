@@ -11,7 +11,7 @@ import FlavorRadarChart from './writeChart.tsx';
 // |-味の数値6項目  flavor: FlavorProfile;
 // |-コメント  comment: string;
 import type { SoupGenerateResponse } from '../../api/soupApi';
-import { fetchControllerRoomStatus } from '../../api/controllerRoomApi';
+import { fetchControllerRoomStatus, postControllerRoomCommand } from '../../api/controllerRoomApi';
 
 
 type ResultData = SoupGenerateResponse & {
@@ -31,6 +31,7 @@ export default function Result() {
   const state = (location.state as ResultLocationState | null) ?? null; //location.stateをResultLocationState型にキャストし、nullの場合はnullを代入
   const lastCommandSequenceRef = useRef(0);
   const isSequenceInitializedRef = useRef(false);
+  const hasNotifiedEndGameRef = useRef(false);
 
   // 認証状態を確認
   const isLoggedIn = !!sessionStorage.getItem('authToken');
@@ -53,6 +54,17 @@ export default function Result() {
   const imageDataUrl = result?.imageDataUrl ?? '';
   const connectedRoomId = sessionStorage.getItem('connectedRoomId') ?? '';
   const isControllerFocusVisible = !!connectedRoomId;
+
+  useEffect(() => {
+    if (!connectedRoomId || hasNotifiedEndGameRef.current) {
+      return;
+    }
+
+    hasNotifiedEndGameRef.current = true;
+    void postControllerRoomCommand(connectedRoomId, 'end_game').catch((error) => {
+      console.error('Failed to notify controller room end_game on result page:', error);
+    });
+  }, [connectedRoomId]);
 
   useEffect(() => {
     if (!connectedRoomId) {

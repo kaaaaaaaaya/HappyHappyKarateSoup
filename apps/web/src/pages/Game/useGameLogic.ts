@@ -1,7 +1,7 @@
 // useGameLogic.ts
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Phase, Ingredient, ActionType } from './types';
-import charData from '../../testdatas/demo/charData-demo-60s-01.json'; // 譜面データをインポート
+import charData from '../../testdatas/demo/charData-demo-30s-01.json'; // 譜面データをインポート
 import { useScoreLogic } from './useScoreLogic'; // 分割したスコアロジックをインポート
 
 // 譜面データの型 (バックエンドからのレスポンスを想定)
@@ -123,7 +123,8 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
       // 譜面を取得する（generate_chart で作られたランダム譜面を優先）
       // エラー回避のため、setTimeoutの中にセット処理をまとめる
       setTimeout(() => {
-        setChart(getRandomGeneratedChart());
+        // setChart(getRandomGeneratedChart()); // 本番はこっち
+        setChart(charData as ChartItem[]);
         setPhase('playing'); //譜面切り替えと同時にplayingフェーズに移行
         startTimeRef.current = performance.now(); // 精度の高い開始時間を記録
         chartIndexRef.current = 0; // インデックスをリセット

@@ -4,7 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
 import { useSelectIngredient } from './useSelectIngredient';
 import { FOOD_EMOJIS } from './emojis'; // 追加した絵文字リストもインポート
-import { fetchControllerRoomStatus } from '../../api/controllerRoomApi';
+import { fetchControllerRoomStatus, postControllerRoomCommand } from '../../api/controllerRoomApi';
 
 type FocusArea = 'ingredient' | 'add-button' | 'picker-item' | 'confirm-button';
 
@@ -278,6 +278,12 @@ export default function SelectIngredient() {
     // }
     // =======================================================
 
+    if (connectedRoomId) {
+      void postControllerRoomCommand(connectedRoomId, 'start_game').catch((error) => {
+        console.error('Failed to notify controller game start:', error);
+      });
+    }
+
     // API通信コード追加後：通信が成功しないと遷移しない
     // 現在は通信無しで遷移
     navigate('/game', { state: { selectedIngredients: payloadData } });
@@ -298,7 +304,7 @@ export default function SelectIngredient() {
         {availableItems.map((item, index) => {
           // この具材が選択されているかどうか
           const isSelected = selectedChar.includes(item.id);
-          
+
           return (
             <div
               key={item.id}
@@ -331,10 +337,10 @@ export default function SelectIngredient() {
 
       {/* さらに具材を選択するボタン */}
       <div style={{ margin: '30px 0' }}>
-         <button
-            onClick={() => {
+        <button
+          onClick={() => {
             setFocusArea('add-button');
-              setIsPickerOpen(!isPickerOpen);
+            setIsPickerOpen(!isPickerOpen);
           }}
           style={{
             padding: '10px 20px',
@@ -343,9 +349,9 @@ export default function SelectIngredient() {
             backgroundColor: focusArea === 'add-button' ? '#d1ecff' : '#e0e0e0',
             border: focusArea === 'add-button' ? '3px solid #42a5f5' : 'none'
           }}
-         >
-            ＋ さらに具材を選択
-         </button>
+        >
+          ＋ さらに具材を選択
+        </button>
       </div>
 
       {/* 絵文字ピッカー（ボタンを押したら出現） */}
@@ -353,10 +359,10 @@ export default function SelectIngredient() {
         <div style={{ padding: '20px', backgroundColor: '#f5f5f5', borderRadius: '10px', display: 'inline-block', maxWidth: '400px' }}>
           <p style={{ marginTop: '0' }}>追加する絵文字を選んでね</p>
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
-            
+
             {FOOD_EMOJIS.map((food, index) => (
               <span
-                key={food.emoji} 
+                key={food.emoji}
                 onClick={() => {
                   setFocusArea('picker-item');
                   setPickerFocusedIndex(index);
@@ -368,7 +374,7 @@ export default function SelectIngredient() {
                   setFocusedIndex(0);
                   focusedIndexRef.current = 0;
                 }}  // クリックで具材追加
-                
+
                 style={{
                   fontSize: '30px',
                   cursor: 'pointer',
@@ -382,7 +388,7 @@ export default function SelectIngredient() {
                     : 'white'
                 }}
               >
-                {food.emoji} 
+                {food.emoji}
               </span>
             ))}
 
@@ -393,7 +399,7 @@ export default function SelectIngredient() {
       {/* ゲームへ進むボタン（3つ選ぶまで押せない） */}
       <div style={{ marginTop: '50px' }}>
         {isReady ? (
-          <button 
+          <button
             onClick={() => {
               setFocusArea('confirm-button');
               handleComplete();
@@ -408,7 +414,7 @@ export default function SelectIngredient() {
               borderRadius: '5px',
               fontWeight: 'bold'
             }}
-            >
+          >
             決定（ゲームへ）
           </button>
         ) : (

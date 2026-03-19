@@ -31,3 +31,21 @@ export const fetchControllerRoomStatus = async (roomId: string): Promise<RoomSta
 
   return (await response.json()) as RoomStatusResponse;
 };
+
+export const postControllerRoomCommand = async (roomId: string, command: string): Promise<RoomStatusResponse> => {
+  const response = await fetch(
+    `${API_BASE_URL}/api/controller/rooms/${encodeURIComponent(roomId)}/commands/${encodeURIComponent(command)}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to post controller command (status: ${response.status})`);
+  }
+
+  return (await response.json()) as RoomStatusResponse;
+};
