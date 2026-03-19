@@ -74,7 +74,7 @@ export default function Result() {
         if (currentSequence > lastCommandSequenceRef.current) {
           lastCommandSequenceRef.current = currentSequence;
           if (latestCommand === 'confirm') {
-            navigate('/');
+            navigate(isLoggedIn ? '/home-logged-in' : '/');
           }
         }
       } catch (error) {
@@ -85,7 +85,7 @@ export default function Result() {
     return () => {
       window.clearInterval(timerId);
     };
-  }, [connectedRoomId, navigate]);
+  }, [connectedRoomId, isLoggedIn, navigate]);
 
   return (
     <div style={{ textAlign: 'center', padding: '50px' }}>
