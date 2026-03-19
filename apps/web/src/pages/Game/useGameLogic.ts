@@ -1,3 +1,4 @@
+// useGameLogic.ts
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Phase, Ingredient, ActionType } from './types';
 import charData from '../../testdatas/charData-demo.json'; // 譜面データをインポート
