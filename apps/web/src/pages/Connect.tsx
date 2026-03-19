@@ -1,9 +1,20 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
+import { fetchControllerRoomStatus, registerControllerRoom } from '../api/controllerRoomApi';
 
 export default function Connect() {
   const [roomId, setRoomId] = useState('');
+  const navigate = useNavigate();
+  const controllerApiBase = (import.meta.env.VITE_API_BASE_URL ?? `${window.location.protocol}//${window.location.hostname}:8080`).replace(/\/$/, '');
+  const isApiBaseLocalhost = (() => {
+    try {
+      return new URL(controllerApiBase).hostname === 'localhost';
+    } catch {
+      return controllerApiBase.includes('localhost');
+    }
+  })();
 
   useEffect(() => {
     // コンポーネントマウント時にランダムなRoom IDを生成
@@ -12,14 +23,67 @@ export default function Connect() {
     setRoomId(`room-${randomId}`);
   }, []);
 
+  useEffect(() => {
+    if (!roomId) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const setupAndWatchRoom = async () => {
+      try {
+        await registerControllerRoom(roomId);
+      } catch (error) {
+        console.error('Failed to register room:', error);
+      }
+
+      const intervalId = window.setInterval(async () => {
+        if (cancelled) {
+          return;
+        }
+
+        try {
+          const status = await fetchControllerRoomStatus(roomId);
+          if (status.connected) {
+            window.clearInterval(intervalId);
+            if (!cancelled) {
+              navigate('/select');
+            }
+          }
+        } catch (error) {
+          console.error('Failed to poll room status:', error);
+        }
+      }, 1000);
+
+      return intervalId;
+    };
+
+    let activeIntervalId: number | undefined;
+    void setupAndWatchRoom().then((intervalId) => {
+      activeIntervalId = intervalId;
+    });
+
+    return () => {
+      cancelled = true;
+      if (activeIntervalId !== undefined) {
+        window.clearInterval(activeIntervalId);
+      }
+    };
+  }, [roomId, navigate]);
+
   // iOSアプリが読み取る想定のQRコード文字列
   // アプリ側で "happykaratesoup", "roomId" などを利用して判定できる形にする
-  const qrCodeValue = `happykaratesoup://connect?roomId=${roomId}`;
+  const qrCodeValue = `happykaratesoup://connect?roomId=${encodeURIComponent(roomId)}&apiBase=${encodeURIComponent(controllerApiBase)}`;
 
   return (
     <div style={{ textAlign: 'center', padding: '50px' }}>
       <h2>コントローラー接続画面</h2>
       <p>iPhoneでQRを読み取って参戦せよ！</p>
+      {isApiBaseLocalhost && (
+        <p style={{ color: '#d32f2f' }}>
+          実機接続時は API 接続先を localhost 以外にしてください（例: VITE_API_BASE_URL=http://192.168.144.187:8080）。
+        </p>
+      )}
 
       {roomId ? (
         <div style={{ 
