@@ -5,6 +5,7 @@ import { useLocation } from 'react-router-dom';
 import { useGameLogic } from './useGameLogic'; // 先ほど作ったフックを読み込む
 import { postSoupGenerate } from '../../api/soupApi';
 import type { SoupGenerateResponse } from '../../api/soupApi';
+import { postControllerRoomCommand } from '../../api/controllerRoomApi';
 
 
 //Zindex ; 背景:0, レールの背景:50, レールの線:60, 絵文字:100, 鍋の画像:10, 判定ゾーン:55
@@ -96,7 +97,7 @@ export default function Game() {
   const hasNavigatedRef = useRef(false);
   const isFinishingRef = useRef(false);
   const retryTimerRef = useRef<number | null>(null);
-  const soupGenerationPromiseRef = useRef<Promise<SoupGenerateResponse> | null>(null);
+  const soupGenerationPromiseRef = useRef<Promise<SoupGenerateResponse | null> | null>(null);
   const soupGenerationResultRef = useRef<SoupGenerateResponse | null>(null);
   // フックから必要な状態を受け取る
   const { phase,
@@ -187,7 +188,7 @@ export default function Game() {
           startSoupGeneration();
         }, 3000);
 
-        throw error;
+        return null;
       })
       .finally(() => {
         setIsImageGenerating(false);
@@ -217,11 +218,6 @@ export default function Game() {
       return;
     }
 
-    if (!soupGenerationResultRef.current) {
-      setGenerationError('画像生成の完了を待っています...');
-      return;
-    }
-
     isFinishingRef.current = true;
     setIsGenerating(true);
     sessionStorage.removeItem('latestSoupResult');
@@ -247,17 +243,33 @@ export default function Game() {
       // [JA] リザルト遷移には生成AI画像を必須とします。
       const generatedSoup = soupGenerationResultRef.current;
 
-      const resultData = {
-        ingredients: generatedSoup.ingredients,
-        imageDataUrl: generatedSoup.imageDataUrl,
-        flavor: generatedSoup.flavor,
-        comment: generatedSoup.comment,
-        totalScore: resolvedTotalScore,
-        rank: resolvedRank, // [EN] Add rank to result. [JA] 結果にランクを追加
-      };
+      const resultData = generatedSoup
+        ? {
+          ingredients: generatedSoup.ingredients,
+          imageDataUrl: generatedSoup.imageDataUrl,
+          flavor: generatedSoup.flavor,
+          comment: generatedSoup.comment,
+          totalScore: resolvedTotalScore,
+          rank: resolvedRank, // [EN] Add rank to result. [JA] 結果にランクを追加
+        }
+        : {
+          ingredients: [],
+          imageDataUrl: '',
+          flavor: 'Unknown',
+          comment: 'No comment available',
+          totalScore: resolvedTotalScore,
+          rank: resolvedRank, // [EN] Add rank to result. [JA] 結果にランクを追加
+        };
 
       sessionStorage.setItem('latestSoupResult', JSON.stringify(resultData));
       sessionStorage.setItem('latestResultData', JSON.stringify(resultData));
+
+      const connectedRoomId = sessionStorage.getItem('connectedRoomId');
+      if (connectedRoomId) {
+        void postControllerRoomCommand(connectedRoomId, 'end_game').catch((error) => {
+          console.error('Failed to notify controller room end_game:', error);
+        });
+      }
 
       hasNavigatedRef.current = true;
       navigate('/result', { state: { generated: resultData } });
@@ -280,12 +292,12 @@ export default function Game() {
   }, [isChartFlowFinished]);
 
   useEffect(() => {
-    if (!isGameFinished || !isImageReady || isGenerating || hasNavigatedRef.current) {
+    if (!isGameFinished || (!isImageReady && !generationError) || isGenerating || hasNavigatedRef.current) {
       return;
     }
 
     void handleFinishGame();
-  }, [isGameFinished, isImageReady, isGenerating]);
+  }, [isGameFinished, isImageReady, generationError, isGenerating]);
 
   return (
     <div style={{ textAlign: 'center', padding: '50px' }}>

@@ -5,10 +5,10 @@
 //  Created by 北田果耶 on 2026/03/14.
 //
 
-import SwiftUI
 import AVFoundation
-import UIKit
 import Foundation
+import SwiftUI
+import UIKit
 
 private enum CameraAuthorizationState {
     case notDetermined
@@ -165,21 +165,25 @@ struct ContentView: View {
     // [JA] 読み取った QR から roomId を解析し、バックエンドの join エンドポイントへ通知します。
     private func notifyRoomJoinedIfPossible(from scannedValue: String) {
         guard let components = URLComponents(string: scannedValue),
-              let roomId = components.queryItems?.first(where: { $0.name == "roomId" })?.value,
-              !roomId.isEmpty else {
+            let roomId = components.queryItems?.first(where: { $0.name == "roomId" })?.value,
+            !roomId.isEmpty
+        else {
             return
         }
 
-                let apiBase = components.queryItems?
-                        .first(where: { $0.name == "apiBase" })?
-                        .value?
-                        .trimmingCharacters(in: .whitespacesAndNewlines)
+        let apiBase = components.queryItems?
+            .first(where: { $0.name == "apiBase" })?
+            .value?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
 
-                let resolvedBaseUrl = (apiBase?.isEmpty == false ? apiBase! : "http://localhost:8080")
-                        .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let resolvedBaseUrl = (apiBase?.isEmpty == false ? apiBase! : "http://localhost:8080")
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
 
-        guard let encodedRoomId = roomId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
-                            let url = URL(string: "\(resolvedBaseUrl)/api/controller/rooms/\(encodedRoomId)/join") else {
+        guard
+            let encodedRoomId = roomId.addingPercentEncoding(
+                withAllowedCharacters: .urlPathAllowed),
+            let url = URL(string: "\(resolvedBaseUrl)/api/controller/rooms/\(encodedRoomId)/join")
+        else {
             return
         }
 
@@ -206,8 +210,9 @@ struct ContentView: View {
     // [JA] コントローラのボタン入力コマンドを部屋制御用バックエンドへ送信します。
     private func sendControlCommand(_ command: String, from scannedValue: String) {
         guard let components = URLComponents(string: scannedValue),
-              let roomId = components.queryItems?.first(where: { $0.name == "roomId" })?.value,
-              !roomId.isEmpty else {
+            let roomId = components.queryItems?.first(where: { $0.name == "roomId" })?.value,
+            !roomId.isEmpty
+        else {
             return
         }
 
@@ -219,9 +224,16 @@ struct ContentView: View {
         let resolvedBaseUrl = (apiBase?.isEmpty == false ? apiBase! : "http://localhost:8080")
             .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
 
-        guard let encodedRoomId = roomId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
-              let encodedCommand = command.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
-              let url = URL(string: "\(resolvedBaseUrl)/api/controller/rooms/\(encodedRoomId)/commands/\(encodedCommand)") else {
+        guard
+            let encodedRoomId = roomId.addingPercentEncoding(
+                withAllowedCharacters: .urlPathAllowed),
+            let encodedCommand = command.addingPercentEncoding(
+                withAllowedCharacters: .urlPathAllowed),
+            let url = URL(
+                string:
+                    "\(resolvedBaseUrl)/api/controller/rooms/\(encodedRoomId)/commands/\(encodedCommand)"
+            )
+        else {
             return
         }
 
@@ -232,7 +244,8 @@ struct ContentView: View {
         URLSession.shared.dataTask(with: request) { _, response, error in
             if let error {
                 DispatchQueue.main.async {
-                    controllerDebugMessage = "cmd \(command): failed (\(error.localizedDescription))"
+                    controllerDebugMessage =
+                        "cmd \(command): failed (\(error.localizedDescription))"
                 }
                 return
             }
@@ -329,13 +342,17 @@ final class Coordinator: NSObject, AVCaptureMetadataOutputObjectsDelegate {
         }
     }
 
-    func metadataOutput(_ output: AVCaptureMetadataOutput, didOutput metadataObjects: [AVMetadataObject], from connection: AVCaptureConnection) {
+    func metadataOutput(
+        _ output: AVCaptureMetadataOutput, didOutput metadataObjects: [AVMetadataObject],
+        from connection: AVCaptureConnection
+    ) {
         guard isScanning, !didFindCode else { return }
 
         for object in metadataObjects {
             guard let readable = object as? AVMetadataMachineReadableCodeObject,
-                  readable.type == .qr,
-                  let value = readable.stringValue else { continue }
+                readable.type == .qr,
+                let value = readable.stringValue
+            else { continue }
 
             didFindCode = true
             onCodeFound(value)
@@ -367,11 +384,27 @@ private struct ControllerView: View {
         case right
     }
 
+    private enum ControllerMode {
+        case remote
+        case action
+    }
+
+    private struct RoomStatusResponse: Decodable {
+        let roomId: String
+        let connected: Bool
+        let commandSequence: Int?
+        let latestCommand: String?
+    }
+
     let scannedCode: String
     let debugMessage: String
     var onDirection: (String) -> Void
     var onConfirm: () -> Void
     var onClose: () -> Void
+
+    @State private var mode: ControllerMode = .remote
+    @State private var pollTask: Task<Void, Never>? = nil
+    @State private var lastSeenSequence: Int = -1
 
     var body: some View {
         ZStack {
@@ -379,7 +412,7 @@ private struct ControllerView: View {
                 colors: [
                     Color(red: 0.05, green: 0.07, blue: 0.14),
                     Color(red: 0.08, green: 0.02, blue: 0.16),
-                    Color(red: 0.02, green: 0.18, blue: 0.22)
+                    Color(red: 0.02, green: 0.18, blue: 0.22),
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -410,45 +443,142 @@ private struct ControllerView: View {
                         .truncationMode(.middle)
                 }
 
-                    if !debugMessage.isEmpty {
-                        Text(debugMessage)
+                if !debugMessage.isEmpty {
+                    Text(debugMessage)
                         .font(.caption2.monospaced())
                         .foregroundStyle(.white.opacity(0.92))
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
                         .background(.black.opacity(0.35))
                         .clipShape(Capsule())
-                    }
+                }
 
                 Spacer()
 
-                VStack(spacing: 18) {
-                    PadButton(symbol: "chevron.up", tint: .cyan) {
-                        onDirection("up")
+                if mode == .remote {
+                    VStack(spacing: 18) {
+                        PadButton(symbol: "chevron.up", tint: .cyan) {
+                            onDirection("up")
+                        }
+                        HStack(spacing: 18) {
+                            PadButton(symbol: "chevron.left", tint: .orange) {
+                                onDirection("left")
+                            }
+                            PadButton(title: "決定", tint: .pink, diameter: 110) {
+                                onConfirm()
+                            }
+                            PadButton(symbol: "chevron.right", tint: .orange) {
+                                onDirection("right")
+                            }
+                        }
+                        PadButton(symbol: "chevron.down", tint: .cyan) {
+                            onDirection("down")
+                        }
                     }
-                    HStack(spacing: 18) {
-                        PadButton(symbol: "chevron.left", tint: .orange) {
-                            onDirection("left")
+                } else {
+                    VStack(spacing: 18) {
+                        Text("ゲームモード")
+                            .font(.headline)
+                            .foregroundStyle(.white.opacity(0.92))
+
+                        HStack(spacing: 20) {
+                            PadButton(title: "パンチ", tint: .red, diameter: 130) {
+                                onDirection("punch")
+                            }
+                            PadButton(title: "チョップ", tint: .blue, diameter: 130) {
+                                onDirection("chop")
+                            }
                         }
-                        PadButton(title: "決定", tint: .pink, diameter: 110) {
-                            onConfirm()
-                        }
-                        PadButton(symbol: "chevron.right", tint: .orange) {
-                            onDirection("right")
-                        }
-                    }
-                    PadButton(symbol: "chevron.down", tint: .cyan) {
-                        onDirection("down")
                     }
                 }
 
                 Spacer()
 
-                Text("QRコードを読み取り後、コントローラ画面に切り替わりました")
-                    .font(.footnote)
-                    .foregroundStyle(.white.opacity(0.8))
+                Text(
+                    mode == .remote
+                        ? "QRコードを読み取り後、コントローラ画面に切り替わりました"
+                        : "材料選択でゲーム開始すると、パンチ/チョップ画面へ切り替わります"
+                )
+                .font(.footnote)
+                .foregroundStyle(.white.opacity(0.8))
             }
             .padding(20)
+        }
+        .onAppear {
+            startPollingRoomStatus()
+        }
+        .onDisappear {
+            pollTask?.cancel()
+            pollTask = nil
+        }
+    }
+
+    private func startPollingRoomStatus() {
+        pollTask?.cancel()
+
+        guard let roomInfo = parseRoomInfo(from: scannedCode) else {
+            return
+        }
+
+        pollTask = Task {
+            while !Task.isCancelled {
+                await fetchRoomStatus(baseURL: roomInfo.baseURL, roomId: roomInfo.roomId)
+                try? await Task.sleep(nanoseconds: 400_000_000)
+            }
+        }
+    }
+
+    private func parseRoomInfo(from scannedValue: String) -> (baseURL: String, roomId: String)? {
+        guard let components = URLComponents(string: scannedValue),
+            let roomId = components.queryItems?.first(where: { $0.name == "roomId" })?.value,
+            !roomId.isEmpty
+        else {
+            return nil
+        }
+
+        let apiBase = components.queryItems?
+            .first(where: { $0.name == "apiBase" })?
+            .value?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let resolvedBaseURL = (apiBase?.isEmpty == false ? apiBase! : "http://localhost:8080")
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+
+        return (resolvedBaseURL, roomId)
+    }
+
+    @MainActor
+    private func fetchRoomStatus(baseURL: String, roomId: String) async {
+        guard
+            let encodedRoomId = roomId.addingPercentEncoding(
+                withAllowedCharacters: .urlPathAllowed),
+            let url = URL(string: "\(baseURL)/api/controller/rooms/\(encodedRoomId)/status")
+        else {
+            return
+        }
+
+        do {
+            let (data, response) = try await URLSession.shared.data(from: url)
+            guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode)
+            else {
+                return
+            }
+
+            let status = try JSONDecoder().decode(RoomStatusResponse.self, from: data)
+            let sequence = status.commandSequence ?? 0
+            let latest = status.latestCommand ?? ""
+
+            if sequence > lastSeenSequence {
+                lastSeenSequence = sequence
+                if latest == "start_game" {
+                    mode = .action
+                } else if latest == "end_game" || latest == "game_end" || latest == "return_remote"
+                {
+                    mode = .remote
+                }
+            }
+        } catch {
+            // keep silent to avoid noisy UI updates during temporary network hiccups
         }
     }
 }
