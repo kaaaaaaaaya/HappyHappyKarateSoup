@@ -1,5 +1,5 @@
 // useScoreLogic.ts
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useState, useCallback } from 'react';
 import type { ActionType } from './types';
 import { postScoreCalculate } from '../../api/scoreApi';
 

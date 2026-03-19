@@ -23,7 +23,6 @@ type ResultLocationState = { // 生成結果とエラー情報を格納する型
   generated?: ResultData;
   error?: string; //エラーメッセージを文字列で格納
   score?: number;
-  scoreResponse?: ScoreResponse; //要確認 不要かも
 };
 
 export default function Result() {
@@ -32,6 +31,9 @@ export default function Result() {
   const state = (location.state as ResultLocationState | null) ?? null; //location.stateをResultLocationState型にキャストし、nullの場合はnullを代入
   const lastCommandSequenceRef = useRef(0);
   const isSequenceInitializedRef = useRef(false);
+
+  // 認証状態を確認
+  const isLoggedIn = !!sessionStorage.getItem('authToken');
 
   // 生成結果の優先順位: 1. stateから取得 2. sessionStorageから取得
   const storedResultData = sessionStorage.getItem('latestResultData');
@@ -85,8 +87,6 @@ export default function Result() {
     };
   }, [connectedRoomId, navigate]);
 
-  const totalScore = state?.scoreResponse?.totalScore ?? 0; // スコアがない場合は0をデフォルト値とする
-
   return (
     <div style={{ textAlign: 'center', padding: '50px' }}>
       <h2>リザルト画面</h2>
@@ -108,7 +108,7 @@ export default function Result() {
         <div style={{ textAlign: 'left' }}>
 
           <h2 style={{ color: '#ff9800' }}>ランク: {rankValue}</h2>
-          <p>スコア: {totalScore > 0 ? totalScore.toLocaleString() : '---'} Gpt</p>
+          <p>スコア: {scoreValue.toLocaleString()} Gpt</p>
 
           {result?.flavor ? (
             <FlavorRadarChart flavor={result.flavor} size={300} />
@@ -129,8 +129,9 @@ export default function Result() {
 
       <div style={{ marginTop: '50px' }}>
         <p>iPhoneのコントローラー（決定）で操作</p>
-        <Link to="/">
+        {isLoggedIn ? (
           <button
+            onClick={() => navigate('/home-logged-in')}
             style={{
               padding: '15px 30px',
               fontSize: '18px',
@@ -144,7 +145,24 @@ export default function Result() {
           >
             ホームに戻る
           </button>
-        </Link>
+        ) : (
+          <Link to="/">
+            <button
+              style={{
+                padding: '15px 30px',
+                fontSize: '18px',
+                cursor: 'pointer',
+                border: isControllerFocusVisible ? '4px solid #42a5f5' : '1px solid #999',
+                backgroundColor: isControllerFocusVisible ? '#e3f2fd' : '#fff',
+                borderRadius: '8px',
+                fontWeight: isControllerFocusVisible ? 'bold' : 'normal',
+                transition: '0.2s'
+              }}
+            >
+              ホームに戻る
+            </button>
+          </Link>
+        )}
       </div>
     </div>
   );

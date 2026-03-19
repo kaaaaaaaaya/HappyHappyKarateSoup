@@ -31,11 +31,15 @@ export default function Connect() {
     let cancelled = false;
 
     const setupAndWatchRoom = async () => {
+      // ログイン状態を確認
+      const isLoggedIn = !!sessionStorage.getItem('authToken');
+      const nextPath = isLoggedIn ? '/home-logged-in' : '/select';
+
       try {
         const registeredState = await registerControllerRoom(roomId);
         if (registeredState.connected && !cancelled) {
           sessionStorage.setItem('connectedRoomId', roomId);
-          navigate('/select', { state: { roomId } });
+          navigate(nextPath, { state: { roomId } });
           return undefined;
         }
       } catch (error) {
@@ -46,7 +50,7 @@ export default function Connect() {
         const initialStatus = await fetchControllerRoomStatus(roomId);
         if (initialStatus.connected && !cancelled) {
           sessionStorage.setItem('connectedRoomId', roomId);
-          navigate('/select', { state: { roomId } });
+          navigate(nextPath, { state: { roomId } });
           return undefined;
         }
       } catch (error) {
@@ -64,7 +68,7 @@ export default function Connect() {
             window.clearInterval(intervalId);
             if (!cancelled) {
               sessionStorage.setItem('connectedRoomId', roomId);
-              navigate('/select', { state: { roomId } });
+              navigate(nextPath, { state: { roomId } });
             }
           }
         } catch (error) {
