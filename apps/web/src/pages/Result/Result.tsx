@@ -10,9 +10,14 @@ import FlavorRadarChart from './writeChart.tsx';
 // |-コメント  comment: string;
 import type { SoupGenerateResponse } from '../../api/soupApi';
 
+type ResultData = SoupGenerateResponse & {
+  totalScore?: number;
+};
+
 type ResultLocationState = { // 生成結果とエラー情報を格納する型
-  generated?: SoupGenerateResponse;
+  generated?: ResultData;
   error?: string; //エラーメッセージを文字列で格納
+  score?: number;
 };
 
 //memo
@@ -23,9 +28,17 @@ export default function Result() {
   const state = (location.state as ResultLocationState | null) ?? null; //location.stateをResultLocationState型にキャストし、nullの場合はnullを代入
 
   // 生成結果の優先順位: 1. stateから取得 2. sessionStorageから取得
-  const stored = sessionStorage.getItem('latestSoupResult');
-  const storedResult = stored ? (JSON.parse(stored) as SoupGenerateResponse) : null;
+  const storedResultData = sessionStorage.getItem('latestResultData');
+  const storedSoup = sessionStorage.getItem('latestSoupResult');
+  const storedScore = sessionStorage.getItem('latestScoreResult');
+  const parsedStoredScore = storedScore ? (JSON.parse(storedScore) as { totalScore?: number }) : null;
+  const storedResult = storedResultData
+    ? (JSON.parse(storedResultData) as ResultData)
+    : storedSoup
+      ? (JSON.parse(storedSoup) as ResultData)
+      : null;
   const result = state?.generated ?? storedResult;
+  const scoreValue = result?.totalScore ?? state?.score ?? parsedStoredScore?.totalScore ?? 0;
 
   const comment = result?.comment ?? 'コメントはまだ生成されていません。';
   const imageDataUrl = result?.imageDataUrl ?? '';
@@ -50,7 +63,7 @@ export default function Result() {
 
         <div style={{ textAlign: 'left' }}>
           <h2 style={{ color: '#ff9800' }}>ランク: S</h2>
-          <p>スコア: 9,850 Gpt</p>
+          <p>スコア: {scoreValue} Gpt</p>
           {result?.flavor ? (
             <FlavorRadarChart flavor={result.flavor} size={300} />
           ) : (
