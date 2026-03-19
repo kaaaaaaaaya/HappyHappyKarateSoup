@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Home from './pages/Home';
+import HomeLoggedIn from './pages/HomeLoggedIn';
 import Login from './pages/Login';
 import Connect from './pages/Connect';
 import SelectIngredient from './pages/SelectIngredient/SelectIngredient';
@@ -11,6 +12,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/home-logged-in" element={<HomeLoggedIn />} />
         <Route path="/login" element={<Login />} />
         <Route path="/connect" element={<Connect />} />
         <Route path="/select" element={<SelectIngredient />} />

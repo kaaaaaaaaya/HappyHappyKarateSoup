@@ -23,7 +23,6 @@ type ResultLocationState = { // 生成結果とエラー情報を格納する型
   generated?: ResultData;
   error?: string; //エラーメッセージを文字列で格納
   score?: number;
-  scoreResponse?: ScoreResponse; //要確認 不要かも
 };
 
 export default function Result() {
@@ -32,6 +31,9 @@ export default function Result() {
   const state = (location.state as ResultLocationState | null) ?? null; //location.stateをResultLocationState型にキャストし、nullの場合はnullを代入
   const lastCommandSequenceRef = useRef(0);
   const isSequenceInitializedRef = useRef(false);
+
+  // 認証状態を確認
+  const isLoggedIn = !!sessionStorage.getItem('authToken');
 
   // 生成結果の優先順位: 1. stateから取得 2. sessionStorageから取得
   const storedResultData = sessionStorage.getItem('latestResultData');
@@ -127,8 +129,9 @@ export default function Result() {
 
       <div style={{ marginTop: '50px' }}>
         <p>iPhoneのコントローラー（決定）で操作</p>
-        <Link to="/">
+        {isLoggedIn ? (
           <button
+            onClick={() => navigate('/home-logged-in')}
             style={{
               padding: '15px 30px',
               fontSize: '18px',
@@ -142,7 +145,24 @@ export default function Result() {
           >
             ホームに戻る
           </button>
-        </Link>
+        ) : (
+          <Link to="/">
+            <button
+              style={{
+                padding: '15px 30px',
+                fontSize: '18px',
+                cursor: 'pointer',
+                border: isControllerFocusVisible ? '4px solid #42a5f5' : '1px solid #999',
+                backgroundColor: isControllerFocusVisible ? '#e3f2fd' : '#fff',
+                borderRadius: '8px',
+                fontWeight: isControllerFocusVisible ? 'bold' : 'normal',
+                transition: '0.2s'
+              }}
+            >
+              ホームに戻る
+            </button>
+          </Link>
+        )}
       </div>
     </div>
   );
