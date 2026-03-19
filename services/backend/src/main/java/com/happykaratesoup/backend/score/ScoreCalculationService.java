@@ -18,6 +18,16 @@ public class ScoreCalculationService {
     private static final int OK_POINT = 25;
     private static final int MISS_POINT = 0;
 
+    // [EN] Combo bonus points per combo (10pts per combo).
+    // [JA] コンボボーナス（1コンボあたり10点）
+    private static final int COMBO_BONUS = 10;
+
+    // [EN] Rank thresholds based on total score (including combo bonus).
+    // [JA] ランク基準（コンボボーナス含む）
+    private static final int RANK_S_THRESHOLD = 1800;
+    private static final int RANK_A_THRESHOLD = 1400;
+    private static final int RANK_B_THRESHOLD = 900;
+
     /**
      * Calculates the total score from judgment counts.
      * Multiplies each judgment type by its point value and sums them up.
@@ -36,16 +46,39 @@ public class ScoreCalculationService {
         var scoreData = request.scoreData();
         var judgments = scoreData.judgments();
 
-        // Calculate total score by multiplying each judgment count by its point value
-        // 各判定カウントにそのポイント値を乗算してスコアを合計
-        // Formula: totalScore = perfect*100 + good*50 + ok*25 + miss*0
-        int totalScore = judgments.perfect() * PERFECT_POINT
+        // [EN] Calculate base score by multiplying each judgment count by its point value.
+        // [JA] 各判定カウントにそのポイント値を乗算してベーススコアを合計
+        // Formula: base = perfect*100 + good*50 + ok*25 + miss*0
+        int baseScore = judgments.perfect() * PERFECT_POINT
                 + judgments.good() * GOOD_POINT
                 + judgments.ok() * OK_POINT
                 + judgments.miss() * MISS_POINT;
 
-        // Return response with total score
-        // totalScoreを含むレスポンスを返却
-        return new ScoreCalculationResponse(totalScore);
+        // [EN] Add combo bonus: 10 points per completed combo.
+        // [JA] コンボボーナスを加算（1コンボあたり10点）
+        int comboBonus = scoreData.maxCombo() * COMBO_BONUS;
+        int totalScore = baseScore + comboBonus;
+
+        // [EN] Calculate rank based on total score.
+        // [JA] 総スコアに基づいてランクを計算
+        String rank = calculateRank(totalScore);
+
+        // Return response with total score and rank
+        // totalScore とランクを含むレスポンスを返却
+        return new ScoreCalculationResponse(totalScore, rank);
+    }
+
+    // [EN] Determines rank from total score.
+    // [JA] 総スコアからランクを判定します
+    private String calculateRank(int totalScore) {
+        if (totalScore >= RANK_S_THRESHOLD) {
+            return "S";
+        } else if (totalScore >= RANK_A_THRESHOLD) {
+            return "A";
+        } else if (totalScore >= RANK_B_THRESHOLD) {
+            return "B";
+        } else {
+            return "C";
+        }
     }
 }

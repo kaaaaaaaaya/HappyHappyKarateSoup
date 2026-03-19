@@ -33,3 +33,6 @@ logs/
 **/node_modules/
 **/dist/
 **/dist-ssr/
+
+target/
+**/target/

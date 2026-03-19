@@ -14,6 +14,7 @@ export type ScoreCalculateRequest = {
 
 export type ScoreCalculateResponse = {
   totalScore: number;
+  rank: string; // [EN] Rank from backend calculation (S/A/B/C). [JA] バックエンド計算からのランク（S/A/B/C）
 };
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080').replace(/\/$/, '');

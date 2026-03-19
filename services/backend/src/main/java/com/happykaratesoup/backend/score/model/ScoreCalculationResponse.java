@@ -11,6 +11,7 @@ package com.happykaratesoup.backend.score.model;
  *                   すべての判定ポイントの合計
  */
 public record ScoreCalculationResponse(
-        int totalScore
+        int totalScore,
+        String rank
 ) {
 }

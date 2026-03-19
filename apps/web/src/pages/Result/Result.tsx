@@ -12,6 +12,7 @@ import type { SoupGenerateResponse } from '../../api/soupApi';
 
 type ResultData = SoupGenerateResponse & {
   totalScore?: number;
+  rank?: string; // [EN] Rank from score calculation. [JA] 採点計算からのランク
 };
 
 type ResultLocationState = { // 生成結果とエラー情報を格納する型
@@ -31,7 +32,7 @@ export default function Result() {
   const storedResultData = sessionStorage.getItem('latestResultData');
   const storedSoup = sessionStorage.getItem('latestSoupResult');
   const storedScore = sessionStorage.getItem('latestScoreResult');
-  const parsedStoredScore = storedScore ? (JSON.parse(storedScore) as { totalScore?: number }) : null;
+  const parsedStoredScore = storedScore ? (JSON.parse(storedScore) as { totalScore?: number; rank?: string }) : null;
   const storedResult = storedResultData
     ? (JSON.parse(storedResultData) as ResultData)
     : storedSoup
@@ -39,6 +40,7 @@ export default function Result() {
       : null;
   const result = state?.generated ?? storedResult;
   const scoreValue = result?.totalScore ?? state?.score ?? parsedStoredScore?.totalScore ?? 0;
+  const rankValue = result?.rank ?? parsedStoredScore?.rank ?? 'C'; // [EN] Fallback to 'C'. [JA] 取得できない場合は 'C'
 
   const comment = result?.comment ?? 'コメントはまだ生成されていません。';
   const imageDataUrl = result?.imageDataUrl ?? '';
@@ -62,7 +64,7 @@ export default function Result() {
         </div>
 
         <div style={{ textAlign: 'left' }}>
-          <h2 style={{ color: '#ff9800' }}>ランク: S</h2>
+          <h2 style={{ color: '#ff9800' }}>ランク: {rankValue}</h2>
           <p>スコア: {scoreValue} Gpt</p>
           {result?.flavor ? (
             <FlavorRadarChart flavor={result.flavor} size={300} />
