@@ -31,6 +31,30 @@ const animationStyles = `
       transform: translate3d(calc(-50% + var(--end-x)), 1000%, 0px) scale(6); 
       opacity: 0.7; /* 最後：消える直前で再び透明になる */
     }
+  
+  @keyframes judgmentPop {
+    0% { 
+      transform: translate(-50%, -50%) scale(0.5); 
+      opacity: 0; 
+    }
+    15% { 
+      transform: translate(-50%, -50%) scale(1.2); /* 少し大きく跳ねる */
+      opacity: 1; 
+    }
+    30% {
+      transform: translate(-50%, -50%) scale(1.0); /* 定位置 */
+      opacity: 1;
+    }
+    100% { 
+      transform: translate(-50%, -50%) scale(1.0); 
+      opacity: 0; /* 速攻で消える */
+    }
+  }
+
+  @keyframes comboPop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
   }
 `;
 
@@ -49,7 +73,13 @@ export default function Game() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   // フックから必要な状態を受け取る
-  const { phase, count, ingredients, removeIngredient } = useGameLogic();
+  const { phase, 
+          count, 
+          ingredients, 
+          removeIngredient,
+          combo, 
+          lastJudgment,
+         } = useGameLogic();
 
   // [EN] Sets default reference image (miso.png) in sessionStorage if not present.
   // [JA] sessionStorage に参照画像がない場合、miso.png を既定値として保存します。
@@ -163,6 +193,51 @@ export default function Game() {
             perspective: '500px'
           }}>
 
+            {/* 1. 判定表示 */}
+            {lastJudgment && (
+              <div 
+                key={lastJudgment.key} // keyを変えることでアニメーションが毎回リセットされる
+                style={{
+                  position: 'absolute',
+                  top: '60%',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  fontSize: '48px',
+                  fontWeight: 'bold',
+                  fontFamily: "'DotGothic16', sans-serif",
+                  color: lastJudgment.text.includes('MISS') ? '#9e9e9e' : '#ffeb3b',
+                  textShadow: '3px 3px 0 #000',
+                  zIndex: 200,
+                  pointerEvents: 'none',
+                  animation: 'judgmentPop 0.2s ease-out forwards'
+                }}
+              >
+                {lastJudgment.text}
+              </div>
+            )}
+
+            {/* コンボ表示（例: 3 Combo!） */}
+            {combo > 0 && (
+              <div 
+                key={`combo-${combo}`}
+                style={{
+                  position: 'absolute',
+                  top: '10%',
+                  right: '5%',
+                  textAlign: 'right',
+                  fontFamily: "'DotGothic16', sans-serif",
+                  zIndex: 200,
+                  pointerEvents: 'none',
+                  animation: 'comboPop 0.1s ease-out'
+                }}
+              >
+                <div style={{ fontSize: '20px', color: '#fff', textShadow: '2px 2px 0 #000' }}>COMBO</div>
+                <div style={{ fontSize: '60px', color: '#ff5722', textShadow: '3px 3px 0 #000', lineHeight: '1' }}>
+                  {combo}
+                </div>
+              </div>
+            )}
+
             {/* 具材 */}
             {ingredients.map((item) => (
               <div
@@ -181,7 +256,7 @@ export default function Game() {
                   //Missフラグがある場合の処理
                   opacity: item.missed ? 0.2 : 1, // missedフラグが立っている場合は半透明にする
                   filter: item.missed ? 'grayscale(100%)' : 'none', // missedフラグが立っている場合はグレースケールにする
-                  transition: 'opacity 0s, filter 0.2s', // opacityとfilterの変化にスムーズなトランジションを追加
+                  //transition: 'opacity 0s, filter 0.2s', // opacityとfilterの変化にスムーズなトランジションを追加
 
                   // @ ts-ignore
                   '--start-x': `${item.startX}px`,
@@ -194,11 +269,11 @@ export default function Game() {
                 <div style={{
                   fontFamily: "'DotGothic16', sans-serif",
                   fontSize: '20px',
-                  color: item.emoji === '🍖' ? '#ff3b3b' : '#32cd32',
+                  color: item.type === 'punch' ? '#ff3b3b' : '#32cd32',
                   textShadow: '1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff',
                   marginTop: '5px'
                 }}>
-                  {item.emoji === '🍖' ? 'Punch!!' : 'Chop!'}
+                  {item.type === 'punch' ? 'Punch!!' : 'Chop!'}
                 </div>
               </div>
             ))}
