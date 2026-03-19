@@ -8,6 +8,7 @@
 import SwiftUI
 import AVFoundation
 import UIKit
+import Foundation
 
 private enum CameraAuthorizationState {
     case notDetermined
@@ -52,6 +53,7 @@ struct ContentView: View {
                 QRScannerView(isScanning: $isScanning) { code in
                     scannedCode = code
                     isScanning = false
+                    notifyRoomJoinedIfPossible(from: code)
                     isControllerPresented = true
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 16))
@@ -145,6 +147,39 @@ struct ContentView: View {
         default:
             cameraAuthorization = .denied
         }
+    }
+
+    // [EN] Parses roomId from scanned QR and notifies backend join endpoint.
+    // [JA] 読み取った QR から roomId を解析し、バックエンドの join エンドポイントへ通知します。
+    private func notifyRoomJoinedIfPossible(from scannedValue: String) {
+        guard let components = URLComponents(string: scannedValue),
+              let roomId = components.queryItems?.first(where: { $0.name == "roomId" })?.value,
+              !roomId.isEmpty else {
+            return
+        }
+
+                let apiBase = components.queryItems?
+                        .first(where: { $0.name == "apiBase" })?
+                        .value?
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+
+                let resolvedBaseUrl = (apiBase?.isEmpty == false ? apiBase! : "http://localhost:8080")
+                        .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+
+        guard let encodedRoomId = roomId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+                            let url = URL(string: "\(resolvedBaseUrl)/api/controller/rooms/\(encodedRoomId)/join") else {
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        URLSession.shared.dataTask(with: request) { _, _, error in
+            if let error {
+                print("Failed to notify room join: \(error.localizedDescription)")
+            }
+        }.resume()
     }
 }
 

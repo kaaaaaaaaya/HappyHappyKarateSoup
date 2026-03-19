@@ -16,4 +16,4 @@ gemini:
 
 app:
   cors:
-    allowed-origins: http://localhost:5173
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173}
