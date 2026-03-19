@@ -10,14 +10,17 @@ import FlavorRadarChart from './writeChart.tsx';
 // |-コメント  comment: string;
 import type { SoupGenerateResponse } from '../../api/soupApi';
 
-type ScoreResponse = {
-  totalScore: number; // 総合スコア
-}
+
+type ResultData = SoupGenerateResponse & {
+  totalScore?: number;
+  rank?: string; // [EN] Rank from score calculation. [JA] 採点計算からのランク
+};
 
 type ResultLocationState = { // 生成結果とエラー情報を格納する型
-  generated?: SoupGenerateResponse;
-  scoreResponse?: ScoreResponse;
+  generated?: ResultData;
   error?: string; //エラーメッセージを文字列で格納
+  score?: number;
+  scoreResponse?: ScoreResponse; //要確認 不要かも
 };
 
 export default function Result() {
@@ -25,9 +28,18 @@ export default function Result() {
   const state = (location.state as ResultLocationState | null) ?? null; //location.stateをResultLocationState型にキャストし、nullの場合はnullを代入
 
   // 生成結果の優先順位: 1. stateから取得 2. sessionStorageから取得
-  const stored = sessionStorage.getItem('latestSoupResult');
-  const storedResult = stored ? (JSON.parse(stored) as SoupGenerateResponse) : null;
+  const storedResultData = sessionStorage.getItem('latestResultData');
+  const storedSoup = sessionStorage.getItem('latestSoupResult');
+  const storedScore = sessionStorage.getItem('latestScoreResult');
+  const parsedStoredScore = storedScore ? (JSON.parse(storedScore) as { totalScore?: number; rank?: string }) : null;
+  const storedResult = storedResultData
+    ? (JSON.parse(storedResultData) as ResultData)
+    : storedSoup
+      ? (JSON.parse(storedSoup) as ResultData)
+      : null;
   const result = state?.generated ?? storedResult;
+  const scoreValue = result?.totalScore ?? state?.score ?? parsedStoredScore?.totalScore ?? 0;
+  const rankValue = result?.rank ?? parsedStoredScore?.rank ?? 'C'; // [EN] Fallback to 'C'. [JA] 取得できない場合は 'C'
 
   const comment = result?.comment ?? 'コメントはまだ生成されていません。';
   const imageDataUrl = result?.imageDataUrl ?? '';
@@ -53,8 +65,10 @@ export default function Result() {
         </div>
 
         <div style={{ textAlign: 'left' }}>
-          <h2 style={{ color: '#ff9800' }}>ランク: S</h2>
+
+          <h2 style={{ color: '#ff9800' }}>ランク: {rankValue}</h2>
           <p>スコア: {totalScore > 0 ? totalScore.toLocaleString() : '---'} Gpt</p>
+
           {result?.flavor ? (
             <FlavorRadarChart flavor={result.flavor} size={300} />
           ) : (
