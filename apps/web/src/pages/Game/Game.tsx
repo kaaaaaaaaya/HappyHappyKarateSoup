@@ -144,6 +144,7 @@ export default function Game() {
   const [controllerXNorm, setControllerXNorm] = useState<number | null>(null);
   const [controllerBaselineXNorm, setControllerBaselineXNorm] = useState<number | null>(null);
   const [controllerLastSeenAt, setControllerLastSeenAt] = useState<number | null>(null);
+  const [controllerRoomConnected, setControllerRoomConnected] = useState(false);
   const [controllerLatestSequence, setControllerLatestSequence] = useState(0);
   const [controllerLatestCommand, setControllerLatestCommand] = useState('');
   const [controllerLatestActionAt, setControllerLatestActionAt] = useState<number | null>(null);
@@ -236,9 +237,11 @@ export default function Game() {
         const currentSequence = status.commandSequence ?? 0;
         const latestCommand = status.latestCommand ?? '';
         const incrementalCommands = status.commands ?? [];
+        setControllerRoomConnected(status.connected);
         setControllerLatestSequence(currentSequence);
         setControllerLatestCommand(latestCommand);
-        if (latestCommand !== '') {
+        if (status.connected) {
+          // Keep link alive even when no action command arrives.
           setControllerLastSeenAt(Date.now());
         }
 
@@ -302,7 +305,7 @@ export default function Game() {
   }, [phase]);
 
   const controllerLinkHealthy =
-    controllerLastSeenAt !== null && clockMs - controllerLastSeenAt <= 2000;
+    controllerRoomConnected && controllerLastSeenAt !== null && clockMs - controllerLastSeenAt <= 6000;
   const controllerRelativeXNorm =
     controllerXNorm !== null && controllerBaselineXNorm !== null
       ? controllerXNorm - controllerBaselineXNorm
