@@ -56,6 +56,9 @@ public class SoupGenerationService {
         } catch (RuntimeException ex) {
             if (!isGeminiConfigMissing(ex)) {
                 if (isGeminiTemporaryFailure(ex)) {
+                    if (!enableLocalFallback) {
+                        throw ex;
+                    }
                     LOG.warn("Gemini temporary failure detected; returning local fallback response", ex);
                     return buildLocalFallbackResponse(ingredients);
                 }
