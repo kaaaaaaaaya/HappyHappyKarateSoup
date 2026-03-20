@@ -1,3 +1,5 @@
+import { resolveApiBaseUrl } from './apiBase';
+
 export type ScoreJudgments = {
   perfect: number;
   good: number;
@@ -17,7 +19,7 @@ export type ScoreCalculateResponse = {
   rank: string; // [EN] Rank from backend calculation (S/A/B/C). [JA] バックエンド計算からのランク（S/A/B/C）
 };
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080').replace(/\/$/, '');
+const API_BASE_URL = resolveApiBaseUrl();
 
 // [EN] Calls backend score calculation API and returns total score.
 // [JA] バックエンドのスコア計算 API を呼び出し、合計スコアを返します。

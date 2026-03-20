@@ -1,3 +1,5 @@
+import { resolveApiBaseUrl } from './apiBase';
+
 export type SoupGenerateRequest = {
     ingredients: string[];
     referenceImageDataUrl?: string;
@@ -19,7 +21,7 @@ export type SoupGenerateResponse = {
     comment: string;
 };
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080').replace(/\/$/, '');
+const API_BASE_URL = resolveApiBaseUrl();
 
 // [EN] Calls backend soup generation API and returns generated payload.
 // [JA] バックエンドのスープ生成 API を呼び出し、生成結果を返します。

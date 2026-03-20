@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLocation } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
@@ -12,6 +12,7 @@ import FlavorRadarChart from './writeChart.tsx';
 // |-コメント  comment: string;
 import type { SoupGenerateResponse } from '../../api/soupApi';
 import { fetchControllerRoomStatus, postControllerRoomCommand } from '../../api/controllerRoomApi';
+import { postSaveCollection } from '../../api/collectionApi';
 
 
 type ResultData = SoupGenerateResponse & {
@@ -32,6 +33,10 @@ export default function Result() {
   const lastCommandSequenceRef = useRef(0);
   const isSequenceInitializedRef = useRef(false);
   const hasNotifiedEndGameRef = useRef(false);
+  const hasSavedCollectionRef = useRef(false);
+  const [isSavingCollection, setIsSavingCollection] = useState(false);
+  const [collectionSavedError, setCollectionSavedError] = useState<string | null>(null);
+  const [collectionSaved, setCollectionSaved] = useState(false);
 
   // 認証状態を確認
   const isLoggedIn = !!sessionStorage.getItem('authToken');
@@ -99,6 +104,66 @@ export default function Result() {
     };
   }, [connectedRoomId, isLoggedIn, navigate]);
 
+  // [JA] ログインユーザの場合のみ、Resultで生成したスープ+評価をコレクションとして保存する
+  useEffect(() => {
+    if (!isLoggedIn) {
+      return;
+    }
+    if (hasSavedCollectionRef.current) {
+      return;
+    }
+    if (!result) {
+      return;
+    }
+    if (!imageDataUrl) {
+      return;
+    }
+
+    const authUserRaw = sessionStorage.getItem('authUser');
+    if (!authUserRaw) {
+      return;
+    }
+
+    let userId: number | null = null;
+    try {
+      const authUser = JSON.parse(authUserRaw) as { userId?: number };
+      userId = authUser.userId ?? null;
+    } catch {
+      return;
+    }
+
+    if (!userId) {
+      return;
+    }
+
+    hasSavedCollectionRef.current = true;
+    const payload = {
+      userId,
+      imageDataUrl,
+      ingredients: result.ingredients ?? [],
+      flavor: result.flavor,
+      comment,
+      totalScore: scoreValue,
+      rank: rankValue,
+    };
+
+    void (async () => {
+      setIsSavingCollection(true);
+      setCollectionSavedError(null);
+      setCollectionSaved(false);
+
+      try {
+        await postSaveCollection(payload);
+        setCollectionSaved(true);
+      } catch (e) {
+        const message = e instanceof Error ? e.message : 'Failed to save collection';
+        setCollectionSavedError(message);
+      } finally {
+        setIsSavingCollection(false);
+      }
+    })();
+  }, [comment, imageDataUrl, isLoggedIn, rankValue, result, scoreValue]);
+
   return (
     <div style={{ textAlign: 'center', padding: '50px' }}>
       <h2>リザルト画面</h2>
@@ -136,6 +201,15 @@ export default function Result() {
         <p><strong>AIからのコメント:</strong></p>
         <p>{comment}</p>
         {state?.error && <p style={{ color: '#d32f2f' }}>APIエラー: {state.error}</p>}
+        {isLoggedIn && isSavingCollection && (
+          <p style={{ color: '#616161', fontSize: '12px', marginTop: '8px' }}>コレクションを保存しています...</p>
+        )}
+        {isLoggedIn && collectionSavedError && (
+          <p style={{ color: '#b42318', fontSize: '12px', marginTop: '8px' }}>スープの保存に失敗しました: {collectionSavedError}</p>
+        )}
+        {isLoggedIn && collectionSaved && (
+          <p style={{ color: '#2e7d32', fontSize: '12px', marginTop: '8px' }}>保存しました。</p>
+        )}
         {!result && !state?.error && <p style={{ color: '#616161' }}>生成結果がまだありません。</p>}
       </div>
 

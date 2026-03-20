@@ -80,6 +80,20 @@ type GameLocationState = {
   selectedIngredients?: SelectedIngredient[];
 };
 
+const toUserFriendlyGenerationError = (rawMessage: string): string => {
+  const normalized = rawMessage.toLowerCase();
+
+  if (normalized.includes('gemini') || normalized.includes('api_key') || normalized.includes('vertex')) {
+    return 'ただいまAI生成の準備中です。しばらくしてからもう一度お試しください。';
+  }
+
+  if (normalized.includes('failed to fetch') || normalized.includes('network')) {
+    return '通信状況を確認して、もう一度お試しください。';
+  }
+
+  return '生成に失敗しました。時間をおいて再度お試しください。';
+};
+
 export default function Game() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -179,7 +193,8 @@ export default function Game() {
     })()
       .catch((error) => {
         const message = error instanceof Error ? error.message : 'Failed to generate result';
-        setGenerationError(message);
+        console.error('Soup generation failed:', error);
+        setGenerationError(toUserFriendlyGenerationError(message));
         soupGenerationPromiseRef.current = null;
 
         // [EN] Keep retrying image generation while staying on game screen.
@@ -236,7 +251,7 @@ export default function Game() {
         sessionStorage.setItem('latestScoreResult', JSON.stringify(scoreResponse));
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to submit score';
-        setGenerationError(message);
+        setGenerationError(toUserFriendlyGenerationError(message));
       }
 
       // [EN] AI-generated image is required for result transition.
@@ -276,7 +291,7 @@ export default function Game() {
       return;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to finish game';
-      setGenerationError(message);
+      setGenerationError(toUserFriendlyGenerationError(message));
     } finally {
       setIsGenerating(false);
       isFinishingRef.current = false;
