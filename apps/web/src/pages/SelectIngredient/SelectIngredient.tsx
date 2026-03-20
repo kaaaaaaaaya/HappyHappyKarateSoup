@@ -35,7 +35,9 @@ export default function SelectIngredient() {
   const connectedRoomId = sessionStorage.getItem('connectedRoomId');
   
   const handleControllerConfirm = useCallback((idx: number) => {
-    if (idx === currentItems.length) {
+    if (idx === currentItems.length) { // カートボタン
+      setShowCart((prev) => !prev);
+    } else if (idx === currentItems.length + 1) { // 調理ボタン
       if (isReady) {
         handleComplete();
       }
@@ -47,7 +49,7 @@ export default function SelectIngredient() {
     }
   }, [currentItems, isReady, handleComplete, selectedChar, toggleSelection]);
 
-  const maxIdx = isReady ? currentItems.length : currentItems.length - 1;
+  const maxIdx = isReady ? currentItems.length + 1 : currentItems.length;
 
   const { cursorIndex, setCursorIndex } = useIngredientController(
     connectedRoomId,
@@ -124,8 +126,8 @@ export default function SelectIngredient() {
                     cursor: (isSelected || selectedChar.length < 3) ? 'pointer' : 'not-allowed',
                     opacity: (!isSelected && selectedChar.length >= 3) ? 0.5 : 1,
                     transition: 'all 0.1s',
-                    boxShadow: isFocused ? '0 0 0 8px #FF0000, 0 0 20px rgba(255, 0, 0, 0.8)' : '0 4px 0 rgba(0,0,0,0.1)',
-                    transform: isFocused ? 'scale(1.1)' : 'scale(1)',
+                    boxShadow: isFocused ? '0 0 0 4px var(--c-blue-500)' : '0 4px 0 rgba(0,0,0,0.1)',
+                    transform: isFocused ? 'scale(1.05)' : 'scale(1)',
                     zIndex: isFocused ? 10 : 1
                   }}
                 >
@@ -147,7 +149,8 @@ export default function SelectIngredient() {
         display: 'flex', 
         flexDirection: 'column', 
         alignItems: 'flex-end', 
-        gap: '16px' 
+        gap: '16px',
+        zIndex: 100
       }}>
         {showCart && (
           <div style={{ 
@@ -186,7 +189,9 @@ export default function SelectIngredient() {
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'center',
-              position: 'relative'
+              position: 'relative',
+              boxShadow: cursorIndex === currentItems.length ? '0 0 0 4px var(--c-blue-500)' : 'none',
+              transform: cursorIndex === currentItems.length ? 'scale(1.05)' : 'none'
             }}
           >
             🛒
@@ -205,9 +210,8 @@ export default function SelectIngredient() {
                 padding: '24px 32px',
                 fontSize: '24px',
                 animation: 'bounce 1s infinite',
-                boxShadow: cursorIndex === currentItems.length ? '0 0 0 10px #FF0000, 0 0 30px rgba(255, 0, 0, 0.8)' : undefined,
-                border: cursorIndex === currentItems.length ? '4px solid white' : undefined,
-                backgroundColor: cursorIndex === currentItems.length ? '#FF5722' : undefined
+                boxShadow: cursorIndex === currentItems.length + 1 ? '0 0 0 4px var(--c-blue-500)' : undefined,
+                transform: cursorIndex === currentItems.length + 1 ? 'scale(1.05)' : undefined
               }}
             >
               調理する！
