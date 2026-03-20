@@ -141,19 +141,9 @@ export default function Game() {
   const [isGameFinished, setIsGameFinished] = useState(false);
   const [isImageGenerating, setIsImageGenerating] = useState(false);
   const [isImageReady, setIsImageReady] = useState(false);
-  const [controllerXNorm, setControllerXNorm] = useState<number | null>(null);
-  const [controllerBaselineXNorm, setControllerBaselineXNorm] = useState<number | null>(null);
-  const [controllerLastSeenAt, setControllerLastSeenAt] = useState<number | null>(null);
-  const [controllerRoomConnected, setControllerRoomConnected] = useState(false);
-  const [controllerLatestSequence, setControllerLatestSequence] = useState(0);
-  const [controllerLatestCommand, setControllerLatestCommand] = useState('');
-  const [controllerLatestActionAt, setControllerLatestActionAt] = useState<number | null>(null);
-  const [controllerActionCount, setControllerActionCount] = useState(0);
-  const [controllerLastAction, setControllerLastAction] = useState<'punch' | 'chop' | null>(null);
-  const [clockMs, setClockMs] = useState(() => Date.now());
   const hasNavigatedRef = useRef(false);
   const isFinishingRef = useRef(false);
-  const handleActionRef = useRef<(action: 'punch' | 'chop', horizontalTargetNorm?: number) => void>(() => {});
+  const handleActionRef = useRef<(action: 'punch' | 'chop', horizontalTargetNorm?: number) => void>(() => { });
   const lastControllerCommandSequenceRef = useRef(0);
   const lastControllerRawCommandRef = useRef('');
   const isControllerSequenceInitializedRef = useRef(false);
@@ -217,13 +207,6 @@ export default function Game() {
   }, []);
 
   useEffect(() => {
-    const timerId = window.setInterval(() => setClockMs(Date.now()), 500);
-    return () => {
-      window.clearInterval(timerId);
-    };
-  }, []);
-
-  useEffect(() => {
     const connectedRoomId = sessionStorage.getItem('connectedRoomId');
     if (!connectedRoomId || (phase !== 'countdown' && phase !== 'playing')) {
       return;
@@ -237,14 +220,6 @@ export default function Game() {
         const currentSequence = status.commandSequence ?? 0;
         const latestCommand = status.latestCommand ?? '';
         const incrementalCommands = status.commands ?? [];
-        setControllerRoomConnected(status.connected);
-        setControllerLatestSequence(currentSequence);
-        setControllerLatestCommand(latestCommand);
-        if (status.connected) {
-          // Keep link alive even when no action command arrives.
-          setControllerLastSeenAt(Date.now());
-        }
-
         if (!isControllerSequenceInitializedRef.current) {
           lastControllerCommandSequenceRef.current = currentSequence;
           lastControllerRawCommandRef.current = latestCommand;
@@ -270,17 +245,7 @@ export default function Game() {
             continue;
           }
 
-          const xNorm = parsedCommand.kind === 'aim' ? parsedCommand.xNorm : parsedCommand.xNorm;
-          if (xNorm !== undefined) {
-            setControllerXNorm(xNorm);
-            setControllerBaselineXNorm((currentBaseline) => currentBaseline ?? xNorm);
-          }
-
           if (parsedCommand.kind === 'action') {
-            setControllerLatestActionAt(Date.now());
-            setControllerLastAction(parsedCommand.action);
-            setControllerActionCount((count) => count + 1);
-
             if (phase === 'playing') {
               // Auto-aim mode: action type and timing only (ignore horizontal x input).
               handleActionRef.current(parsedCommand.action);
@@ -303,18 +268,6 @@ export default function Game() {
       window.clearInterval(timerId);
     };
   }, [phase]);
-
-  const controllerLinkHealthy =
-    controllerRoomConnected && controllerLastSeenAt !== null && clockMs - controllerLastSeenAt <= 6000;
-  const controllerRelativeXNorm =
-    controllerXNorm !== null && controllerBaselineXNorm !== null
-      ? controllerXNorm - controllerBaselineXNorm
-      : null;
-  const controllerRelativeLane =
-    controllerRelativeXNorm !== null ? Math.round(controllerRelativeXNorm * 200) : null;
-  const controllerPointerLeftPercent = controllerXNorm !== null ? `${(controllerXNorm * 100).toFixed(1)}%` : null;
-  const hasRecentAction = controllerLatestActionAt !== null && clockMs - controllerLatestActionAt <= 1000;
-  const lastActionLabel = controllerLastAction ? controllerLastAction.toUpperCase() : '-';
 
   // [EN] Starts soup generation as soon as gameplay starts to hide model latency.
   // [JA] モデル生成の待ち時間を隠すため、ゲーム開始時に先行生成を開始します。
@@ -474,45 +427,6 @@ export default function Game() {
         <div>
           <h2>ゲーム準備</h2>
           <p>スマホをこっち向き（反時計回りに90度）に回して、こうやって持ってね！</p>
-          <div style={{ margin: '16px auto', maxWidth: '560px', textAlign: 'left' }}>
-            <p style={{ margin: '0 0 8px 0', fontSize: '14px' }}>
-              接続状態: {controllerLinkHealthy ? 'OK（iPhone位置データ受信中）' : '待機中（iPhoneを動かす/狙いパッドを触る）'}
-            </p>
-            <p style={{ margin: '0 0 8px 0', fontSize: '14px' }}>
-              基準位置との差（X）: {controllerRelativeLane === null ? '未キャリブレーション' : `${controllerRelativeLane} lane`}
-            </p>
-            <p style={{ margin: '0 0 10px 0', fontSize: '14px', color: hasRecentAction ? '#2e7d32' : '#8d6e63' }}>
-              入力受信: {hasRecentAction ? 'あり' : 'なし'} / 最終: {lastActionLabel} / 回数: {controllerActionCount}
-            </p>
-            <div style={{ position: 'relative', height: '14px', borderRadius: '999px', backgroundColor: '#ffe7b0' }}>
-              <div
-                style={{
-                  position: 'absolute',
-                  left: '50%',
-                  top: '0',
-                  bottom: '0',
-                  width: '2px',
-                  transform: 'translateX(-1px)',
-                  backgroundColor: '#8a5a00',
-                }}
-              />
-              {controllerPointerLeftPercent && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    left: controllerPointerLeftPercent,
-                    top: '-3px',
-                    width: '20px',
-                    height: '20px',
-                    borderRadius: '50%',
-                    transform: 'translateX(-10px)',
-                    backgroundColor: controllerLinkHealthy ? '#00c853' : '#9e9e9e',
-                    border: '2px solid #fff',
-                  }}
-                />
-              )}
-            </div>
-          </div>
           <div style={{ fontSize: '80px', fontWeight: 'bold', margin: '50px 0', color: '#ff5722' }}>
             {count > 0 ? count : 'START!'}
           </div>
@@ -520,23 +434,13 @@ export default function Game() {
       ) : (
         <div>
           <h2>ゲームプレイ（パンチ画面）</h2>
-          <p>オートエイムON: タイミングを合わせてスマホを振るだけ！</p>
+          <p>タイミングを合わせてスマホを振ってね！</p>
           {isImageGenerating && <p>生成AIで画像を作成中...</p>}
           {!isImageGenerating && isImageReady && !isGameFinished && <p>画像生成: 完了（ゲーム終了を待機中）</p>}
           {!isImageGenerating && !isImageReady && generationError && <p>画像生成リトライ中...（3秒後に再試行）</p>}
           {isGameFinished && !isImageReady && <p>ゲーム終了。画像生成完了を待っています...</p>}
           {isGameFinished && isImageReady && <p>ゲーム終了。リザルトへ遷移します...</p>}
           {totalScore !== null && <p>最新スコア: {totalScore}</p>}
-          <p style={{ fontSize: '13px', color: controllerLinkHealthy ? '#2e7d32' : '#8d6e63' }}>
-            iPhoneコマンドリンク: {controllerLinkHealthy ? '接続中' : '途切れ気味'}
-            {' / オートエイム中'}
-          </p>
-          <p style={{ fontSize: '12px', color: '#455a64' }}>
-            Controller seq: {controllerLatestSequence} / cmd: {controllerLatestCommand || '-'}
-          </p>
-          <p style={{ fontSize: '12px', color: hasRecentAction ? '#2e7d32' : '#8d6e63' }}>
-            Action受信: {hasRecentAction ? 'あり' : 'なし'} / 最終: {lastActionLabel} / 回数: {controllerActionCount}
-          </p>
 
           {/*ゲーム画面内の設定*/}
           <div style={{
