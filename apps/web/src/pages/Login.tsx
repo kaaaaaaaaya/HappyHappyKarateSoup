@@ -53,6 +53,7 @@ export default function Login() {
   const storeAuth = (payload: { token: string; userId: number; username: string; email: string; provider: string }) => {
     sessionStorage.setItem('authToken', payload.token);
     sessionStorage.setItem('authUser', JSON.stringify(payload));
+    sessionStorage.removeItem('connectedRoomId');
   };
 
   useEffect(() => {

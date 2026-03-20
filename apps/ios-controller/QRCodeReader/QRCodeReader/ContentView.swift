@@ -6,6 +6,7 @@
 //
 
 import AVFoundation
+import CoreMotion
 import Foundation
 import SwiftUI
 import UIKit
@@ -405,8 +406,43 @@ private struct ControllerView: View {
     @State private var mode: ControllerMode = .remote
     @State private var pollTask: Task<Void, Never>? = nil
     @State private var lastSeenSequence: Int = -1
+    @State private var aimX: CGFloat = 0.5
+    @State private var aimY: CGFloat = 0.55
+    @StateObject private var motionDetector = ControllerMotionDetector()
 
     var body: some View {
+        GeometryReader { geo in
+            let isPortrait = geo.size.height > geo.size.width
+
+            ZStack {
+                controllerContent
+                    .frame(
+                        width: isPortrait ? geo.size.height : geo.size.width,
+                        height: isPortrait ? geo.size.width : geo.size.height
+                    )
+                    .rotationEffect(.degrees(isPortrait ? -90 : 0)) // 反時計回り90度をデフォルト表示
+                    .position(x: geo.size.width / 2, y: geo.size.height / 2)
+            }
+            .ignoresSafeArea()
+        }
+        .onAppear {
+            startPollingRoomStatus()
+            motionDetector.start()
+        }
+        .onDisappear {
+            pollTask?.cancel()
+            pollTask = nil
+            motionDetector.stop()
+        }
+        .onChange(of: motionDetector.punchEventId) { _, _ in
+            sendActionCommand("punch")
+        }
+        .onChange(of: motionDetector.chopEventId) { _, _ in
+            sendActionCommand("chop")
+        }
+    }
+
+    private var controllerContent: some View {
         ZStack {
             LinearGradient(
                 colors: [
@@ -476,19 +512,30 @@ private struct ControllerView: View {
                         }
                     }
                 } else {
-                    VStack(spacing: 18) {
-                        Text("ゲームモード")
+                    VStack(spacing: 16) {
+                        Text("ゲームモード（オートエイム）")
                             .font(.headline)
-                            .foregroundStyle(.white.opacity(0.92))
+                            .foregroundStyle(.white.opacity(0.95))
 
-                        HStack(spacing: 20) {
-                            PadButton(title: "パンチ", tint: .red, diameter: 130) {
-                                onDirection("punch")
-                            }
-                            PadButton(title: "チョップ", tint: .blue, diameter: 130) {
-                                onDirection("chop")
-                            }
+                        VStack(spacing: 10) {
+                            Image(systemName: "iphone.radiowaves.left.and.right")
+                                .font(.system(size: 64, weight: .bold))
+                                .foregroundStyle(.white)
+                            Text("パンチ: 突き出し")
+                                .font(.title3.weight(.bold))
+                                .foregroundStyle(.red.opacity(0.95))
+                            Text("チョップ: 縦振り")
+                                .font(.title3.weight(.bold))
+                                .foregroundStyle(.cyan.opacity(0.95))
+                            Text("タッチ操作は不要です")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.white.opacity(0.9))
+                                .padding(.top, 6)
                         }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 18)
+                        .background(Color.white.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 18))
                     }
                 }
 
@@ -497,20 +544,21 @@ private struct ControllerView: View {
                 Text(
                     mode == .remote
                         ? "QRコードを読み取り後、コントローラ画面に切り替わりました"
-                        : "材料選択でゲーム開始すると、パンチ/チョップ画面へ切り替わります"
+                        : "オートエイム中。モーションだけで攻撃できます"
                 )
                 .font(.footnote)
                 .foregroundStyle(.white.opacity(0.8))
             }
             .padding(20)
         }
-        .onAppear {
-            startPollingRoomStatus()
-        }
-        .onDisappear {
-            pollTask?.cancel()
-            pollTask = nil
-        }
+    }
+
+    private func sendActionCommand(_ action: String) {
+        let x = String(format: "%.3f", max(0, min(1, aimX)))
+        let y = String(format: "%.3f", max(0, min(1, aimY)))
+        onDirection("\(action)@\(x),\(y)")
+        let impact = UIImpactFeedbackGenerator(style: .medium)
+        impact.impactOccurred()
     }
 
     private func startPollingRoomStatus() {
@@ -616,5 +664,70 @@ private struct PadButton: View {
                 .shadow(color: tint.opacity(0.45), radius: 16, x: 0, y: 8)
         }
         .buttonStyle(.plain)
+    }
+}
+
+@MainActor
+final class ControllerMotionDetector: ObservableObject {
+    private let manager = CMMotionManager()
+    @Published var punchEventId: Int = 0
+    @Published var chopEventId: Int = 0
+    private var lastActionAt: TimeInterval = 0
+
+    private let cooldownSeconds: TimeInterval = 0.16
+    private let accelMagnitudeThreshold: Double = 0.18
+    private let rotationMagnitudeThreshold: Double = 1.2
+
+    func start() {
+        guard manager.isDeviceMotionAvailable else {
+            return
+        }
+
+        manager.deviceMotionUpdateInterval = 1.0 / 50.0
+        manager.startDeviceMotionUpdates(to: .main) { [weak self] motion, _ in
+            guard let self, let motion else { return }
+            self.handleMotion(motion)
+        }
+    }
+
+    func stop() {
+        manager.stopDeviceMotionUpdates()
+    }
+
+    private func handleMotion(_ motion: CMDeviceMotion) {
+        let now = motion.timestamp
+        let ua = motion.userAcceleration
+        let rr = motion.rotationRate
+        let absX = abs(ua.x)
+        let absY = abs(ua.y)
+        let absZ = abs(ua.z)
+        let accelMagnitude = sqrt(absX * absX + absY * absY + absZ * absZ)
+
+        let absRx = abs(rr.x)
+        let absRy = abs(rr.y)
+        let absRz = abs(rr.z)
+        let rotationMagnitude = sqrt(absRx * absRx + absRy * absRy + absRz * absRz)
+
+        // [JA] 加速度または回転のどちらかが十分大きい時だけトリガー。
+        if accelMagnitude < accelMagnitudeThreshold && rotationMagnitude < rotationMagnitudeThreshold {
+            return
+        }
+
+        if now - lastActionAt <= cooldownSeconds {
+            return
+        }
+
+        lastActionAt = now
+
+        // [JA] 判定は単純化: 縦成分優位なら chop、それ以外は punch。
+        let chopScore = absY + absRy * 0.12
+        let punchScore = absZ + absRz * 0.12 + absX * 0.04
+
+        if chopScore >= punchScore {
+            chopEventId += 1
+            return
+        }
+
+        punchEventId += 1
     }
 }
