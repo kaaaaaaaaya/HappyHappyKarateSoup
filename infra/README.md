@@ -1,8 +1,8 @@
-# Container / GKE / Cloud Run Guide
+# Container / GKE / Cloud Run ガイド
 
-## 1. Docker local run
+## 1. Docker ローカル実行
 
-### Start all (MySQL + Backend + Web)
+### 全て起動（MySQL + Backend + Web）
 
 ```bash
 docker compose up --build
@@ -11,31 +11,31 @@ docker compose up --build
 - Web: http://localhost:8081
 - Backend health: http://localhost:8080/actuator/health
 
-Notes:
-- If Gemini env is not configured, backend now returns a local fallback response for soup generation (dev/demo friendly).
-- Google login is optional for local play. Without VITE_GOOGLE_CLIENT_ID, Google login UI shows a warning but guest play still works.
+注意:
+- Gemini環境が設定されていない場合、Backendはスープ生成のローカルフォールバック応答を返すようになりました（開発/デモに適しています）。
+- ローカルプレイではGoogleログインはオプションです。VITE_GOOGLE_CLIENT_IDなしでも、Googleログインは警告を表示しますがゲストプレイはそのまま動きます。
 
-### Stop
+### 停止
 
 ```bash
 docker compose down
 ```
 
-## 2. Build and push images to Artifact Registry
+## 2. イメージをArtifact Registryにビルドしてプッシュ
 
-Replace variables before running:
+実行前に変数を置き換えてください：
 
 ```bash
 PROJECT_ID="your-gcp-project"
 REGION="us-central1"
 REPO="happy-soup"
 
-# Backend image
+# Backendイメージ
 docker build -t "$REGION-docker.pkg.dev/$PROJECT_ID/$REPO/backend:latest" apps/web/backend-java
 docker push "$REGION-docker.pkg.dev/$PROJECT_ID/$REPO/backend:latest"
 
-# Web image
-# VITE_API_BASE_URL should point to the public backend URL.
+# Webイメージ
+# VITE_API_BASE_URLは公開Backend URLを指すべきです。
 docker build \
   --build-arg VITE_API_BASE_URL="https://YOUR_BACKEND_URL" \
   --build-arg VITE_GOOGLE_CLIENT_ID="YOUR_GOOGLE_CLIENT_ID" \
@@ -44,30 +44,30 @@ docker build \
 docker push "$REGION-docker.pkg.dev/$PROJECT_ID/$REPO/web:latest"
 ```
 
-### Current deployed resources (as of 2026-03-20)
+### 本番環境デプロイ済みリソース（2026-03-20時点）
 
-Production is already deployed. Current runtime resources are:
+本番環境は既にデプロイされています。現在のランタイムリソースは：
 
-- GCP project: happy-happy-karate-soup
-- Artifact Registry repo: us-central1-docker.pkg.dev/happy-happy-karate-soup/happy-soup
-- Web image: us-central1-docker.pkg.dev/happy-happy-karate-soup/happy-soup/web:latest
-- Backend image: us-central1-docker.pkg.dev/happy-happy-karate-soup/happy-soup/backend:latest
+- GCPプロジェクト: happy-happy-karate-soup
+- Artifact Registryリポジトリ: us-central1-docker.pkg.dev/happy-happy-karate-soup/happy-soup
+- Webイメージ: us-central1-docker.pkg.dev/happy-happy-karate-soup/happy-soup/web:latest
+- Backendイメージ: us-central1-docker.pkg.dev/happy-happy-karate-soup/happy-soup/backend:latest
 - Cloud Run Web URL: https://karate-soup-web-486336410817.us-central1.run.app
 - Cloud Run API URL: https://karate-soup-api-486336410817.us-central1.run.app
 
-Current API runtime notes:
+現在のAPIランタイム設定：
 
 - GEMINI_USE_VERTEX_AI=true
 - GEMINI_PROJECT_ID=happy-happy-karate-soup
 - GEMINI_LOCATION=us-central1
-- APP_CORS_ALLOWED_ORIGINS includes https://karate-soup-web-486336410817.us-central1.run.app
+- APP_CORS_ALLOWED_ORIGINS は https://karate-soup-web-486336410817.us-central1.run.app を含む
 
-## 3. Cloud Run deploy
+## 3. Cloud Run デプロイ
 
 ### Backend
 
-1. Edit placeholders in `infra/cloudrun/backend-service.yaml`.
-2. Deploy:
+1. `infra/cloudrun/backend-service.yaml` のプレースホルダを編集します。
+2. デプロイ：
 
 ```bash
 gcloud run services replace infra/cloudrun/backend-service.yaml --region "$REGION" --project "$PROJECT_ID"
@@ -75,20 +75,20 @@ gcloud run services replace infra/cloudrun/backend-service.yaml --region "$REGIO
 
 ### Web
 
-1. Edit placeholders in `infra/cloudrun/web-service.yaml`.
-2. Deploy:
+1. `infra/cloudrun/web-service.yaml` のプレースホルダを編集します。
+2. デプロイ：
 
 ```bash
 gcloud run services replace infra/cloudrun/web-service.yaml --region "$REGION" --project "$PROJECT_ID"
 ```
 
-## 4. GKE deploy
+## 4. GKE デプロイ
 
-1. Edit image path and env placeholders in:
+1. 以下のファイルのイメージパスと環境プレースホルダを編集します：
 - `infra/gke/backend-deployment.yaml`
 - `infra/gke/web-deployment.yaml`
 
-2. Apply manifests:
+2. マニフェストを適用：
 
 ```bash
 kubectl apply -f infra/gke/namespace.yaml
@@ -99,22 +99,22 @@ kubectl apply -f infra/gke/web-service.yaml
 kubectl apply -f infra/gke/ingress.yaml
 ```
 
-3. Get endpoint:
+3. エンドポイントを取得：
 
 ```bash
 kubectl get ingress -n happy-soup
 kubectl get svc -n happy-soup
 ```
 
-## Notes
+## 注記
 
-- Backend uses MySQL. For production, use Cloud SQL and set `DB_HOST`, `DB_USERNAME`, `DB_PASSWORD` accordingly.
-- If you use OAuth login, set `GOOGLE_OAUTH_CLIENT_ID` on backend and `VITE_GOOGLE_CLIENT_ID` at web build time.
-- `APP_CORS_ALLOWED_ORIGINS` must include your deployed web origin.
+- Backendは MySQL を使用します。本番環境では Cloud SQL を使用し、`DB_HOST`、`DB_USERNAME`、`DB_PASSWORD` を設定してください。
+- OAuth ログインを使用する場合、Backend で `GOOGLE_OAUTH_CLIENT_ID` を設定し、Web ビルド時に `VITE_GOOGLE_CLIENT_ID` を設定してください。
+- `APP_CORS_ALLOWED_ORIGINS` にはデプロイされた Web オリジンを含める必要があります。
 
-## iPhone controller connection behavior
+## iPhone コントローラー接続動作
 
-- Connect page now keeps API endpoint details under an optional advanced section.
-- In most cases, leave advanced input empty.
-- If iPhone cannot connect, open web using LAN host (example: http://192.168.x.x:8081) and retry QR scan.
-- Verify iPhone network reachability with: http://PC_LAN_IP:8080/actuator/health
+- 接続ページはオプションの詳細設定セクション下に API エンドポイント詳細を保持するようになりました。
+- ほとんどの場合、詳細入力を空のままにしてください。
+- iPhone が接続できない場合、LAN ホスト（例：http://192.168.x.x:8081）を使用して Web を開き、QR スキャンをやり直してください。
+- iPhone ネットワーク到達可能性を検証してください: http://PC_LAN_IP:8080/actuator/health
