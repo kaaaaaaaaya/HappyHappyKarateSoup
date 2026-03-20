@@ -5,6 +5,7 @@ import { useIngredientController } from './useIngredientController';
 import { FOOD_EMOJIS } from './emojis';
 import { Button } from '../../components/Button';
 import bgConnection from '../../assets/backgrounds/bg_connection.png';
+import { postControllerRoomCommand } from '../../api/controllerRoomApi';
 
 // 分類をざっくり定義
 const CATEGORIES = {
@@ -25,15 +26,17 @@ export default function SelectIngredient() {
     isReady
   } = useSelectIngredient();
 
-  const handleComplete = useCallback(() => {
-    navigate('/game', { state: { selectedIngredientEmojis: selectedChar } });
-  }, [navigate, selectedChar]);
+  const connectedRoomId = sessionStorage.getItem('connectedRoomId');
 
+  const handleComplete = useCallback(() => {
+    if (connectedRoomId) {
+      postControllerRoomCommand(connectedRoomId, 'start_game').catch(console.error);
+    }
+    navigate('/game', { state: { selectedIngredientEmojis: selectedChar } });
+  }, [navigate, selectedChar, connectedRoomId]);
+  
   const currentItems = CATEGORIES[activeTab];
 
-  // --- Add controller integration ---
-  const connectedRoomId = sessionStorage.getItem('connectedRoomId');
-  
   const handleControllerConfirm = useCallback((idx: number) => {
     if (idx === currentItems.length) { // カートボタン
       setShowCart((prev) => !prev);
