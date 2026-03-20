@@ -78,7 +78,8 @@ export default function Login() {
             setError(null);
             const authResponse = await postGoogleLogin(idToken);
             storeAuth(authResponse);
-            navigate('/connect');
+            // ログイン成功後はホーム一覧へ遷移（QR読み取り画面へ直行しない）
+            navigate('/home-logged-in');
           } catch (e) {
             const message = e instanceof Error ? e.message : 'Googleログインに失敗しました。';
             setError(message);
@@ -131,7 +132,8 @@ export default function Login() {
         : await postLogin(email.trim(), password);
 
       storeAuth(authResponse);
-      navigate('/connect');
+      // ログイン成功後はホーム一覧へ遷移（QR読み取り画面へ直行しない）
+      navigate('/home-logged-in');
     } catch (e) {
       const message = e instanceof Error ? e.message : 'ログイン処理に失敗しました。';
       setError(message);

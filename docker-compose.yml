@@ -20,17 +20,22 @@ services:
       context: ./apps/web/backend-java
       dockerfile: Dockerfile
     container_name: happy-soup-backend
+    volumes:
+      - ~/.config/gcloud:/root/.config/gcloud:ro
     environment:
       DB_HOST: mysql
       DB_PORT: 3306
       DB_NAME: happysoup
       DB_USERNAME: root
       DB_PASSWORD: root
+      GOOGLE_APPLICATION_CREDENTIALS: /root/.config/gcloud/application_default_credentials.json      
       GEMINI_USE_VERTEX_AI: ${GEMINI_USE_VERTEX_AI:-false}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_PROJECT_ID: ${GEMINI_PROJECT_ID:-}
       GEMINI_LOCATION: ${GEMINI_LOCATION:-}
       SOUP_LOCAL_FALLBACK_ENABLED: ${SOUP_LOCAL_FALLBACK_ENABLED:-false}
+      APP_GCS_BUCKET_NAME: "happy-soup"
+      APP_GCS_OBJECT_PREFIX: ${APP_GCS_OBJECT_PREFIX:-collections}
       APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:8081}
     depends_on:
       mysql:

@@ -150,6 +150,7 @@ Gemini API Key 方式:
 ```bash
 export GEMINI_USE_VERTEX_AI=false
 export GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
+export APP_GCS_BUCKET_NAME="YOUR_GCS_BUCKET_NAME"
 export SOUP_LOCAL_FALLBACK_ENABLED=false
 docker compose up -d --build --force-recreate backend
 ```
@@ -159,6 +160,7 @@ Vertex AI 方式:
 export GEMINI_USE_VERTEX_AI=true
 export GEMINI_PROJECT_ID="your-gcp-project"
 export GEMINI_LOCATION="us-central1"
+export APP_GCS_BUCKET_NAME="YOUR_GCS_BUCKET_NAME"
 export SOUP_LOCAL_FALLBACK_ENABLED=false
 docker compose up -d --build --force-recreate backend
 ```
