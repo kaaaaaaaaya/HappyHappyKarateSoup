@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { postGoogleLogin, postLogin, postRegister } from '../api/authApi';
+import { Button } from '../components/Button';
+import bgLogin from '../assets/backgrounds/bg_login.png';
+import logoSmall from '../assets/ui/logo_small.png';
 
 type AuthMode = 'login' | 'register';
 
@@ -79,8 +82,8 @@ export default function Login() {
             setError(null);
             const authResponse = await postGoogleLogin(idToken);
             storeAuth(authResponse);
-            // ログイン成功後は QR 接続画面へ遷移
-            navigate('/connect');
+            // ログイン成功後はホーム一覧へ遷移
+            navigate('/home-logged-in');
           } catch (e) {
             const message = e instanceof Error ? e.message : 'Googleログインに失敗しました。';
             setError(message);
@@ -133,8 +136,7 @@ export default function Login() {
         : await postLogin(email.trim(), password);
 
       storeAuth(authResponse);
-      // ログイン成功後はホーム一覧へ遷移（QR読み取り画面へ直行しない）
-      navigate('/home-logged-ingged-in');
+      navigate('/home-logged-in');
     } catch (e) {
       const message = e instanceof Error ? e.message : 'ログイン処理に失敗しました。';
       setError(message);
@@ -143,47 +145,66 @@ export default function Login() {
     }
   };
 
-  return (
-    <div
-      style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        width: '100%',
-        minHeight: '100vh',
-        padding: '24px',
-        background:
-          'radial-gradient(circle at 20% 20%, #fff6b5 0%, #ffef8f 35%, #ffd670 80%, #ffcd70 100%)',
-      }}
-    >
-      <div
-        style={{
-          width: '100%',
-          maxWidth: '460px',
-          backgroundColor: '#fffdf4',
-          borderRadius: '16px',
-          padding: '28px',
-          boxShadow: '0 20px 48px rgba(57, 40, 13, 0.22)',
-          border: '1px solid rgba(164, 119, 48, 0.25)',
-        }}
-      >
-        <h2 style={{ margin: '0 0 10px 0', color: '#4e3510', fontSize: '30px' }}>アカウント</h2>
-        <p style={{ margin: '0 0 24px 0', color: '#785926', fontSize: '14px' }}>
-          新規登録またはログインしてゲームを始めよう
-        </p>
+  const handleGuest = () => {
+    navigate('/connect');
+  };
 
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '12px 16px',
+    borderRadius: 'var(--radius-sm)',
+    border: '1px solid var(--border)',
+    fontFamily: 'var(--f-vt323)',
+    fontSize: '20px',
+    boxSizing: 'border-box'
+  };
+
+  return (
+    <div style={{ 
+      display: 'flex', 
+      justifyContent: 'center', 
+      alignItems: 'center', 
+      height: '100vh',
+      backgroundColor: 'var(--c-brown)',
+      backgroundImage: `url(${bgLogin})`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      backgroundRepeat: 'no-repeat',
+      width: '100%',
+      position: 'relative'
+    }}>
+      <div style={{ position: 'absolute', top: '24px', left: '24px', cursor: 'pointer' }} onClick={() => navigate('/')}>
+        <img src={logoSmall} alt="Logo" style={{ height: '60px' }} />
+      </div>
+
+      <div style={{
+        backgroundColor: 'var(--c-white)',
+        borderRadius: 'var(--radius-lg)',
+        padding: '40px',
+        width: '440px',
+        maxWidth: '90%',
+        boxSizing: 'border-box',
+        boxShadow: '0 8px 16px rgba(0,0,0,0.3)',
+        textAlign: 'center'
+      }}>
+        <h2 style={{ fontFamily: 'var(--f-pixel)', fontSize: '20px', color: 'var(--c-slate-900)', margin: '0 0 24px' }}>
+          {mode === 'login' ? 'LOGIN' : 'REGISTER'}
+        </h2>
+
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
           <button
             type="button"
             onClick={() => setMode('login')}
             style={{
               flex: 1,
-              padding: '10px 12px',
-              borderRadius: '999px',
-              border: mode === 'login' ? '2px solid #f59e0b' : '1px solid #e0c78e',
-              background: mode === 'login' ? '#fff5d8' : '#ffffff',
-              fontWeight: 700,
+              padding: '12px',
+              fontFamily: 'var(--f-dotgothic)',
+              fontSize: '16px',
+              borderRadius: 'var(--radius-sm)',
+              border: mode === 'login' ? '2px solid var(--c-orange-500)' : '1px solid var(--border)',
+              background: mode === 'login' ? 'var(--c-orange-100)' : 'var(--c-white)',
               cursor: 'pointer',
+              color: 'var(--c-slate-900)'
             }}
           >
             ログイン
@@ -193,101 +214,98 @@ export default function Login() {
             onClick={() => setMode('register')}
             style={{
               flex: 1,
-              padding: '10px 12px',
-              borderRadius: '999px',
-              border: mode === 'register' ? '2px solid #f59e0b' : '1px solid #e0c78e',
-              background: mode === 'register' ? '#fff5d8' : '#ffffff',
-              fontWeight: 700,
+              padding: '12px',
+              fontFamily: 'var(--f-dotgothic)',
+              fontSize: '16px',
+              borderRadius: 'var(--radius-sm)',
+              border: mode === 'register' ? '2px solid var(--c-orange-500)' : '1px solid var(--border)',
+              background: mode === 'register' ? 'var(--c-orange-100)' : 'var(--c-white)',
               cursor: 'pointer',
+              color: 'var(--c-slate-900)'
             }}
           >
             新規登録
           </button>
         </div>
-
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {mode === 'register' && (
-            <input
-              type="text"
-              placeholder="ユーザー名"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+            <div style={{ textAlign: 'left' }}>
+              <label style={{ fontSize: '14px', fontFamily: 'var(--f-space)', color: 'var(--c-slate-600)', marginBottom: '8px', display: 'block' }}>Username</label>
+              <input 
+                type="text" 
+                value={username} 
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Username"
+                style={inputStyle}
+              />
+            </div>
+          )}
+          
+          <div style={{ textAlign: 'left' }}>
+            <label style={{ fontSize: '14px', fontFamily: 'var(--f-space)', color: 'var(--c-slate-600)', marginBottom: '8px', display: 'block' }}>Email</label>
+            <input 
+              type="email" 
+              value={email} 
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Email"
               style={inputStyle}
             />
-          )}
-
-          <input
-            type="email"
-            placeholder="メールアドレス"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            style={inputStyle}
-          />
-
-          <input
-            type="password"
-            placeholder="パスワード"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            style={inputStyle}
-          />
-
-          {mode === 'register' && (
-            <input
-              type="password"
-              placeholder="パスワード（確認）"
-              value={passwordConfirm}
-              onChange={(e) => setPasswordConfirm(e.target.value)}
+          </div>
+          <div style={{ textAlign: 'left' }}>
+            <label style={{ fontSize: '14px', fontFamily: 'var(--f-space)', color: 'var(--c-slate-600)', marginBottom: '8px', display: 'block' }}>Password</label>
+            <input 
+              type="password" 
+              value={password} 
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Password"
               style={inputStyle}
             />
+          </div>
+
+          {mode === 'register' && (
+            <div style={{ textAlign: 'left' }}>
+              <label style={{ fontSize: '14px', fontFamily: 'var(--f-space)', color: 'var(--c-slate-600)', marginBottom: '8px', display: 'block' }}>Confirm Password</label>
+              <input 
+                type="password" 
+                value={passwordConfirm} 
+                onChange={(e) => setPasswordConfirm(e.target.value)}
+                placeholder="Confirm password"
+                style={inputStyle}
+              />
+            </div>
           )}
 
-          {error && <p style={{ margin: '2px 0', color: '#b42318', fontSize: '13px' }}>{error}</p>}
-
-          <button
-            type="submit"
+          {error && <div style={{ color: 'var(--c-red)', fontFamily: 'var(--f-dotgothic)', fontSize: '14px' }}>{error}</div>}
+          
+          <Button 
+            type="submit" 
+            variant="primary" 
             disabled={!canSubmit}
-            style={{
-              marginTop: '6px',
-              padding: '12px 16px',
-              borderRadius: '12px',
-              border: 'none',
-              color: '#fff',
-              backgroundColor: canSubmit ? '#f59e0b' : '#d3b177',
-              cursor: canSubmit ? 'pointer' : 'not-allowed',
-              fontWeight: 800,
-              fontSize: '16px',
-            }}
+            style={{ width: '100%', marginTop: '8px', padding: '16px', opacity: canSubmit ? 1 : 0.6 }}
           >
             {isLoading ? '処理中...' : mode === 'register' ? '新規登録して進む' : 'ログインして進む'}
-          </button>
+          </Button>
         </form>
 
-        <div style={{ margin: '16px 0 8px 0', textAlign: 'center', color: '#8a6b35', fontSize: '12px' }}>または</div>
+        <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ fontSize: '14px', color: 'var(--c-slate-500)', fontFamily: 'var(--f-dotgothic)' }}>
+            ──────── または ────────
+          </div>
+          
+          {googleClientId ? (
+            <div id="google-signin-button" style={{ display: 'flex', justifyContent: 'center', minHeight: '44px' }} />
+          ) : (
+            <p style={{ margin: 0, color: 'var(--c-slate-500)', fontSize: '12px', fontFamily: 'var(--f-dotgothic)' }}>
+              現在この環境ではGoogleログインは利用できません。ゲストでそのまま遊べます。
+            </p>
+          )}
 
-        {googleClientId ? (
-          <div id="google-signin-button" style={{ display: 'flex', justifyContent: 'center', minHeight: '44px' }} />
-        ) : (
-          <p style={{ margin: 0, color: '#8a6b35', fontSize: '12px', textAlign: 'center' }}>
-            現在この環境ではGoogleログインは利用できません。ゲストでそのまま遊べます。
-          </p>
-        )}
-
-        <div style={{ marginTop: '20px', textAlign: 'center' }}>
-          <Link to="/" style={{ color: '#5b4a2f', textDecoration: 'none', fontSize: '14px' }}>
-            ホームに戻る
-          </Link>
+          <Button variant="secondary" type="button" pill onClick={handleGuest} style={{ width: '100%', padding: '16px', backgroundColor: 'var(--c-slate-100)', color: 'var(--c-slate-900)' }}>
+            ログインせずに遊ぶ
+          </Button>
         </div>
       </div>
     </div>
   );
 }
-
-const inputStyle: React.CSSProperties = {
-  padding: '12px 14px',
-  fontSize: '16px',
-  borderRadius: '10px',
-  border: '1px solid #d9b979',
-  outline: 'none',
-  backgroundColor: '#fffdf9',
-};
