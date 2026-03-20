@@ -4,7 +4,9 @@ import { useSelectIngredient } from './useSelectIngredient';
 import { useIngredientController } from './useIngredientController';
 import { FOOD_EMOJIS } from './emojis';
 import { Button } from '../../components/Button';
-import bgConnection from '../../assets/backgrounds/bg_connection.png';
+import bgIngredientSelect from '../../assets/backgrounds/bg_ingredient_select.png';
+import charaThinking from '../../assets/characters/chara_thinking.png';
+import icIngredientBasket from '../../assets/icons/ic_ingredient_basket.png';
 import { postControllerRoomCommand } from '../../api/controllerRoomApi';
 
 // 分類をざっくり定義
@@ -87,8 +89,9 @@ export default function SelectIngredient() {
       flexDirection: 'column',
       height: '100vh',
       backgroundColor: 'var(--c-brown)',
-      backgroundImage: `url(${bgConnection})`,
+      backgroundImage: `url(${bgIngredientSelect})`,
       backgroundSize: 'cover',
+      backgroundPosition: 'center', // Added to ensure it is centered
       fontFamily: 'var(--f-dotgothic)',
       color: 'var(--c-slate-900)'
     }}>
@@ -100,12 +103,19 @@ export default function SelectIngredient() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {/* Main Content Area */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '20px', overflowY: 'auto' }}>
-          
-          {/* Tabs */}
-          <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', justifyContent: 'center' }}>
+        <div style={{ display: 'flex', width: '100%', maxWidth: '1200px', position: 'relative' }}>
+          {/* Character on the left */}
+          <div style={{ position: 'absolute', left: '20px', bottom: '0px', width: '20vw', maxWidth: '250px', display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-start', zIndex: 10 }}>
+            {/* Reduced height and width to make it smaller and prevent overlap */}
+            <img src={charaThinking} alt="Thinking Character" style={{ width: '100%', maxHeight: '60vh', objectFit: 'contain' }} />
+          </div>
+
+          {/* Main Content Area */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '20px', overflowY: 'auto', alignItems: 'center' }}>
+            
+            {/* Tabs */}
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', width: '100%', justifyContent: 'center' }}>
             {(['VEGETABLE', 'MEAT_FISH', 'OTHERS'] as const).map((tab) => (
               <Button
                 key={tab}
@@ -128,7 +138,10 @@ export default function SelectIngredient() {
           {/* Item Grid */}
           <div style={{ 
             display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', 
+            width: '100%',
+            maxWidth: '700px',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', 
+            justifyContent: 'center',
             gap: '16px',
             paddingBottom: '100px'
           }}>
@@ -166,17 +179,22 @@ export default function SelectIngredient() {
           </div>
         </div>
       </div>
+      </div>
 
       {/* Cart Icon & Checkout */}
       <div style={{ 
         position: 'fixed', 
-        bottom: '32px', 
-        right: '32px', 
+        bottom: '0px', 
+        right: '0px',
+        padding: '32px',
         display: 'flex', 
         flexDirection: 'column', 
         alignItems: 'flex-end', 
-        gap: '16px',
-        zIndex: 100
+        justifyContent: 'flex-end',
+        gap: '24px',
+        zIndex: 100,
+        height: '100%',
+        pointerEvents: 'none', // Allow clicking through the fixed container
       }}>
         {showCart && (
           <div style={{ 
@@ -185,7 +203,8 @@ export default function SelectIngredient() {
             borderRadius: 'var(--radius-lg)', 
             border: '4px solid var(--c-slate-900)',
             boxShadow: '8px 8px 0 rgba(0,0,0,0.2)',
-            width: '300px'
+            width: '300px',
+            pointerEvents: 'auto',
           }}>
             <h3 style={{ margin: '0 0 16px', fontFamily: 'var(--f-pixel)', fontSize: '16px' }}>選択中の具材カゴ</h3>
             {selectedChar.length === 0 ? (
@@ -202,27 +221,28 @@ export default function SelectIngredient() {
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-end' }}>
+        <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-end', pointerEvents: 'auto' }}>
           <Button 
             variant="secondary"
             onClick={() => setShowCart(!showCart)}
             style={{ 
-              width: '80px', 
-              height: '80px', 
+              width: '130px', 
+              height: '130px', 
               borderRadius: '50%', 
-              fontSize: '32px', 
-              padding: 0,
+              padding: '16px',
+              backgroundColor: 'white',
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'center',
               position: 'relative',
-              boxShadow: cursorIndex === currentItems.length ? '0 0 0 6px #E65100' : 'none',
-              transform: cursorIndex === currentItems.length ? 'scale(1.05)' : 'none'
+              boxShadow: cursorIndex === currentItems.length ? '0 0 0 6px #E65100' : '0 4px 0 rgba(0,0,0,0.1)',
+              transform: cursorIndex === currentItems.length ? 'scale(1.05)' : 'none',
+              border: 'none'
             }}
           >
-            🛒
+            <img src={icIngredientBasket} alt="Cart" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
             {selectedChar.length > 0 && (
-              <div style={{ position: 'absolute', top: '-5px', right: '-5px', backgroundColor: 'var(--c-red)', color: 'white', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '18px', fontWeight: 'bold' }}>
+              <div style={{ position: 'absolute', top: '-4px', right: '-4px', backgroundColor: 'var(--c-red)', color: 'white', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '20px', fontWeight: 'bold' }}>
                 {selectedChar.length}
               </div>
             )}
@@ -234,7 +254,7 @@ export default function SelectIngredient() {
               onClick={handleComplete}
               style={{
                 padding: '24px 32px',
-                fontSize: '24px',
+                fontSize: '32px',
                 animation: 'bounce 1s infinite',
                 boxShadow: cursorIndex === currentItems.length + 1 ? '0 0 0 6px #E65100' : undefined,
                 transform: cursorIndex === currentItems.length + 1 ? 'scale(1.05)' : undefined
