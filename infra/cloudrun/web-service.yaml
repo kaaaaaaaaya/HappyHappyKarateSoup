@@ -1,0 +1,13 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: happy-soup-web
+  annotations:
+    run.googleapis.com/ingress: all
+spec:
+  template:
+    spec:
+      containers:
+        - image: REGION-docker.pkg.dev/PROJECT_ID/happy-soup/web:latest
+          ports:
+            - containerPort: 80

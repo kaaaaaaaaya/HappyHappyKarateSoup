@@ -1,4 +1,6 @@
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080').replace(/\/$/, '');
+import { resolveApiBaseUrl } from './apiBase';
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 export type AuthResponse = {
   token: string;

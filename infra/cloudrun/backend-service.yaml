@@ -1,0 +1,32 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: happy-soup-backend
+  annotations:
+    run.googleapis.com/ingress: all
+spec:
+  template:
+    spec:
+      containers:
+        - image: REGION-docker.pkg.dev/PROJECT_ID/happy-soup/backend:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: DB_HOST
+              value: DB_HOST_VALUE
+            - name: DB_PORT
+              value: "3306"
+            - name: DB_NAME
+              value: happysoup
+            - name: DB_USERNAME
+              value: DB_USERNAME_VALUE
+            - name: DB_PASSWORD
+              value: DB_PASSWORD_VALUE
+            - name: GEMINI_USE_VERTEX_AI
+              value: "true"
+            - name: GEMINI_PROJECT_ID
+              value: PROJECT_ID
+            - name: GEMINI_LOCATION
+              value: us-central1
+            - name: APP_CORS_ALLOWED_ORIGINS
+              value: https://YOUR_WEB_ORIGIN

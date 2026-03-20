@@ -2,12 +2,29 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
+import { resolveApiBaseUrl } from '../api/apiBase';
 import { fetchControllerRoomStatus, registerControllerRoom } from '../api/controllerRoomApi';
 
 export default function Connect() {
   const [roomId, setRoomId] = useState('');
+  const [manualApiBase, setManualApiBase] = useState(() => sessionStorage.getItem('controllerApiBaseOverride') ?? '');
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const navigate = useNavigate();
-  const controllerApiBase = (import.meta.env.VITE_API_BASE_URL ?? `${window.location.protocol}//${window.location.hostname}:8080`).replace(/\/$/, '');
+  const defaultApiBase = resolveApiBaseUrl();
+  const normalizedManualApiBase = manualApiBase.trim().replace(/\/$/, '');
+  const shouldIgnoreManualOverride = (() => {
+    if (!normalizedManualApiBase || window.location.hostname === 'localhost') {
+      return false;
+    }
+    try {
+      return new URL(normalizedManualApiBase).hostname === 'localhost';
+    } catch {
+      return normalizedManualApiBase.includes('localhost');
+    }
+  })();
+  const controllerApiBase = shouldIgnoreManualOverride
+    ? defaultApiBase
+    : (normalizedManualApiBase || defaultApiBase);
   const isApiBaseLocalhost = (() => {
     try {
       return new URL(controllerApiBase).hostname === 'localhost';
@@ -15,6 +32,21 @@ export default function Connect() {
       return controllerApiBase.includes('localhost');
     }
   })();
+
+  useEffect(() => {
+    if (!shouldIgnoreManualOverride) {
+      return;
+    }
+    setManualApiBase('');
+  }, [shouldIgnoreManualOverride]);
+
+  useEffect(() => {
+    if (normalizedManualApiBase) {
+      sessionStorage.setItem('controllerApiBaseOverride', normalizedManualApiBase);
+      return;
+    }
+    sessionStorage.removeItem('controllerApiBaseOverride');
+  }, [normalizedManualApiBase]);
 
   useEffect(() => {
     // コンポーネントマウント時にランダムなRoom IDを生成
@@ -100,9 +132,51 @@ export default function Connect() {
     <div style={{ textAlign: 'center', padding: '50px' }}>
       <h2>コントローラー接続画面</h2>
       <p>iPhoneでQRを読み取って参戦せよ！</p>
-      {isApiBaseLocalhost && (
+      <div style={{ margin: '10px auto', maxWidth: '620px', textAlign: 'left' }}>
+        <button
+          type="button"
+          onClick={() => setIsAdvancedOpen((prev) => !prev)}
+          style={{
+            padding: '6px 12px',
+            borderRadius: '6px',
+            border: '1px solid #999',
+            backgroundColor: '#f7f7f7',
+            cursor: 'pointer',
+            marginBottom: '8px',
+          }}
+        >
+          {isAdvancedOpen ? '接続先の詳細設定を閉じる' : '接続先の詳細設定を開く'}
+        </button>
+        {isAdvancedOpen && (
+          <>
+            <p style={{ marginBottom: '8px', color: '#333' }}>
+              QR用 API 接続先を手動設定（通常は未入力のままでOK）
+            </p>
+            <input
+              type="text"
+              value={manualApiBase}
+              onChange={(e) => setManualApiBase(e.target.value)}
+              placeholder={defaultApiBase}
+              style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #bbb' }}
+            />
+            <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={() => setManualApiBase('')}
+                style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #999', backgroundColor: '#f7f7f7', cursor: 'pointer' }}
+              >
+                既定値に戻す
+              </button>
+            </div>
+            <p style={{ marginTop: '6px', fontSize: '0.9rem', color: '#555' }}>
+              入力後、QRを再読み込みしてください。
+            </p>
+          </>
+        )}
+      </div>
+      {(window.location.hostname === 'localhost' && isApiBaseLocalhost) && (
         <p style={{ color: '#d32f2f' }}>
-          実機接続時は API 接続先を localhost 以外にしてください（例: VITE_API_BASE_URL=http://192.168.144.187:8080）。
+          実機接続時は localhost ではなく、PCのLANアドレスでこの画面にアクセスしてください（例: http://192.168.x.x:8081/connect）。
         </p>
       )}
 
