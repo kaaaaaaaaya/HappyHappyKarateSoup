@@ -4,12 +4,14 @@ import { fetchControllerRoomStatus } from '../../api/controllerRoomApi';
 export function useIngredientController(
   connectedRoomId: string | null,
   maxIndex: number,
-  onConfirm: (index: number) => void
+  onConfirm: (index: number) => void,
+  onTabChange?: (direction: 'left' | 'right') => void
 ) {
   const [cursorIndex, setCursorIndex] = useState(0);
   const cursorIndexRef = useRef(0);
   const lastSequenceRef = useRef<number>(0);
   const onConfirmRef = useRef(onConfirm);
+  const onTabChangeRef = useRef(onTabChange);
 
   // keep refs synced
   useEffect(() => {
@@ -19,6 +21,10 @@ export function useIngredientController(
   useEffect(() => {
     onConfirmRef.current = onConfirm;
   }, [onConfirm]);
+
+  useEffect(() => {
+    onTabChangeRef.current = onTabChange;
+  }, [onTabChange]);
 
   useEffect(() => {
     if (!connectedRoomId) return;
@@ -43,11 +49,37 @@ export function useIngredientController(
             const cols = 5; // Assumed grid columns lengths
 
             if (cmd === 'left') {
-              setCursorIndex((prev) => Math.max(0, prev - 1));
+              setCursorIndex((prev) => {
+                const isTabArea = prev >= maxIndex + 2;
+                if (isTabArea) {
+                  const newIdx = Math.max(maxIndex + 2, prev - 1);
+                  if (newIdx < maxIndex + 2 && onTabChangeRef.current) {
+                    onTabChangeRef.current('left');
+                  }
+                  return prev - 1 >= maxIndex + 2 ? prev - 1 : prev;
+                }
+                return Math.max(0, prev - 1);
+              });
             } else if (cmd === 'right') {
-              setCursorIndex((prev) => Math.min(maxIndex, prev + 1));
+              setCursorIndex((prev) => {
+                const isTabArea = prev >= maxIndex + 2;
+                if (isTabArea) {
+                  return Math.min(maxIndex + 4, prev + 1);
+                }
+                return Math.min(maxIndex + 1, prev + 1); // allow entering the buttons area
+              });
             } else if (cmd === 'up') {
-              setCursorIndex((prev) => Math.max(0, prev - cols));
+              setCursorIndex((prev) => {
+                if (prev >= maxIndex + 2) {
+                  // from tabs down to grid
+                  return 0;
+                }
+                if (prev < cols && onTabChangeRef.current) {
+                  // moving up from the top row goes to the tabs
+                  return maxIndex + 2; // +2, +3, +4 depending on active tab, but let's just default to first tab (maxIndex + currentTabOffset)
+                }
+                return Math.max(0, prev - cols);
+              });
             } else if (cmd === 'down') {
               setCursorIndex((prev) => Math.min(maxIndex, prev + cols));
             } else if (cmd === 'confirm' || cmd === 'punch' || cmd === 'chop' || cmd.startsWith('aim@')) {

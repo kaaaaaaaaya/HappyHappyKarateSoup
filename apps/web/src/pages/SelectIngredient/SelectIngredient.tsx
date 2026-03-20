@@ -54,10 +54,24 @@ export default function SelectIngredient() {
 
   const maxIdx = isReady ? currentItems.length + 1 : currentItems.length;
 
+  const TABS = ['VEGETABLE', 'MEAT_FISH', 'OTHERS'] as const;
+  
+  const handleTabChange = (direction: 'left' | 'right') => {
+    setActiveTab(prev => {
+      const idx = TABS.indexOf(prev);
+      if (direction === 'left') {
+        return TABS[Math.max(0, idx - 1)];
+      } else {
+        return TABS[Math.min(TABS.length - 1, idx + 1)];
+      }
+    });
+  };
+
   const { cursorIndex, setCursorIndex } = useIngredientController(
     connectedRoomId,
     maxIdx,
-    handleControllerConfirm
+    handleControllerConfirm,
+    handleTabChange
   );
 
   // Reset cursor to 0 when tab changes
