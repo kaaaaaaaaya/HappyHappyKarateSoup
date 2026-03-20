@@ -124,8 +124,8 @@ export default function SelectIngredient() {
                     cursor: (isSelected || selectedChar.length < 3) ? 'pointer' : 'not-allowed',
                     opacity: (!isSelected && selectedChar.length >= 3) ? 0.5 : 1,
                     transition: 'all 0.1s',
-                    boxShadow: isFocused ? '0 0 0 6px var(--c-blue-500)' : '0 4px 0 rgba(0,0,0,0.1)',
-                    transform: isFocused ? 'scale(1.05)' : 'scale(1)',
+                    boxShadow: isFocused ? '0 0 0 8px #FF0000, 0 0 20px rgba(255, 0, 0, 0.8)' : '0 4px 0 rgba(0,0,0,0.1)',
+                    transform: isFocused ? 'scale(1.1)' : 'scale(1)',
                     zIndex: isFocused ? 10 : 1
                   }}
                 >
@@ -205,8 +205,9 @@ export default function SelectIngredient() {
                 padding: '24px 32px',
                 fontSize: '24px',
                 animation: 'bounce 1s infinite',
-                boxShadow: cursorIndex === currentItems.length ? '0 0 0 8px var(--c-blue-500)' : undefined,
-                transform: cursorIndex === currentItems.length ? 'scale(1.05)' : undefined
+                boxShadow: cursorIndex === currentItems.length ? '0 0 0 10px #FF0000, 0 0 30px rgba(255, 0, 0, 0.8)' : undefined,
+                border: cursorIndex === currentItems.length ? '4px solid white' : undefined,
+                backgroundColor: cursorIndex === currentItems.length ? '#FF5722' : undefined
               }}
             >
               調理する！
