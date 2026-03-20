@@ -136,6 +136,7 @@ export default function Login() {
         : await postLogin(email.trim(), password);
 
       storeAuth(authResponse);
+      // ログイン成功後は QR 接続画面へ遷移
       navigate('/home-logged-in');
     } catch (e) {
       const message = e instanceof Error ? e.message : 'ログイン処理に失敗しました。';
@@ -309,3 +310,12 @@ export default function Login() {
     </div>
   );
 }
+
+const inputStyle: React.CSSProperties = {
+  padding: '12px 14px',
+  fontSize: '16px',
+  borderRadius: '10px',
+  border: '1px solid #d9b979',
+  outline: 'none',
+  backgroundColor: '#fffdf9',
+};

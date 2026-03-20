@@ -11,12 +11,14 @@ import Foundation
 import SwiftUI
 import UIKit
 
+// MARK: - Models & Enums
 private enum CameraAuthorizationState {
     case notDetermined
     case authorized
     case denied
 }
 
+// MARK: - Main Content View
 struct ContentView: View {
     @State private var cameraAuthorization: CameraAuthorizationState = .notDetermined
     @State private var isScanning = false
@@ -162,8 +164,6 @@ struct ContentView: View {
         }
     }
 
-    // [EN] Parses roomId from scanned QR and notifies backend join endpoint.
-    // [JA] 読み取った QR から roomId を解析し、バックエンドの join エンドポイントへ通知します。
     private func notifyRoomJoinedIfPossible(from scannedValue: String) {
         guard let components = URLComponents(string: scannedValue),
             let roomId = components.queryItems?.first(where: { $0.name == "roomId" })?.value,
@@ -207,8 +207,6 @@ struct ContentView: View {
         }.resume()
     }
 
-    // [EN] Sends controller button command to backend for room control.
-    // [JA] コントローラのボタン入力コマンドを部屋制御用バックエンドへ送信します。
     private func sendControlCommand(_ command: String, from scannedValue: String) {
         guard let components = URLComponents(string: scannedValue),
             let roomId = components.queryItems?.first(where: { $0.name == "roomId" })?.value,
@@ -377,6 +375,7 @@ final class PreviewView: UIView {
     ContentView()
 }
 
+// MARK: - Controller View (Integrated Design)
 private struct ControllerView: View {
     enum Direction {
         case up
@@ -406,6 +405,8 @@ private struct ControllerView: View {
     @State private var mode: ControllerMode = .remote
     @State private var pollTask: Task<Void, Never>? = nil
     @State private var lastSeenSequence: Int = -1
+
+    // For Action Command
     @State private var aimX: CGFloat = 0.5
     @State private var aimY: CGFloat = 0.55
     @StateObject private var motionDetector = ControllerMotionDetector()
@@ -420,7 +421,7 @@ private struct ControllerView: View {
                         width: isPortrait ? geo.size.height : geo.size.width,
                         height: isPortrait ? geo.size.width : geo.size.height
                     )
-                    .rotationEffect(.degrees(isPortrait ? -90 : 0)) // 反時計回り90度をデフォルト表示
+                    .rotationEffect(.degrees(isPortrait ? -90 : 0))  // 反時計回り90度をデフォルト表示
                     .position(x: geo.size.width / 2, y: geo.size.height / 2)
             }
             .ignoresSafeArea()
@@ -435,14 +436,99 @@ private struct ControllerView: View {
             motionDetector.stop()
         }
         .onChange(of: motionDetector.punchEventId) { _, _ in
-            sendActionCommand("punch")
+            if mode == .action { sendActionCommand("punch") }
         }
         .onChange(of: motionDetector.chopEventId) { _, _ in
-            sendActionCommand("chop")
+            if mode == .action { sendActionCommand("chop") }
         }
     }
 
+    @ViewBuilder
     private var controllerContent: some View {
+        ZStack {
+            if mode == .remote {
+                retroRemoteView
+            } else {
+                modernActionView
+            }
+        }
+    }
+
+    // MARK: - Retro Remote UI (D-Pad Mode)
+    private var retroRemoteView: some View {
+        ZStack(alignment: .topLeading) {
+            Color(hex: "#F5EDD8").ignoresSafeArea()
+            DecorativeBackground()
+
+            VStack(spacing: 0) {
+                // Top Marquee (Status Bar)
+                ZStack {
+                    Color(hex: "#8A9BAD").opacity(0.88)
+                    MarqueeView(
+                        text: debugMessage.isEmpty
+                            ? "Ready to Play - Scan QR to Start" : debugMessage)
+                }
+                .frame(maxWidth: .infinity, minHeight: 46, maxHeight: 46)
+
+                HStack {
+                    Spacer()
+                    Button("CLOSE") { onClose() }
+                        .font(.custom("DotGothic16-Regular", size: 14))
+                        .padding(8)
+                        .background(Color.pink.opacity(0.8))
+                        .foregroundColor(.white)
+                        .cornerRadius(4)
+                        .padding()
+                }
+
+                Spacer()
+
+                HStack(alignment: .center, spacing: 20) {
+                    Spacer().frame(width: 16)
+
+                    CardButton(action: { onConfirm() }) {
+                        OKLabel(fontSize: 60)
+                    }
+                    .frame(width: 160, height: 160)
+
+                    Spacer().frame(width: 40)
+
+                    HStack(spacing: 12) {
+                        CardButton(action: { onDirection("left") }) {
+                            ArrowLabel(symbol: "<", fontSize: 60)
+                        }.frame(width: 80, height: 120)
+
+                        VStack(spacing: 12) {
+                            CardButton(action: { onDirection("up") }) {
+                                ArrowLabel(symbol: "^", fontSize: 50)
+                            }.frame(width: 90, height: 70)
+
+                            CardButton(action: { onDirection("down") }) {
+                                ArrowLabel(symbol: "v", fontSize: 50)
+                            }.frame(width: 90, height: 70)
+                        }
+
+                        CardButton(action: { onDirection("right") }) {
+                            ArrowLabel(symbol: ">", fontSize: 60)
+                        }.frame(width: 80, height: 120)
+                    }
+                    Spacer()
+                }
+
+                Spacer()
+
+                Text("QRコードを読み取り後、コントローラ画面に切り替わりました")
+                    .font(.footnote)
+                    .foregroundStyle(Color(hex: "#1a1a1a").opacity(0.8))
+                    .padding(.bottom, 8)
+
+                Color(hex: "#8A9BAD").opacity(0.88).frame(height: 20)
+            }
+        }
+    }
+
+    // MARK: - Modern Action UI (Auto Aim Mode)
+    private var modernActionView: some View {
         ZStack {
             LinearGradient(
                 colors: [
@@ -491,63 +577,38 @@ private struct ControllerView: View {
 
                 Spacer()
 
-                if mode == .remote {
-                    VStack(spacing: 18) {
-                        PadButton(symbol: "chevron.up", tint: .cyan) {
-                            onDirection("up")
-                        }
-                        HStack(spacing: 18) {
-                            PadButton(symbol: "chevron.left", tint: .orange) {
-                                onDirection("left")
-                            }
-                            PadButton(title: "決定", tint: .pink, diameter: 110) {
-                                onConfirm()
-                            }
-                            PadButton(symbol: "chevron.right", tint: .orange) {
-                                onDirection("right")
-                            }
-                        }
-                        PadButton(symbol: "chevron.down", tint: .cyan) {
-                            onDirection("down")
-                        }
-                    }
-                } else {
-                    VStack(spacing: 16) {
-                        Text("ゲームモード（オートエイム）")
-                            .font(.headline)
-                            .foregroundStyle(.white.opacity(0.95))
+                VStack(spacing: 16) {
+                    Text("ゲームモード（オートエイム）")
+                        .font(.headline)
+                        .foregroundStyle(.white.opacity(0.95))
 
-                        VStack(spacing: 10) {
-                            Image(systemName: "iphone.radiowaves.left.and.right")
-                                .font(.system(size: 64, weight: .bold))
-                                .foregroundStyle(.white)
-                            Text("パンチ: 突き出し")
-                                .font(.title3.weight(.bold))
-                                .foregroundStyle(.red.opacity(0.95))
-                            Text("チョップ: 縦振り")
-                                .font(.title3.weight(.bold))
-                                .foregroundStyle(.cyan.opacity(0.95))
-                            Text("タッチ操作は不要です")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(.white.opacity(0.9))
-                                .padding(.top, 6)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 18)
-                        .background(Color.white.opacity(0.12))
-                        .clipShape(RoundedRectangle(cornerRadius: 18))
+                    VStack(spacing: 10) {
+                        Image(systemName: "iphone.radiowaves.left.and.right")
+                            .font(.system(size: 64, weight: .bold))
+                            .foregroundStyle(.white)
+                        Text("パンチ: 突き出し")
+                            .font(.title3.weight(.bold))
+                            .foregroundStyle(.red.opacity(0.95))
+                        Text("チョップ: 縦振り")
+                            .font(.title3.weight(.bold))
+                            .foregroundStyle(.cyan.opacity(0.95))
+                        Text("タッチ操作は不要です")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.9))
+                            .padding(.top, 6)
                     }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 18)
+                    .background(Color.white.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 18))
                 }
+                .padding(.horizontal, 40)
 
                 Spacer()
 
-                Text(
-                    mode == .remote
-                        ? "QRコードを読み取り後、コントローラ画面に切り替わりました"
-                        : "オートエイム中。モーションだけで攻撃できます"
-                )
-                .font(.footnote)
-                .foregroundStyle(.white.opacity(0.8))
+                Text("オートエイム中。モーションだけで攻撃できます")
+                    .font(.footnote)
+                    .foregroundStyle(.white.opacity(0.8))
             }
             .padding(20)
         }
@@ -562,111 +623,141 @@ private struct ControllerView: View {
     }
 
     private func startPollingRoomStatus() {
-        pollTask?.cancel()
-
-        guard let roomInfo = parseRoomInfo(from: scannedCode) else {
-            return
-        }
-
+        guard let info = parseRoomInfo(from: scannedCode) else { return }
         pollTask = Task {
             while !Task.isCancelled {
-                await fetchRoomStatus(baseURL: roomInfo.baseURL, roomId: roomInfo.roomId)
-                try? await Task.sleep(nanoseconds: 400_000_000)
+                await fetchRoomStatus(baseURL: info.baseURL, roomId: info.roomId)
+                try? await Task.sleep(nanoseconds: 500_000_000)
             }
         }
     }
 
-    private func parseRoomInfo(from scannedValue: String) -> (baseURL: String, roomId: String)? {
-        guard let components = URLComponents(string: scannedValue),
-            let roomId = components.queryItems?.first(where: { $0.name == "roomId" })?.value,
-            !roomId.isEmpty
-        else {
-            return nil
-        }
-
-        let apiBase = components.queryItems?
-            .first(where: { $0.name == "apiBase" })?
-            .value?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-
-        let resolvedBaseURL = (apiBase?.isEmpty == false ? apiBase! : "http://localhost:8080")
-            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-
-        return (resolvedBaseURL, roomId)
+    private func parseRoomInfo(from val: String) -> (baseURL: String, roomId: String)? {
+        guard let comp = URLComponents(string: val),
+            let rid = comp.queryItems?.first(where: { $0.name == "roomId" })?.value
+        else { return nil }
+        let base =
+            comp.queryItems?.first(where: { $0.name == "apiBase" })?.value
+            ?? "http://localhost:8080"
+        return (base.trimmingCharacters(in: CharacterSet(charactersIn: "/")), rid)
     }
 
     @MainActor
     private func fetchRoomStatus(baseURL: String, roomId: String) async {
-        guard
-            let encodedRoomId = roomId.addingPercentEncoding(
-                withAllowedCharacters: .urlPathAllowed),
-            let url = URL(string: "\(baseURL)/api/controller/rooms/\(encodedRoomId)/status")
-        else {
+        guard let url = URL(string: "\(baseURL)/api/controller/rooms/\(roomId)/status") else {
             return
         }
-
         do {
-            let (data, response) = try await URLSession.shared.data(from: url)
-            guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode)
-            else {
-                return
-            }
-
-            let status = try JSONDecoder().decode(RoomStatusResponse.self, from: data)
-            let sequence = status.commandSequence ?? 0
-            let latest = status.latestCommand ?? ""
-
-            if sequence > lastSeenSequence {
-                lastSeenSequence = sequence
-                if latest == "start_game" {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            let res = try JSONDecoder().decode(RoomStatusResponse.self, from: data)
+            let seq = res.commandSequence ?? 0
+            if seq > lastSeenSequence {
+                lastSeenSequence = seq
+                let cmd = res.latestCommand ?? ""
+                if cmd == "start_game" {
                     mode = .action
-                } else if latest == "end_game" || latest == "game_end" || latest == "return_remote"
-                {
+                } else if ["end_game", "return_remote"].contains(cmd) {
                     mode = .remote
                 }
             }
-        } catch {
-            // keep silent to avoid noisy UI updates during temporary network hiccups
-        }
+        } catch {}
     }
 }
 
-private struct PadButton: View {
-    var symbol: String? = nil
-    var title: String? = nil
-    var tint: Color
-    var diameter: CGFloat = 88
-    var action: () -> Void
+// MARK: - Reusable UI Components
+private struct ArrowLabel: View {
+    let symbol: String
+    var fontSize: CGFloat = 64
+    var body: some View {
+        Text(symbol).font(.custom("DotGothic16-Regular", size: fontSize)).foregroundColor(
+            Color(hex: "#1a1a1a"))
+    }
+}
+
+private struct OKLabel: View {
+    var fontSize: CGFloat = 58
+    var body: some View {
+        Text("OK!").font(.custom("DotGothic16-Regular", size: fontSize)).foregroundColor(
+            Color(hex: "#1a1a1a")
+        ).kerning(2)
+    }
+}
+
+private struct CardButton<Content: View>: View {
+    let action: () -> Void
+    @ViewBuilder let content: () -> Content
+    @State private var isPressed = false
 
     var body: some View {
-        Button(action: action) {
-            Circle()
-                .fill(
-                    LinearGradient(
-                        colors: [tint.opacity(0.95), tint.opacity(0.55)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .overlay(
-                    Group {
-                        if let symbol {
-                            Image(systemName: symbol)
-                                .font(.system(size: 30, weight: .black))
-                        } else if let title {
-                            Text(title)
-                                .font(.system(size: 26, weight: .heavy, design: .rounded))
-                        }
-                    }
-                    .foregroundStyle(.white)
-                )
-                .frame(width: diameter, height: diameter)
-                .shadow(color: tint.opacity(0.45), radius: 16, x: 0, y: 8)
+        Button(action: {
+            withAnimation(.spring(response: 0.1, dampingFraction: 0.6)) { isPressed = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                withAnimation { isPressed = false }
+            }
+            action()
+        }) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10).fill(Color(hex: "#9b9b9b").opacity(0.5)).offset(
+                    x: isPressed ? 2 : 6, y: isPressed ? 2 : 6)
+                RoundedRectangle(cornerRadius: 10).fill(Color(hex: "#D4896A"))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10).strokeBorder(
+                            Color(hex: "#7a7a7a"), lineWidth: 2))
+                content()
+            }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PlainButtonStyle())
+        .scaleEffect(isPressed ? 0.95 : 1.0)
     }
 }
 
+private struct MarqueeView: View {
+    let text: String
+    @State private var offset: CGFloat = 0
+    @State private var textWidth: CGFloat = 0
+
+    var body: some View {
+        GeometryReader { geo in
+            let fullText = ". ... \(text) ... ... "
+            HStack(spacing: 0) {
+                Text(fullText).font(.custom("DotGothic16-Regular", size: 18)).fixedSize()
+                    .background(
+                        GeometryReader { tGeo in
+                            Color.clear.onAppear { textWidth = tGeo.size.width }
+                        })
+                Text(fullText).font(.custom("DotGothic16-Regular", size: 18)).fixedSize()
+            }
+            .foregroundColor(Color(hex: "#1a1a1a"))
+            .offset(x: offset)
+            .onAppear {
+                withAnimation(.linear(duration: 8).repeatForever(autoreverses: false)) {
+                    offset = -textWidth
+                }
+            }
+        }.clipped()
+    }
+}
+
+private struct DecorativeBackground: View {
+    var body: some View {
+        ZStack {
+            Path { p in
+                p.move(to: .init(x: 155, y: 80))
+                p.addLine(to: .init(x: 255, y: 175))
+            }.stroke(Color(hex: "#F5C842"), lineWidth: 3)
+            Circle().stroke(Color(hex: "#D4896A"), lineWidth: 2.5).frame(width: 100).position(
+                x: 100, y: 400)
+            Path { p in
+                p.move(to: .init(x: 580, y: 100))
+                p.addLine(to: .init(x: 680, y: 200))
+                p.addLine(to: .init(x: 480, y: 200))
+                p.closeSubpath()
+            }.stroke(Color(hex: "#D4896A"), lineWidth: 2)
+        }
+    }
+}
+
+// MARK: - Motion Detector
 @MainActor
 final class ControllerMotionDetector: ObservableObject {
     private let manager = CMMotionManager()
@@ -674,9 +765,11 @@ final class ControllerMotionDetector: ObservableObject {
     @Published var chopEventId: Int = 0
     private var lastActionAt: TimeInterval = 0
 
-    private let cooldownSeconds: TimeInterval = 0.16
-    private let accelMagnitudeThreshold: Double = 0.18
-    private let rotationMagnitudeThreshold: Double = 1.2
+    // 誤爆防止のためのクールダウン。腕を引く時の逆方向の揺れを無視する。
+    private let cooldownSeconds: TimeInterval = 0.4
+    // 振りの強さの閾値（マイナス方向）。数値が小さい(絶対値が大きい)ほど強く振る必要がある
+    private let punchThreshold: Double = -1.5
+    private let chopThreshold: Double = -1.8
 
     func start() {
         guard manager.isDeviceMotionAvailable else {
@@ -696,38 +789,37 @@ final class ControllerMotionDetector: ObservableObject {
 
     private func handleMotion(_ motion: CMDeviceMotion) {
         let now = motion.timestamp
-        let ua = motion.userAcceleration
-        let rr = motion.rotationRate
-        let absX = abs(ua.x)
-        let absY = abs(ua.y)
-        let absZ = abs(ua.z)
-        let accelMagnitude = sqrt(absX * absX + absY * absY + absZ * absZ)
-
-        let absRx = abs(rr.x)
-        let absRy = abs(rr.y)
-        let absRz = abs(rr.z)
-        let rotationMagnitude = sqrt(absRx * absRx + absRy * absRy + absRz * absRz)
-
-        // [JA] 加速度または回転のどちらかが十分大きい時だけトリガー。
-        if accelMagnitude < accelMagnitudeThreshold && rotationMagnitude < rotationMagnitudeThreshold {
-            return
-        }
-
         if now - lastActionAt <= cooldownSeconds {
             return
         }
 
-        lastActionAt = now
+        let ua = motion.userAcceleration
 
-        // [JA] 判定は単純化: 縦成分優位なら chop、それ以外は punch。
-        let chopScore = absY + absRy * 0.12
-        let punchScore = absZ + absRz * 0.12 + absX * 0.04
-
-        if chopScore >= punchScore {
-            chopEventId += 1
+        // Z軸 (画面奥への突き出し) をパンチとする
+        if ua.z < punchThreshold {
+            punchEventId += 1
+            lastActionAt = now
             return
         }
 
-        punchEventId += 1
+        // X/Y軸の複合 (スマホの持ち方によるブレを吸収して縦振りをチョップとする)
+        if ua.y < chopThreshold || ua.x < chopThreshold {
+            chopEventId += 1
+            lastActionAt = now
+            return
+        }
+    }
+}
+
+// MARK: - Extension
+extension Color {
+    fileprivate init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let r = Double((int >> 16) & 0xFF) / 255
+        let g = Double((int >> 8) & 0xFF) / 255
+        let b = Double(int & 0xFF) / 255
+        self.init(.sRGB, red: r, green: g, blue: b, opacity: 1)
     }
 }
