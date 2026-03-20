@@ -86,20 +86,46 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
   }, []);
 
   //入力を受け取って結果を判定する関数
-  const handleAction = useCallback((actionType: ActionType) => {
-    if (activeIngredients.length === 0) return;
+  const handleAction = useCallback((actionType: ActionType, horizontalTargetNorm?: number) => {
+    if (activeIngredients.length === 0) {
+      // [JA] 入力は来ているので無反応に見せないため Miss 表示を返す。
+      processJudgment(actionType, 999, true);
+      return;
+    }
 
     //判定実施時の経過時間(ms)
     const now = performance.now() - startTimeRef.current;
 
-    // 一番手前にいる（ターゲット時間が最も早い）具材を探す
-    // バックエンドから取得する場合はdiffに直接差分の値を代入
-    const target = activeIngredients[0];
-    const diff = Math.abs(now - target.id); // 理想のタイミングとの差分(ms)
+    const availableTargets = activeIngredients.filter((item) => !item.missed);
+    if (availableTargets.length === 0) {
+      processJudgment(actionType, 999, true);
+      return;
+    }
 
-    if (diff >= 600) return; // 判定範囲外は無視
-    //ここをバックエンドで処理するなら、フロントには有効なデータだけ送られてくる？
-    //もしフロントに無効なデータも送られてくるなら、差分の計算ごとフロントにおかせてほしい
+    const judgeWindowMs = 600;
+    const timedCandidates = availableTargets.filter((item) => Math.abs(now - item.id) < judgeWindowMs);
+    if (timedCandidates.length === 0) {
+      processJudgment(actionType, 999, true);
+      return;
+    }
+
+    const target = (() => {
+      if (horizontalTargetNorm === undefined) {
+        return timedCandidates[0];
+      }
+
+      const clampedNorm = Math.max(0, Math.min(1, horizontalTargetNorm));
+      const targetLane = (clampedNorm - 0.5) * 200; // [-100, 100] lane scale
+
+      return timedCandidates.reduce((best, candidate) => {
+        const bestDistance = Math.abs(best.startX - targetLane) * 3 + Math.abs(now - best.id);
+        const candidateDistance = Math.abs(candidate.startX - targetLane) * 3 + Math.abs(now - candidate.id);
+        return candidateDistance < bestDistance ? candidate : best;
+      });
+    })();
+
+    const diff = Math.abs(now - target.id); // 理想のタイミングとの差分(ms)
+    if (diff >= judgeWindowMs) return; // 判定範囲外は無視
 
     const isCorrectType = target.type === actionType;
 

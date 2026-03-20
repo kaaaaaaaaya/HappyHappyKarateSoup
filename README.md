@@ -150,7 +150,7 @@ Gemini API Key 方式:
 ```bash
 export GEMINI_USE_VERTEX_AI=false
 export GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
-export APP_GCS_BUCKET_NAME="YOUR_GCS_BUCKET_NAME"
+export APP_GCS_BUCKET_NAME="happy-soup"
 export SOUP_LOCAL_FALLBACK_ENABLED=false
 docker compose up -d --build --force-recreate backend
 ```
@@ -158,10 +158,27 @@ docker compose up -d --build --force-recreate backend
 Vertex AI 方式:
 ```bash
 export GEMINI_USE_VERTEX_AI=true
-export GEMINI_PROJECT_ID="your-gcp-project"
+export GEMINI_PROJECT_ID="happy-happy-karate-soup"
 export GEMINI_LOCATION="us-central1"
-export APP_GCS_BUCKET_NAME="YOUR_GCS_BUCKET_NAME"
+export APP_GCS_BUCKET_NAME="happy-soup"
 export SOUP_LOCAL_FALLBACK_ENABLED=false
+docker compose up -d --build --force-recreate backend
+```
+
+`APP_GCS_BUCKET_NAME` の推奨値:
+- このリポジトリの既存GCP環境（`happy-happy-karate-soup`）で動かす場合: `happy-soup`
+- 自分のGCPプロジェクトで動かす場合: 自分のプロジェクト内で作成したバケット名（例: `happy-soup-dev-yourname`）
+
+補足:
+- 値は `gs://` なしで指定します（例: `happy-soup`）。
+- 指定したバケットに対して、実行中サービスアカウントに読み書き権限が必要です。
+
+Docker で Vertex AI を使う場合は、認証キーを `apps/web/backend-java/.secrets/vertex-ai-key.json` に配置してください。
+このリポジトリでは backend コンテナがデフォルトで `/run/secrets/vertex-ai-key.json` を参照します。
+
+必要なら明示指定:
+```bash
+export GOOGLE_APPLICATION_CREDENTIALS="/run/secrets/vertex-ai-key.json"
 docker compose up -d --build --force-recreate backend
 ```
 
@@ -197,6 +214,38 @@ lsof -ti :8080 | xargs -r kill -9
 ```bash
 cd apps/web/backend-java
 mvn -q clean package -DskipTests
+```
+
+- リザルト画面が空になる / AI生成失敗（最優先チェック）:
+```bash
+# 1) backend 内の設定確認
+docker compose exec -T backend sh -lc 'env | grep -E "^GEMINI_|^GOOGLE_APPLICATION_CREDENTIALS"'
+
+# 2) 認証ファイルが見えるか確認
+docker compose exec -T backend sh -lc 'ls -l /run/secrets/vertex-ai-key.json'
+
+# 3) 生成API疎通確認
+curl -s -i -X POST http://localhost:8080/api/soup/generate \
+	-H 'Content-Type: application/json' \
+	-d '{"ingredients":["tomato"]}' | sed -n '1,80p'
+```
+
+期待値:
+- `HTTP/1.1 200` が返ること
+- 返却 JSON に `imageDataUrl` と `flavor` と `comment` が含まれること
+
+`Gemini configuration is missing` が出る場合:
+- `GEMINI_PROJECT_ID` が正しいか（例: `happy-happy-karate-soup`）
+- `GEMINI_USE_VERTEX_AI=true` か
+- `/run/secrets/vertex-ai-key.json` がコンテナ内に存在するか
+- 修正後に `docker compose up -d --build --force-recreate backend` を再実行
+
+`429 Too Many Requests` が出る場合:
+- Gemini 側の一時的なクォータ超過です。
+- 最新コードでは backend がローカルフォールバック応答へ自動退避するため、リザルト画面は表示継続できます。
+- それでも空表示の場合は backend を再作成してください。
+```bash
+docker compose up -d --build --force-recreate backend
 ```
 
 - Dockerデーモン未起動:

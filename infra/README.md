@@ -13,6 +13,8 @@ docker compose up --build
 
 注意:
 - Gemini環境が設定されていない場合、Backendはスープ生成のローカルフォールバック応答を返すようになりました（開発/デモに適しています）。
+- Docker で Vertex AI を使う場合、`apps/web/backend-java/.secrets/vertex-ai-key.json` を用意してください（backend コンテナは既定で `/run/secrets/vertex-ai-key.json` を参照します）。
+- Gemini から `429 Too Many Requests` が返った場合も、backend はローカルフォールバック応答へ退避します。
 - ローカルプレイではGoogleログインはオプションです。VITE_GOOGLE_CLIENT_IDなしでも、Googleログインは警告を表示しますがゲストプレイはそのまま動きます。
 
 ### 停止

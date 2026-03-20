@@ -1,9 +1,20 @@
+import { useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/Button';
 import bgTitle from '../assets/backgrounds/bg_title.png';
 import logoTitle from '../assets/ui/logo_title.png';
 
 export default function Home() {
+  const navigate = useNavigate();
+
+  const handleGuestPlay = () => {
+    // ゲスト時は前のログイン情報をクリア
+    sessionStorage.removeItem('authToken');
+    sessionStorage.removeItem('authUser');
+    sessionStorage.removeItem('connectedRoomId');
+    navigate('/connect');
+  };
+
   return (
     <div style={{ 
       display: 'flex', 

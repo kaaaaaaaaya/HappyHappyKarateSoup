@@ -5,7 +5,7 @@ import { useLocation } from 'react-router-dom';
 import { useGameLogic } from './useGameLogic'; // 先ほど作ったフックを読み込む
 import { postSoupGenerate } from '../../api/soupApi';
 import type { SoupGenerateResponse } from '../../api/soupApi';
-import { postControllerRoomCommand } from '../../api/controllerRoomApi';
+import { fetchControllerRoomStatus, postControllerRoomCommand } from '../../api/controllerRoomApi';
 
 
 //Zindex ; 背景:0, レールの背景:50, レールの線:60, 絵文字:100, 鍋の画像:10, 判定ゾーン:55
@@ -33,6 +33,7 @@ const animationStyles = `
       transform: translate3d(calc(-50% + var(--end-x)), 1000%, 0px) scale(6); 
       opacity: 0.7; /* 最後：消える直前で再び透明になる */
     }
+  }
   
   @keyframes judgmentPop {
     0% { 
@@ -49,7 +50,7 @@ const animationStyles = `
     }
     100% { 
       transform: translate(-50%, -50%) scale(1.0); 
-      opacity: 0; /* 速攻で消える */
+      opacity: 1; /* 次の判定が来るまで表示を維持 */
     }
   }
 
@@ -94,6 +95,38 @@ const toUserFriendlyGenerationError = (rawMessage: string): string => {
   return '生成に失敗しました。時間をおいて再度お試しください。';
 };
 
+type ParsedControllerCommand =
+  | { kind: 'aim'; xNorm: number }
+  | { kind: 'action'; action: 'punch' | 'chop'; xNorm?: number };
+
+const parseCommandXNorm = (normalizedCommand: string): number | undefined => {
+  const payload = normalizedCommand.split('@')[1] ?? '';
+  const xRaw = payload.split(',')[0];
+  const x = Number.parseFloat(xRaw);
+  if (!Number.isFinite(x)) {
+    return undefined;
+  }
+  return Math.max(0, Math.min(1, x));
+};
+
+const parseControllerCommand = (command: string): ParsedControllerCommand | null => {
+  const normalized = command.trim().toLowerCase();
+  if (normalized.startsWith('aim')) {
+    const xNorm = parseCommandXNorm(normalized);
+    return xNorm === undefined ? null : { kind: 'aim', xNorm };
+  }
+
+  if (normalized.startsWith('punch')) {
+    return { kind: 'action', action: 'punch', xNorm: parseCommandXNorm(normalized) };
+  }
+
+  if (normalized.startsWith('chop')) {
+    return { kind: 'action', action: 'chop', xNorm: parseCommandXNorm(normalized) };
+  }
+
+  return null;
+};
+
 export default function Game() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -108,8 +141,22 @@ export default function Game() {
   const [isGameFinished, setIsGameFinished] = useState(false);
   const [isImageGenerating, setIsImageGenerating] = useState(false);
   const [isImageReady, setIsImageReady] = useState(false);
+  const [controllerXNorm, setControllerXNorm] = useState<number | null>(null);
+  const [controllerBaselineXNorm, setControllerBaselineXNorm] = useState<number | null>(null);
+  const [controllerLastSeenAt, setControllerLastSeenAt] = useState<number | null>(null);
+  const [controllerRoomConnected, setControllerRoomConnected] = useState(false);
+  const [controllerLatestSequence, setControllerLatestSequence] = useState(0);
+  const [controllerLatestCommand, setControllerLatestCommand] = useState('');
+  const [controllerLatestActionAt, setControllerLatestActionAt] = useState<number | null>(null);
+  const [controllerActionCount, setControllerActionCount] = useState(0);
+  const [controllerLastAction, setControllerLastAction] = useState<'punch' | 'chop' | null>(null);
+  const [clockMs, setClockMs] = useState(() => Date.now());
   const hasNavigatedRef = useRef(false);
   const isFinishingRef = useRef(false);
+  const handleActionRef = useRef<(action: 'punch' | 'chop', horizontalTargetNorm?: number) => void>(() => {});
+  const lastControllerCommandSequenceRef = useRef(0);
+  const lastControllerRawCommandRef = useRef('');
+  const isControllerSequenceInitializedRef = useRef(false);
   const retryTimerRef = useRef<number | null>(null);
   const soupGenerationPromiseRef = useRef<Promise<SoupGenerateResponse | null> | null>(null);
   const soupGenerationResultRef = useRef<SoupGenerateResponse | null>(null);
@@ -117,6 +164,7 @@ export default function Game() {
   const { phase,
     count,
     ingredients,
+    handleAction,
     removeIngredient,
     combo,
     lastJudgment,
@@ -126,6 +174,10 @@ export default function Game() {
     isChartFlowFinished } = useGameLogic({
       selectedIngredientEmojis,
     });
+
+  useEffect(() => {
+    handleActionRef.current = handleAction;
+  }, [handleAction]);
 
   const ingredientPayload = selectedIngredientLabels.length > 0
     ? selectedIngredientLabels
@@ -163,6 +215,106 @@ export default function Game() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    const timerId = window.setInterval(() => setClockMs(Date.now()), 500);
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, []);
+
+  useEffect(() => {
+    const connectedRoomId = sessionStorage.getItem('connectedRoomId');
+    if (!connectedRoomId || (phase !== 'countdown' && phase !== 'playing')) {
+      return;
+    }
+
+    const timerId = window.setInterval(async () => {
+      try {
+        const status = await fetchControllerRoomStatus(connectedRoomId, {
+          since: lastControllerCommandSequenceRef.current,
+        });
+        const currentSequence = status.commandSequence ?? 0;
+        const latestCommand = status.latestCommand ?? '';
+        const incrementalCommands = status.commands ?? [];
+        setControllerRoomConnected(status.connected);
+        setControllerLatestSequence(currentSequence);
+        setControllerLatestCommand(latestCommand);
+        if (status.connected) {
+          // Keep link alive even when no action command arrives.
+          setControllerLastSeenAt(Date.now());
+        }
+
+        if (!isControllerSequenceInitializedRef.current) {
+          lastControllerCommandSequenceRef.current = currentSequence;
+          lastControllerRawCommandRef.current = latestCommand;
+          isControllerSequenceInitializedRef.current = true;
+          return;
+        }
+
+        const hasIncrementalCommands = incrementalCommands.length > 0;
+        const isSequenceAdvanced = currentSequence > lastControllerCommandSequenceRef.current;
+        const isRawCommandChanged = latestCommand !== '' && latestCommand !== lastControllerRawCommandRef.current;
+
+        if (!hasIncrementalCommands && !isSequenceAdvanced && !isRawCommandChanged) {
+          return;
+        }
+
+        const commandEntries = hasIncrementalCommands
+          ? incrementalCommands
+          : [{ sequence: currentSequence, command: latestCommand }];
+
+        for (const entry of commandEntries) {
+          const parsedCommand = parseControllerCommand(entry.command ?? '');
+          if (!parsedCommand) {
+            continue;
+          }
+
+          const xNorm = parsedCommand.kind === 'aim' ? parsedCommand.xNorm : parsedCommand.xNorm;
+          if (xNorm !== undefined) {
+            setControllerXNorm(xNorm);
+            setControllerBaselineXNorm((currentBaseline) => currentBaseline ?? xNorm);
+          }
+
+          if (parsedCommand.kind === 'action') {
+            setControllerLatestActionAt(Date.now());
+            setControllerLastAction(parsedCommand.action);
+            setControllerActionCount((count) => count + 1);
+
+            if (phase === 'playing') {
+              // Auto-aim mode: action type and timing only (ignore horizontal x input).
+              handleActionRef.current(parsedCommand.action);
+            }
+          }
+        }
+
+        if (isSequenceAdvanced) {
+          lastControllerCommandSequenceRef.current = currentSequence;
+        }
+        if (latestCommand !== '') {
+          lastControllerRawCommandRef.current = latestCommand;
+        }
+      } catch (error) {
+        console.error('Failed to poll controller action on game page:', error);
+      }
+    }, 80);
+
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, [phase]);
+
+  const controllerLinkHealthy =
+    controllerRoomConnected && controllerLastSeenAt !== null && clockMs - controllerLastSeenAt <= 6000;
+  const controllerRelativeXNorm =
+    controllerXNorm !== null && controllerBaselineXNorm !== null
+      ? controllerXNorm - controllerBaselineXNorm
+      : null;
+  const controllerRelativeLane =
+    controllerRelativeXNorm !== null ? Math.round(controllerRelativeXNorm * 200) : null;
+  const controllerPointerLeftPercent = controllerXNorm !== null ? `${(controllerXNorm * 100).toFixed(1)}%` : null;
+  const hasRecentAction = controllerLatestActionAt !== null && clockMs - controllerLatestActionAt <= 1000;
+  const lastActionLabel = controllerLastAction ? controllerLastAction.toUpperCase() : '-';
 
   // [EN] Starts soup generation as soon as gameplay starts to hide model latency.
   // [JA] モデル生成の待ち時間を隠すため、ゲーム開始時に先行生成を開始します。
@@ -322,6 +474,45 @@ export default function Game() {
         <div>
           <h2>ゲーム準備</h2>
           <p>スマホをこっち向き（反時計回りに90度）に回して、こうやって持ってね！</p>
+          <div style={{ margin: '16px auto', maxWidth: '560px', textAlign: 'left' }}>
+            <p style={{ margin: '0 0 8px 0', fontSize: '14px' }}>
+              接続状態: {controllerLinkHealthy ? 'OK（iPhone位置データ受信中）' : '待機中（iPhoneを動かす/狙いパッドを触る）'}
+            </p>
+            <p style={{ margin: '0 0 8px 0', fontSize: '14px' }}>
+              基準位置との差（X）: {controllerRelativeLane === null ? '未キャリブレーション' : `${controllerRelativeLane} lane`}
+            </p>
+            <p style={{ margin: '0 0 10px 0', fontSize: '14px', color: hasRecentAction ? '#2e7d32' : '#8d6e63' }}>
+              入力受信: {hasRecentAction ? 'あり' : 'なし'} / 最終: {lastActionLabel} / 回数: {controllerActionCount}
+            </p>
+            <div style={{ position: 'relative', height: '14px', borderRadius: '999px', backgroundColor: '#ffe7b0' }}>
+              <div
+                style={{
+                  position: 'absolute',
+                  left: '50%',
+                  top: '0',
+                  bottom: '0',
+                  width: '2px',
+                  transform: 'translateX(-1px)',
+                  backgroundColor: '#8a5a00',
+                }}
+              />
+              {controllerPointerLeftPercent && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: controllerPointerLeftPercent,
+                    top: '-3px',
+                    width: '20px',
+                    height: '20px',
+                    borderRadius: '50%',
+                    transform: 'translateX(-10px)',
+                    backgroundColor: controllerLinkHealthy ? '#00c853' : '#9e9e9e',
+                    border: '2px solid #fff',
+                  }}
+                />
+              )}
+            </div>
+          </div>
           <div style={{ fontSize: '80px', fontWeight: 'bold', margin: '50px 0', color: '#ff5722' }}>
             {count > 0 ? count : 'START!'}
           </div>
@@ -329,13 +520,23 @@ export default function Game() {
       ) : (
         <div>
           <h2>ゲームプレイ（パンチ画面）</h2>
-          <p>タイミングを合わせてスマホを突き出せ！</p>
+          <p>オートエイムON: タイミングを合わせてスマホを振るだけ！</p>
           {isImageGenerating && <p>生成AIで画像を作成中...</p>}
           {!isImageGenerating && isImageReady && !isGameFinished && <p>画像生成: 完了（ゲーム終了を待機中）</p>}
           {!isImageGenerating && !isImageReady && generationError && <p>画像生成リトライ中...（3秒後に再試行）</p>}
           {isGameFinished && !isImageReady && <p>ゲーム終了。画像生成完了を待っています...</p>}
           {isGameFinished && isImageReady && <p>ゲーム終了。リザルトへ遷移します...</p>}
           {totalScore !== null && <p>最新スコア: {totalScore}</p>}
+          <p style={{ fontSize: '13px', color: controllerLinkHealthy ? '#2e7d32' : '#8d6e63' }}>
+            iPhoneコマンドリンク: {controllerLinkHealthy ? '接続中' : '途切れ気味'}
+            {' / オートエイム中'}
+          </p>
+          <p style={{ fontSize: '12px', color: '#455a64' }}>
+            Controller seq: {controllerLatestSequence} / cmd: {controllerLatestCommand || '-'}
+          </p>
+          <p style={{ fontSize: '12px', color: hasRecentAction ? '#2e7d32' : '#8d6e63' }}>
+            Action受信: {hasRecentAction ? 'あり' : 'なし'} / 最終: {lastActionLabel} / 回数: {controllerActionCount}
+          </p>
 
           {/*ゲーム画面内の設定*/}
           <div style={{
