@@ -40,3 +40,7 @@ target/
 xcuserdata/
 *.xcuserdatad
 *.xcworkspace
+
+.vite/
+
+**/.vite/

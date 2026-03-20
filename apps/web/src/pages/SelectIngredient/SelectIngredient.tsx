@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelectIngredient } from './useSelectIngredient';
+import { useIngredientController } from './useIngredientController';
 import { FOOD_EMOJIS } from './emojis';
 import { Button } from '../../components/Button';
 import bgConnection from '../../assets/backgrounds/bg_connection.png';
@@ -24,11 +25,40 @@ export default function SelectIngredient() {
     isReady
   } = useSelectIngredient();
 
-  const handleComplete = () => {
+  const handleComplete = useCallback(() => {
     navigate('/game', { state: { selectedIngredientEmojis: selectedChar } });
-  };
+  }, [navigate, selectedChar]);
 
   const currentItems = CATEGORIES[activeTab];
+
+  // --- Add controller integration ---
+  const connectedRoomId = sessionStorage.getItem('connectedRoomId');
+  
+  const handleControllerConfirm = useCallback((idx: number) => {
+    if (idx === currentItems.length) {
+      if (isReady) {
+        handleComplete();
+      }
+    } else if (idx >= 0 && idx < currentItems.length) {
+      const item = currentItems[idx];
+      const isSelected = selectedChar.includes(item.emoji);
+      if (!isSelected && selectedChar.length >= 3) return;
+      toggleSelection(item.emoji);
+    }
+  }, [currentItems, isReady, handleComplete, selectedChar, toggleSelection]);
+
+  const maxIdx = isReady ? currentItems.length : currentItems.length - 1;
+
+  const { cursorIndex, setCursorIndex } = useIngredientController(
+    connectedRoomId,
+    maxIdx,
+    handleControllerConfirm
+  );
+
+  // Reset cursor to 0 when tab changes
+  useEffect(() => {
+    setCursorIndex(0);
+  }, [activeTab, setCursorIndex]);
 
   return (
     <div style={{
@@ -74,14 +104,16 @@ export default function SelectIngredient() {
             gap: '16px',
             paddingBottom: '100px'
           }}>
-            {currentItems.map((item) => {
+            {currentItems.map((item, index) => {
               const isSelected = selectedChar.includes(item.emoji);
+              const isFocused = index === cursorIndex;
               return (
                 <div
                   key={item.id}
                   onClick={() => {
                     if (!isSelected && selectedChar.length >= 3) return;
                     toggleSelection(item.emoji);
+                    setCursorIndex(index);
                   }}
                   style={{
                     backgroundColor: isSelected ? 'var(--c-orange)' : 'var(--c-white)',
@@ -92,7 +124,9 @@ export default function SelectIngredient() {
                     cursor: (isSelected || selectedChar.length < 3) ? 'pointer' : 'not-allowed',
                     opacity: (!isSelected && selectedChar.length >= 3) ? 0.5 : 1,
                     transition: 'all 0.1s',
-                    boxShadow: '0 4px 0 rgba(0,0,0,0.1)'
+                    boxShadow: isFocused ? '0 0 0 6px var(--c-blue-500)' : '0 4px 0 rgba(0,0,0,0.1)',
+                    transform: isFocused ? 'scale(1.05)' : 'scale(1)',
+                    zIndex: isFocused ? 10 : 1
                   }}
                 >
                   <div style={{ fontSize: '48px', marginBottom: '8px' }}>{item.emoji}</div>
@@ -167,7 +201,13 @@ export default function SelectIngredient() {
             <Button 
               variant="primary" 
               onClick={handleComplete}
-              style={{ padding: '24px 32px', fontSize: '24px', animation: 'bounce 1s infinite' }}
+              style={{
+                padding: '24px 32px',
+                fontSize: '24px',
+                animation: 'bounce 1s infinite',
+                boxShadow: cursorIndex === currentItems.length ? '0 0 0 8px var(--c-blue-500)' : undefined,
+                transform: cursorIndex === currentItems.length ? 'scale(1.05)' : undefined
+              }}
             >
               調理する！
             </Button>

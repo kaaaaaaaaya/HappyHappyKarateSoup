@@ -44,11 +44,9 @@ export default function Home() {
       />
       
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', alignItems: 'center' }}>
-        <Link to="/connect" style={{ textDecoration: 'none' }}>
-          <Button variant="primary" size="lg" pill style={{ minWidth: '320px', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
-            ゲストで遊ぶ
-          </Button>
-        </Link>
+        <Button onClick={handleGuestPlay} variant="primary" size="lg" pill style={{ minWidth: '320px', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
+          ゲストで遊ぶ
+        </Button>
         <Link to="/login" style={{ textDecoration: 'none' }}>
           <Button variant="secondary" size="lg" pill style={{ minWidth: '320px', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
             ログインして遊ぶ
