@@ -1,428 +1,257 @@
-// SelectIngredient.tsx
-import { useEffect, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelectIngredient } from './useSelectIngredient';
-import { FOOD_EMOJIS } from './emojis'; // 追加した絵文字リストもインポート
-import { fetchControllerRoomStatus, postControllerRoomCommand } from '../../api/controllerRoomApi';
+import { useIngredientController } from './useIngredientController';
+import { FOOD_EMOJIS } from './emojis';
+import { Button } from '../../components/Button';
+import bgConnection from '../../assets/backgrounds/bg_connection.png';
+import { postControllerRoomCommand } from '../../api/controllerRoomApi';
 
-type FocusArea = 'ingredient' | 'add-button' | 'picker-item' | 'confirm-button';
+// 分類をざっくり定義
+const CATEGORIES = {
+  VEGETABLE: FOOD_EMOJIS.slice(0, 18),
+  MEAT_FISH: FOOD_EMOJIS.slice(18, 30),
+  OTHERS: FOOD_EMOJIS.slice(30)
+};
 
 export default function SelectIngredient() {
-  // 画面遷移のためのフック
   const navigate = useNavigate();
-  const location = useLocation();
-  const roomIdFromState = (location.state as { roomId?: string } | null)?.roomId;
-  const connectedRoomId = roomIdFromState ?? sessionStorage.getItem('connectedRoomId') ?? '';
-  const [focusedIndex, setFocusedIndex] = useState(0);
-  const [focusArea, setFocusArea] = useState<FocusArea>('ingredient');
-  const [pickerFocusedIndex, setPickerFocusedIndex] = useState(0);
-  const focusedIndexRef = useRef(0);
-  const focusAreaRef = useRef<FocusArea>('ingredient');
-  const pickerFocusedIndexRef = useRef(0);
-  const availableItemsRef = useRef<Array<{ id: string; label: string; emoji: string }>>([]);
-  const [latestControllerCommand, setLatestControllerCommand] = useState('');
-  const [latestControllerSequence, setLatestControllerSequence] = useState(0);
-  const lastCommandSequenceRef = useRef(0);
-  const columnCount = 4;
-  const pickerColumnCount = 7;
+  
+  const [activeTab, setActiveTab] = useState<'VEGETABLE' | 'MEAT_FISH' | 'OTHERS'>('VEGETABLE');
+  const [showCart, setShowCart] = useState(false);
 
-  // 裏側のロジックから必要なデータや関数を取得
   const {
-    availableItems,
     selectedChar,
-    isPickerOpen,
-    setIsPickerOpen,
     toggleSelection,
-    addCustomIngredient,
     isReady
   } = useSelectIngredient();
 
-  useEffect(() => {
-    availableItemsRef.current = availableItems;
-  }, [availableItems]);
+  const connectedRoomId = sessionStorage.getItem('connectedRoomId');
 
-  useEffect(() => {
-    focusedIndexRef.current = focusedIndex;
-  }, [focusedIndex]);
-
-  useEffect(() => {
-    focusAreaRef.current = focusArea;
-  }, [focusArea]);
-
-  useEffect(() => {
-    pickerFocusedIndexRef.current = pickerFocusedIndex;
-  }, [pickerFocusedIndex]);
-
-  useEffect(() => {
-    if (availableItems.length === 0) {
-      return;
-    }
-    setFocusedIndex((prev) => Math.min(prev, availableItems.length - 1));
-  }, [availableItems.length]);
-
-  useEffect(() => {
-    // Keep focus valid so the highlight never disappears unexpectedly.
-    if (focusArea === 'confirm-button' && !isReady) {
-      setFocusArea('ingredient');
-      focusAreaRef.current = 'ingredient';
-    }
-
-    if (focusArea === 'picker-item' && !isPickerOpen) {
-      setFocusArea('add-button');
-      focusAreaRef.current = 'add-button';
-    }
-  }, [focusArea, isPickerOpen, isReady]);
-
-  useEffect(() => {
-    if (!connectedRoomId) {
-      return;
-    }
-
-    const applyControllerCommand = (command: string) => {
-      const currentItems = availableItemsRef.current;
-      if (currentItems.length === 0) {
-        return;
-      }
-
-      if (command === 'left' || command === 'right') {
-        if (focusAreaRef.current === 'picker-item') {
-          setPickerFocusedIndex((prev) => {
-            const next = command === 'left'
-              ? Math.max(0, prev - 1)
-              : Math.min(FOOD_EMOJIS.length - 1, prev + 1);
-            pickerFocusedIndexRef.current = next;
-            return next;
-          });
-          return;
-        }
-
-        if (focusAreaRef.current !== 'ingredient') {
-          return;
-        }
-
-        setFocusedIndex((prev) => {
-          const next = command === 'left'
-            ? Math.max(0, prev - 1)
-            : Math.min(currentItems.length - 1, prev + 1);
-          focusedIndexRef.current = next;
-          return next;
-        });
-      }
-
-      if (command === 'up') {
-        if (focusAreaRef.current === 'confirm-button') {
-          if (isPickerOpen) {
-            setFocusArea('picker-item');
-            focusAreaRef.current = 'picker-item';
-          } else {
-            setFocusArea('add-button');
-            focusAreaRef.current = 'add-button';
-          }
-          return;
-        }
-
-        if (focusAreaRef.current === 'picker-item') {
-          setPickerFocusedIndex((prev) => {
-            if (prev - pickerColumnCount >= 0) {
-              const next = prev - pickerColumnCount;
-              pickerFocusedIndexRef.current = next;
-              return next;
-            }
-
-            setFocusArea('add-button');
-            focusAreaRef.current = 'add-button';
-            return prev;
-          });
-          return;
-        }
-
-        if (focusAreaRef.current === 'add-button') {
-          setFocusArea('ingredient');
-          focusAreaRef.current = 'ingredient';
-          return;
-        }
-
-        setFocusedIndex((prev) => {
-          if (prev - columnCount >= 0) {
-            const next = prev - columnCount;
-            focusedIndexRef.current = next;
-            return next;
-          }
-          focusedIndexRef.current = prev;
-          return prev;
-        });
-      }
-
-      if (command === 'down') {
-        if (focusAreaRef.current === 'ingredient') {
-          const nextByRow = focusedIndexRef.current + columnCount;
-          if (nextByRow < currentItems.length) {
-            setFocusedIndex(nextByRow);
-            focusedIndexRef.current = nextByRow;
-            return;
-          }
-
-          setFocusArea('add-button');
-          focusAreaRef.current = 'add-button';
-          return;
-        }
-
-        if (focusAreaRef.current === 'add-button') {
-          if (isPickerOpen) {
-            setFocusArea('picker-item');
-            focusAreaRef.current = 'picker-item';
-            return;
-          }
-
-          setFocusArea('confirm-button');
-          focusAreaRef.current = 'confirm-button';
-          return;
-        }
-
-        if (focusAreaRef.current === 'picker-item') {
-          setPickerFocusedIndex((prev) => {
-            const next = prev + pickerColumnCount;
-            if (next < FOOD_EMOJIS.length) {
-              pickerFocusedIndexRef.current = next;
-              return next;
-            }
-
-            // Reached bottom row: keep current cursor instead of leaving picker.
-            return prev;
-          });
-          return;
-        }
-      }
-
-      if (command === 'confirm') {
-        if (focusAreaRef.current === 'ingredient') {
-          const target = currentItems[focusedIndexRef.current];
-          if (target) {
-            toggleSelection(target.id);
-          }
-          return;
-        }
-
-        if (focusAreaRef.current === 'add-button') {
-          setIsPickerOpen((prev) => {
-            const next = !prev;
-            if (next) {
-              setFocusArea('picker-item');
-              focusAreaRef.current = 'picker-item';
-              setPickerFocusedIndex(0);
-              pickerFocusedIndexRef.current = 0;
-            }
-            return next;
-          });
-          return;
-        }
-
-        if (focusAreaRef.current === 'picker-item') {
-          const target = FOOD_EMOJIS[pickerFocusedIndexRef.current];
-          if (target) {
-            addCustomIngredient(target);
-            setIsPickerOpen(false);
-            setFocusArea('ingredient');
-            focusAreaRef.current = 'ingredient';
-            setFocusedIndex(0);
-            focusedIndexRef.current = 0;
-            setPickerFocusedIndex(0);
-            pickerFocusedIndexRef.current = 0;
-          }
-          return;
-        }
-
-        if (focusAreaRef.current === 'confirm-button' && isReady) {
-          handleComplete();
-        }
-      }
-    };
-
-    const pollTimerId = window.setInterval(async () => {
-      try {
-        const status = await fetchControllerRoomStatus(connectedRoomId);
-        const currentSequence = status.commandSequence ?? 0;
-        const latestCommand = status.latestCommand ?? '';
-        setLatestControllerSequence(currentSequence);
-        setLatestControllerCommand(latestCommand);
-
-        if (currentSequence > lastCommandSequenceRef.current && latestCommand) {
-          lastCommandSequenceRef.current = currentSequence;
-          applyControllerCommand(latestCommand);
-        }
-      } catch (error) {
-        console.error('Failed to poll controller command:', error);
-      }
-    }, 250);
-
-    return () => {
-      window.clearInterval(pollTimerId);
-    };
-  }, [addCustomIngredient, connectedRoomId, isPickerOpen, isReady, setIsPickerOpen, toggleSelection]);
-
-  const handleComplete = () => {
-    const payloadData = availableItems.filter(item => selectedChar.includes(item.id));
-
-    console.log('選択された具材:', payloadData);
-    // =======================================================
-    // try {
-    //  // ここでAPIに送信するコードを追加
-    //
-    //   // ゲーム画面にもstateを用いて選択された具材の情報を渡す
-    //   // state[selectedIngredients]に具材の情報を格納
-    //   navigate('/game', { state: { selectedIngredients: payloadData } });
-    // } catch (error) {
-    //   console.error('具材情報のBE送信に失敗しました:', error);
-    //  alert("具材情報の送信に失敗しました。もう一度試してください。");
-    // }
-    // =======================================================
-
+  const handleComplete = useCallback(() => {
     if (connectedRoomId) {
-      void postControllerRoomCommand(connectedRoomId, 'start_game').catch((error) => {
-        console.error('Failed to notify controller game start:', error);
-      });
+      postControllerRoomCommand(connectedRoomId, 'start_game').catch(console.error);
     }
+    navigate('/game', { state: { selectedIngredientEmojis: selectedChar } });
+  }, [navigate, selectedChar, connectedRoomId]);
+  
+  const currentItems = CATEGORIES[activeTab];
 
-    // API通信コード追加後：通信が成功しないと遷移しない
-    // 現在は通信無しで遷移
-    navigate('/game', { state: { selectedIngredients: payloadData } });
+  const handleControllerConfirm = useCallback((idx: number) => {
+    if (idx === currentItems.length) { // カートボタン
+      setShowCart((prev) => !prev);
+    } else if (idx === currentItems.length + 1) { // 調理ボタン
+      if (isReady) {
+        handleComplete();
+      }
+    } else if (idx >= 0 && idx < currentItems.length) {
+      const item = currentItems[idx];
+      const isSelected = selectedChar.includes(item.emoji);
+      if (!isSelected && selectedChar.length >= 3) return;
+      toggleSelection(item.emoji);
+    }
+  }, [currentItems, isReady, handleComplete, selectedChar, toggleSelection]);
+
+  const maxIdx = isReady ? currentItems.length + 1 : currentItems.length;
+
+  const TABS = ['VEGETABLE', 'MEAT_FISH', 'OTHERS'] as const;
+  
+  const handleTabChange = (direction: 'left' | 'right') => {
+    setActiveTab(prev => {
+      const idx = TABS.indexOf(prev);
+      if (direction === 'left') {
+        return TABS[Math.max(0, idx - 1)];
+      } else {
+        return TABS[Math.min(TABS.length - 1, idx + 1)];
+      }
+    });
   };
 
+  const { cursorIndex, setCursorIndex } = useIngredientController(
+    connectedRoomId,
+    maxIdx,
+    handleControllerConfirm,
+    handleTabChange
+  );
+
+  // Ensure cursor index is bound correctly when maxIdx changes
+  useEffect(() => {
+    if (cursorIndex > maxIdx) {
+      setCursorIndex(maxIdx);
+    }
+  }, [maxIdx, cursorIndex, setCursorIndex]);
+
   return (
-    <div style={{ textAlign: 'center', padding: '50px' }}>
-      <h2>具材選択画面</h2>
-      <p>材料を3つ選んでください（現在: {selectedChar.length}/3）</p>
-      {!!connectedRoomId && (
-        <p style={{ fontSize: '12px', color: '#455a64' }}>
-          Controller room: {connectedRoomId} / seq: {latestControllerSequence} / cmd: {latestControllerCommand || '-'}
-        </p>
-      )}
-
-      {/* 具材の表示エリア */}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', margin: '30px 0', flexWrap: 'wrap' }}>
-        {availableItems.map((item, index) => {
-          // この具材が選択されているかどうか
-          const isSelected = selectedChar.includes(item.id);
-
-          return (
-            <div
-              key={item.id}
-              onClick={() => {
-                setFocusArea('ingredient');
-                toggleSelection(item.id);
-              }} // クリックで選択・解除
-              style={{
-                padding: '20px',
-                border: isSelected
-                  ? '5px solid #ff9800'
-                  : focusArea === 'ingredient' && focusedIndex === index
-                    ? '4px solid #42a5f5'
-                    : '2px solid #ccc',
-                borderRadius: '10px',
-                cursor: 'pointer',
-                fontWeight: isSelected ? 'bold' : 'normal',
-                backgroundColor: isSelected ? '#fff3e0' : focusArea === 'ingredient' && focusedIndex === index ? '#e3f2fd' : 'transparent',
-                minWidth: '120px',
-                transition: '0.2s' // フワッと枠線が変わるアニメーション
-              }}
-            >
-              <div style={{ fontSize: '40px' }}>{item.emoji}</div>
-              <h3 style={{ fontSize: '16px', margin: '10px 0 0 0' }}>{item.label}</h3>
-              {isSelected && <span style={{ color: '#ff9800', fontSize: '12px' }}>選択中</span>}
-            </div>
-          );
-        })}
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100vh',
+      backgroundColor: 'var(--c-brown)',
+      backgroundImage: `url(${bgConnection})`,
+      backgroundSize: 'cover',
+      fontFamily: 'var(--f-dotgothic)',
+      color: 'var(--c-slate-900)'
+    }}>
+      {/* Header */}
+      <div style={{ padding: '20px', backgroundColor: 'rgba(255,255,255,0.9)', borderBottom: '4px solid var(--c-slate-200)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h2 style={{ margin: 0, fontFamily: 'var(--f-pixel)', fontSize: '24px' }}>SELECT INGREDIENTS</h2>
+        <div style={{ fontSize: '18px', fontWeight: 'bold' }}>
+          あと {3 - selectedChar.length} 個選んでね
+        </div>
       </div>
 
-      {/* さらに具材を選択するボタン */}
-      <div style={{ margin: '30px 0' }}>
-        <button
-          onClick={() => {
-            setFocusArea('add-button');
-            setIsPickerOpen(!isPickerOpen);
-          }}
-          style={{
-            padding: '10px 20px',
-            cursor: 'pointer',
-            borderRadius: '20px',
-            backgroundColor: focusArea === 'add-button' ? '#d1ecff' : '#e0e0e0',
-            border: focusArea === 'add-button' ? '3px solid #42a5f5' : 'none'
-          }}
-        >
-          ＋ さらに具材を選択
-        </button>
-      </div>
-
-      {/* 絵文字ピッカー（ボタンを押したら出現） */}
-      {isPickerOpen && (
-        <div style={{ padding: '20px', backgroundColor: '#f5f5f5', borderRadius: '10px', display: 'inline-block', maxWidth: '400px' }}>
-          <p style={{ marginTop: '0' }}>追加する絵文字を選んでね</p>
-          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
-
-            {FOOD_EMOJIS.map((food, index) => (
-              <span
-                key={food.emoji}
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        {/* Main Content Area */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '20px', overflowY: 'auto' }}>
+          
+          {/* Tabs */}
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+            {(['VEGETABLE', 'MEAT_FISH', 'OTHERS'] as const).map((tab) => (
+              <Button
+                key={tab}
+                variant={activeTab === tab ? 'primary' : 'secondary'}
                 onClick={() => {
-                  setFocusArea('picker-item');
-                  setPickerFocusedIndex(index);
-                  pickerFocusedIndexRef.current = index;
-                  addCustomIngredient(food);
-                  setIsPickerOpen(false);
-                  setFocusArea('ingredient');
-                  focusAreaRef.current = 'ingredient';
-                  setFocusedIndex(0);
-                  focusedIndexRef.current = 0;
-                }}  // クリックで具材追加
-
-                style={{
-                  fontSize: '30px',
-                  cursor: 'pointer',
-                  padding: '5px',
-                  border: focusArea === 'picker-item' && pickerFocusedIndex === index
-                    ? '3px solid #42a5f5'
-                    : '1px solid #ccc',
-                  borderRadius: '5px',
-                  backgroundColor: focusArea === 'picker-item' && pickerFocusedIndex === index
-                    ? '#e3f2fd'
-                    : 'white'
+                  setActiveTab(tab);
+                  setCursorIndex(-1); // Automatically focus tab area when clicked
+                }}
+                style={{ 
+                  padding: '10px 20px', 
+                  fontSize: '18px',
+                  boxShadow: (cursorIndex === -1 && activeTab === tab) ? '0 0 0 6px #E65100' : 'none'
                 }}
               >
-                {food.emoji}
-              </span>
+                {tab === 'VEGETABLE' ? '野菜' : tab === 'MEAT_FISH' ? '肉・魚' : 'その他'}
+              </Button>
             ))}
+          </div>
 
+          {/* Item Grid */}
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', 
+            gap: '16px',
+            paddingBottom: '100px'
+          }}>
+            {currentItems.map((item, index) => {
+              const isSelected = selectedChar.includes(item.emoji);
+              const isFocused = index === cursorIndex;
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => {
+                    if (!isSelected && selectedChar.length >= 3) return;
+                    toggleSelection(item.emoji);
+                    setCursorIndex(index);
+                  }}
+                  style={{
+                    backgroundColor: isSelected ? 'var(--c-orange)' : 'var(--c-white)',
+                    border: `4px solid ${isSelected ? '#E65100' : 'var(--c-slate-200)'}`,
+                    borderRadius: 'var(--radius-md)',
+                    padding: '16px',
+                    textAlign: 'center',
+                    cursor: (isSelected || selectedChar.length < 3) ? 'pointer' : 'not-allowed',
+                    opacity: (!isSelected && selectedChar.length >= 3) ? 0.5 : 1,
+                    transition: 'all 0.1s',
+                    boxShadow: isFocused ? '0 0 0 6px #E65100' : '0 4px 0 rgba(0,0,0,0.1)',
+                    transform: isFocused ? 'scale(1.05)' : 'scale(1)',
+                    zIndex: isFocused ? 10 : 1
+                  }}
+                >
+                  <div style={{ fontSize: '48px', marginBottom: '8px' }}>{item.emoji}</div>
+                  <div style={{ fontSize: '14px', fontWeight: 'bold', fontFamily: 'var(--f-space)' }}>{item.label}</div>
+                  {isSelected && <div style={{ fontSize: '12px', color: 'white', marginTop: '4px', backgroundColor: '#E65100', borderRadius: '4px' }}>選択中</div>}
+                </div>
+              );
+            })}
           </div>
         </div>
-      )}
+      </div>
 
-      {/* ゲームへ進むボタン（3つ選ぶまで押せない） */}
-      <div style={{ marginTop: '50px' }}>
-        {isReady ? (
-          <button
-            onClick={() => {
-              setFocusArea('confirm-button');
-              handleComplete();
-            }} // クリックで選択完了の処理を実行
-            style={{
-              padding: '15px 30px',
-              fontSize: '18px',
-              cursor: 'pointer',
-              backgroundColor: '#2196f3',
-              color: '#fff',
-              border: focusArea === 'confirm-button' ? '3px solid #fff59d' : 'none',
-              borderRadius: '5px',
-              fontWeight: 'bold'
+      {/* Cart Icon & Checkout */}
+      <div style={{ 
+        position: 'fixed', 
+        bottom: '32px', 
+        right: '32px', 
+        display: 'flex', 
+        flexDirection: 'column', 
+        alignItems: 'flex-end', 
+        gap: '16px',
+        zIndex: 100
+      }}>
+        {showCart && (
+          <div style={{ 
+            backgroundColor: 'var(--c-white)', 
+            padding: '24px', 
+            borderRadius: 'var(--radius-lg)', 
+            border: '4px solid var(--c-slate-900)',
+            boxShadow: '8px 8px 0 rgba(0,0,0,0.2)',
+            width: '300px'
+          }}>
+            <h3 style={{ margin: '0 0 16px', fontFamily: 'var(--f-pixel)', fontSize: '16px' }}>選択中の具材カゴ</h3>
+            {selectedChar.length === 0 ? (
+              <p style={{ color: 'var(--c-slate-500)' }}>まだ何も入っていないよ。</p>
+            ) : (
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                {selectedChar.map((emoji, i) => (
+                  <div key={i} style={{ fontSize: '40px', backgroundColor: 'var(--c-slate-100)', padding: '12px', borderRadius: 'var(--radius-sm)', border: '2px solid var(--c-slate-300)' }}>
+                    {emoji}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-end' }}>
+          <Button 
+            variant="secondary"
+            onClick={() => setShowCart(!showCart)}
+            style={{ 
+              width: '80px', 
+              height: '80px', 
+              borderRadius: '50%', 
+              fontSize: '32px', 
+              padding: 0,
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              position: 'relative',
+              boxShadow: cursorIndex === currentItems.length ? '0 0 0 6px #E65100' : 'none',
+              transform: cursorIndex === currentItems.length ? 'scale(1.05)' : 'none'
             }}
           >
-            決定（ゲームへ）
-          </button>
-        ) : (
-          <button disabled style={{ padding: '15px 30px', fontSize: '18px', cursor: 'not-allowed', backgroundColor: '#ccc', color: '#fff', border: 'none', borderRadius: '5px' }}>
-            材料をあと {3 - selectedChar.length} 個選んでね
-          </button>
-        )}
+            🛒
+            {selectedChar.length > 0 && (
+              <div style={{ position: 'absolute', top: '-5px', right: '-5px', backgroundColor: 'var(--c-red)', color: 'white', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '18px', fontWeight: 'bold' }}>
+                {selectedChar.length}
+              </div>
+            )}
+          </Button>
+
+          {isReady && (
+            <Button 
+              variant="primary" 
+              onClick={handleComplete}
+              style={{
+                padding: '24px 32px',
+                fontSize: '24px',
+                animation: 'bounce 1s infinite',
+                boxShadow: cursorIndex === currentItems.length + 1 ? '0 0 0 6px #E65100' : undefined,
+                transform: cursorIndex === currentItems.length + 1 ? 'scale(1.05)' : undefined
+              }}
+            >
+              調理する！
+            </Button>
+          )}
+        </div>
       </div>
+      
+      <style>{`
+        @keyframes bounce {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-10px); }
+        }
+      `}</style>
     </div>
   );
 }
