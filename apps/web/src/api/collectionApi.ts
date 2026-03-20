@@ -1,4 +1,6 @@
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080').replace(/\/$/, '');
+import { resolveApiBaseUrl } from './apiBase';
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 export type FlavorProfile = {
   sweet: number;
@@ -42,7 +44,8 @@ const withAbsoluteImageUrl = (item: CollectionItem): CollectionItem => {
 };
 
 export const postSaveCollection = async (request: SaveCollectionRequest): Promise<CollectionItem> => {
-  const response = await fetch(`${API_BASE_URL}/api/collections`, {
+  // Keep backward compatibility: some backend variants expect userId as query param.
+  const response = await fetch(`${API_BASE_URL}/api/collections?userId=${encodeURIComponent(String(request.userId))}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

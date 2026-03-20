@@ -133,8 +133,8 @@ export default function Login() {
         : await postLogin(email.trim(), password);
 
       storeAuth(authResponse);
-      // ログイン成功後はホーム一覧へ遷移（QR読み取り画面へ直行しない）
-      navigate('/home-logged-ingged-in');
+      // ログイン成功後は QR 接続画面へ遷移
+      navigate('/home-logged-in');
     } catch (e) {
       const message = e instanceof Error ? e.message : 'ログイン処理に失敗しました。';
       setError(message);
