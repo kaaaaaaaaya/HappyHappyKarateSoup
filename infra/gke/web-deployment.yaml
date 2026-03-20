@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: happy-soup
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+        - name: web
+          image: REGION-docker.pkg.dev/PROJECT_ID/happy-soup/web:latest
+          ports:
+            - containerPort: 80

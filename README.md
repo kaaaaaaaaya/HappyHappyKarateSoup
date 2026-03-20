@@ -87,22 +87,200 @@ Infrastructure
 - GKE または Cloud Run
 - （認証候補）Google Cloud ベースのユーザー認証
 
-## Setup
-> 現在は企画・設計フェーズ。実装着手時に更新予定。
+## 利用者向けガイド（Terminal不要）
+この章は「遊ぶ人向け」です。コマンド実行は不要です。
 
-想定セットアップ方針:
-- apps / services / infra の単位で構成
-- apps配下にWebフロントとiOSコントローラーを配置
-- services配下にバックエンドAPIを配置
-- バックエンドはDockerコンテナ化
-- インフラはGoogle Cloudで構成
+### 1. アプリを開く
+- Web: https://karate-soup-web-486336410817.us-central1.run.app
 
-## Usage
-1. PCでWebアプリにログイン
-2. iPhoneアプリでQRを読み取り、PCに接続
-3. 具材を選び、空手モーションで調理
-4. 生成されたスープの味の評価コメント・画像を確認（名前はiPhone側で決定）
-5. スコアとランキングを確認
+### 2. 遊び方
+1. Webで「ゲストで遊ぶ」またはログインして開始
+2. iPhoneアプリでQRコードを読む
+3. 具材選択 → ゲーム開始
+4. iPhoneでパンチ/チョップ操作
+5. リザルトでスープ画像と評価を見る
+
+### 3. よくある表示
+- 「Googleログインが利用できません」:
+	- この環境ではGoogleログインが無効なだけです。
+	- ゲストプレイはそのまま遊べます。
+- 「AI生成の準備中です」:
+	- 一時的な生成失敗です。
+	- 少し待って再試行してください。
+
+### 4. iPhone接続が不安定なとき
+1. iPhone と PC を同じWi-Fiに接続
+2. QRを読み直す
+3. それでもだめなら運営側に連絡
+
+## 開発者向けガイド（構築・運用）
+この章は「開発/運用メンバー向け」です。
+
+### 前提
+- macOS
+- Docker Desktop
+- Node.js 20+
+- Java 17+
+- Xcode 15+
+
+### 1. リポジトリ取得
+```bash
+git clone https://github.com/kaaaaaaaaya/HappyHappyKarateSoup.git
+cd HappyHappyKarateSoup
+```
+
+### 2. Dockerでローカル起動（推奨）
+```bash
+docker compose up --build -d
+```
+
+起動後:
+- Web: http://localhost:8081
+- Backend health: http://localhost:8080/actuator/health
+
+停止:
+```bash
+docker compose down
+```
+
+### 3. AI生成設定（通常運用）
+`LOCAL MODE` を使わず、通常のAI生成を使う設定です。
+
+Gemini API Key 方式:
+```bash
+export GEMINI_USE_VERTEX_AI=false
+export GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
+export SOUP_LOCAL_FALLBACK_ENABLED=false
+docker compose up -d --build --force-recreate backend
+```
+
+Vertex AI 方式:
+```bash
+export GEMINI_USE_VERTEX_AI=true
+export GEMINI_PROJECT_ID="your-gcp-project"
+export GEMINI_LOCATION="us-central1"
+export SOUP_LOCAL_FALLBACK_ENABLED=false
+docker compose up -d --build --force-recreate backend
+```
+
+開発デモ用に明示的フォールバックを使う場合のみ:
+```bash
+export SOUP_LOCAL_FALLBACK_ENABLED=true
+docker compose up -d --build --force-recreate backend
+```
+
+### 4. Googleログイン有効化（任意）
+Googleログインを有効にするには、Webビルド時に `VITE_GOOGLE_CLIENT_ID` を設定します。
+
+```bash
+docker build \
+	--build-arg VITE_API_BASE_URL="https://YOUR_BACKEND_URL" \
+	--build-arg VITE_GOOGLE_CLIENT_ID="YOUR_GOOGLE_CLIENT_ID" \
+	-t your-web-image \
+	apps/web
+```
+
+### 5. iOSコントローラー起動
+1. Xcodeで apps/ios-controller/QRCodeReader/QRCodeReader.xcodeproj を開く
+2. 実機またはシミュレータで QRCodeReader を起動
+3. Webの接続画面で表示されるQRコードを読み取る
+
+### 6. トラブルシュート
+- 8080ポート競合:
+```bash
+lsof -ti :8080 | xargs -r kill -9
+```
+
+- Backendが起動しない:
+```bash
+cd apps/web/backend-java
+mvn -q clean package -DskipTests
+```
+
+- Dockerデーモン未起動:
+Docker Desktop を起動してから再実行
+
+- iPhone接続が不安定:
+	- 接続画面は通常、API接続先詳細を表示しません。
+	- 必要時のみ「接続先の詳細設定を開く」で上書きします。
+	- PCを http://localhost:8081 ではなく http://PCのLANアドレス:8081 で開くと安定する場合があります。
+	- iPhone から http://PCのLANアドレス:8080/actuator/health が開けるか確認してください。
+
+### 7. Cloud Run デプロイ手順（Artifact Registry あり）
+この手順で、Web と Backend を Cloud Run にデプロイできます。
+
+```bash
+# 0) 変数
+export PROJECT_ID="happy-happy-karate-soup"
+export REGION="us-central1"
+export REPO="happy-soup"
+
+# 1) gcloud 設定
+gcloud config set project "$PROJECT_ID"
+gcloud auth configure-docker "$REGION-docker.pkg.dev"
+
+# 2) Artifact Registry 作成（初回のみ）
+gcloud artifacts repositories create "$REPO" \
+	--repository-format=docker \
+	--location="$REGION" \
+	--description="HappyHappyKarateSoup containers"
+```
+
+Backend イメージ build/push:
+```bash
+docker buildx build \
+	--platform linux/amd64 \
+	-t "$REGION-docker.pkg.dev/$PROJECT_ID/$REPO/backend:latest" \
+	--push \
+	apps/web/backend-java
+```
+
+Web イメージ build/push:
+```bash
+docker buildx build \
+	--platform linux/amd64 \
+	--build-arg VITE_API_BASE_URL="https://karate-soup-api-486336410817.us-central1.run.app" \
+	--build-arg VITE_GOOGLE_CLIENT_ID="YOUR_GOOGLE_CLIENT_ID" \
+	-t "$REGION-docker.pkg.dev/$PROJECT_ID/$REPO/web:latest" \
+	--push \
+	apps/web
+```
+
+Cloud Run deploy:
+```bash
+gcloud run deploy karate-soup-api \
+	--image "$REGION-docker.pkg.dev/$PROJECT_ID/$REPO/backend:latest" \
+	--region "$REGION" \
+	--platform managed \
+	--allow-unauthenticated
+
+gcloud run deploy karate-soup-web \
+	--image "$REGION-docker.pkg.dev/$PROJECT_ID/$REPO/web:latest" \
+	--region "$REGION" \
+	--platform managed \
+	--allow-unauthenticated
+```
+
+本番WebからAPIにアクセスできるよう CORS を設定:
+```bash
+gcloud run services update karate-soup-api \
+	--region "$REGION" \
+	--project "$PROJECT_ID" \
+	--set-env-vars='^~^SPRING_DATASOURCE_URL=jdbc:h2:mem:testdb~SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.h2.Driver~SPRING_JPA_DATABASE_PLATFORM=org.hibernate.dialect.H2Dialect~GEMINI_USE_VERTEX_AI=true~GEMINI_PROJECT_ID=happy-happy-karate-soup~GEMINI_LOCATION=us-central1~APP_CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:8081,https://karate-soup-web-486336410817.us-central1.run.app'
+```
+
+補足:
+- 2026-03-20 時点の本番復旧では、`GEMINI_USE_VERTEX_AI=true` で Cloud Run backend を運用。
+- `GEMINI_API_KEY` 未設定でも、サービスアカウント権限で Vertex AI 呼び出しが可能。
+
+デプロイ確認:
+```bash
+curl -s https://karate-soup-web-486336410817.us-central1.run.app | head -20
+curl -s https://karate-soup-api-486336410817.us-central1.run.app/actuator/health
+```
+
+### 8. GKE
+GKE でのデプロイ手順は infra/README.md を参照してください。
 
 ## API
 ### 想定される責務
@@ -129,9 +307,8 @@ HappyHappyKarateSoup/
 	README.md
 	apps/
 		web/               # React.js (PCメイン画面)
+			backend-java/     # Spring Boot API
 		ios-controller/    # Swift (iPhoneコントローラー)
-	services/
-		backend/           # Java Spring Boot API
 	infra/               # Docker/Kubernetes/Cloud設定
 ```
 

@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: happy-soup
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: REGION-docker.pkg.dev/PROJECT_ID/happy-soup/backend:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: DB_HOST
+              value: DB_HOST_VALUE
+            - name: DB_PORT
+              value: "3306"
+            - name: DB_NAME
+              value: happysoup
+            - name: DB_USERNAME
+              value: DB_USERNAME_VALUE
+            - name: DB_PASSWORD
+              value: DB_PASSWORD_VALUE
+            - name: GEMINI_USE_VERTEX_AI
+              value: "true"
+            - name: GEMINI_PROJECT_ID
+              value: PROJECT_ID
+            - name: GEMINI_LOCATION
+              value: us-central1
+            - name: APP_CORS_ALLOWED_ORIGINS
+              value: https://YOUR_WEB_ORIGIN
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 40
+            periodSeconds: 20

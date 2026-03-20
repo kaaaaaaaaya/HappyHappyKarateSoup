@@ -266,7 +266,7 @@ export default function Login() {
           <div id="google-signin-button" style={{ display: 'flex', justifyContent: 'center', minHeight: '44px' }} />
         ) : (
           <p style={{ margin: 0, color: '#8a6b35', fontSize: '12px', textAlign: 'center' }}>
-            Googleログインを使うには `VITE_GOOGLE_CLIENT_ID` を設定してください。
+            現在この環境ではGoogleログインは利用できません。ゲストでそのまま遊べます。
           </p>
         )}
 

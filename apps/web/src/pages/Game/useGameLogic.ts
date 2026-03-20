@@ -123,8 +123,7 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
       // 譜面を取得する（generate_chart で作られたランダム譜面を優先）
       // エラー回避のため、setTimeoutの中にセット処理をまとめる
       setTimeout(() => {
-        // setChart(getRandomGeneratedChart()); // 本番はこっち
-        setChart(charData as ChartItem[]);
+        setChart(getRandomGeneratedChart());
         setPhase('playing'); //譜面切り替えと同時にplayingフェーズに移行
         startTimeRef.current = performance.now(); // 精度の高い開始時間を記録
         chartIndexRef.current = 0; // インデックスをリセット
