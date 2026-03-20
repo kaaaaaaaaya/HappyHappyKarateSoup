@@ -25,6 +25,7 @@ export default function Connect() {
   const controllerApiBase = shouldIgnoreManualOverride
     ? defaultApiBase
     : (normalizedManualApiBase || defaultApiBase);
+  const cancelPath = sessionStorage.getItem('authToken') ? '/home-logged-in' : '/';
   const isApiBaseLocalhost = (() => {
     try {
       return new URL(controllerApiBase).hostname === 'localhost';
@@ -63,9 +64,9 @@ export default function Connect() {
     let cancelled = false;
 
     const setupAndWatchRoom = async () => {
-      // ログイン状態を確認
-      const isLoggedIn = !!sessionStorage.getItem('authToken');
-      const nextPath = isLoggedIn ? '/home-logged-in' : '/select';
+      const nextPath = sessionStorage.getItem('authToken')
+        ? '/home-logged-in'
+        : '/select';
 
       try {
         const registeredState = await registerControllerRoom(roomId);
@@ -210,7 +211,7 @@ export default function Connect() {
       </div>
       
       <div style={{ marginTop: '30px' }}>
-        <Link to="/">キャンセルして戻る</Link>
+        <Link to={cancelPath}>キャンセルして戻る</Link>
       </div>
     </div>
   );

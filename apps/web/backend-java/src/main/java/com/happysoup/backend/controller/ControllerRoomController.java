@@ -4,6 +4,7 @@ import com.happysoup.backend.service.ControllerRoomService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -65,13 +66,26 @@ public class ControllerRoomController {
     // [EN] Web side polls room connection state.
     // [JA] Web 側が部屋の接続状態をポーリング取得します。
     @GetMapping("/{roomId}/status")
-    public Map<String, Object> getRoomStatus(@PathVariable String roomId) {
+        public Map<String, Object> getRoomStatus(
+            @PathVariable String roomId,
+            @RequestParam(name = "since", required = false) Long since
+        ) {
         var roomState = controllerRoomService.getRoomState(roomId);
+        var commands = since == null
+            ? java.util.List.<Map<String, Object>>of()
+            : controllerRoomService.getCommandsSince(roomId, since).stream()
+            .map(event -> Map.<String, Object>of(
+                "sequence", event.sequence(),
+                "command", event.command()
+            ))
+            .toList();
+
         return Map.of(
                 "roomId", roomId,
                 "connected", roomState.connected(),
                 "commandSequence", roomState.commandSequence(),
-                "latestCommand", roomState.latestCommand() == null ? "" : roomState.latestCommand()
+            "latestCommand", roomState.latestCommand() == null ? "" : roomState.latestCommand(),
+            "commands", commands
         );
     }
 }

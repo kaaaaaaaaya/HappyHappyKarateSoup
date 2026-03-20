@@ -10,7 +10,7 @@ export default function HomeLoggedIn() {
   const [collections, setCollections] = useState<CollectionItem[]>([]);
   const [isLoadingCollections, setIsLoadingCollections] = useState(false);
   const [collectionsError, setCollectionsError] = useState<string | null>(null);
-  const [focusedButton, setFocusedButton] = useState<'start' | 'logout'>('start');
+  const [focusedButton, setFocusedButton] = useState<'start' | 'qr' | 'logout'>('start');
   const connectedRoomId = sessionStorage.getItem('connectedRoomId') ?? '';
   const lastCommandSequenceRef = useRef(0);
   const isSequenceInitializedRef = useRef(false);
@@ -23,15 +23,11 @@ export default function HomeLoggedIn() {
   };
 
   const handleStartGame = () => {
-    // コントローラーが接続されているか確認
-    const connectedRoomId = sessionStorage.getItem('connectedRoomId');
-    if (connectedRoomId) {
-      // コントローラー接続済みなら直接選択画面へ
-      navigate('/select', { state: { roomId: connectedRoomId } });
-    } else {
-      // コントローラー未接続ならコントローラー接続画面へ
-      navigate('/connect');
-    }
+    navigate('/select');
+  };
+
+  const handleOpenQr = () => {
+    navigate('/connect');
   };
 
   useEffect(() => {
@@ -102,12 +98,22 @@ export default function HomeLoggedIn() {
           lastCommandSequenceRef.current = currentSequence;
           
           if (latestCommand === 'up') {
-            setFocusedButton('start');
+            setFocusedButton((prev) => {
+              if (prev === 'logout') return 'qr';
+              if (prev === 'qr') return 'start';
+              return 'start';
+            });
           } else if (latestCommand === 'down') {
-            setFocusedButton('logout');
+            setFocusedButton((prev) => {
+              if (prev === 'start') return 'qr';
+              if (prev === 'qr') return 'logout';
+              return 'logout';
+            });
           } else if (latestCommand === 'confirm') {
             if (focusedButton === 'start') {
               handleStartGame();
+            } else if (focusedButton === 'qr') {
+              handleOpenQr();
             } else {
               handleLogout();
             }
@@ -145,6 +151,21 @@ export default function HomeLoggedIn() {
           }}
         >
           ゲームを開始
+        </button>
+        <button
+          onClick={handleOpenQr}
+          style={{
+            padding: '12px 24px',
+            fontSize: '16px',
+            cursor: 'pointer',
+            border: focusedButton === 'qr' ? '4px solid #42a5f5' : '1px solid #999',
+            backgroundColor: focusedButton === 'qr' ? '#e3f2fd' : '#fff',
+            borderRadius: '8px',
+            fontWeight: focusedButton === 'qr' ? 'bold' : 'normal',
+            transition: '0.2s'
+          }}
+        >
+          QRコードはこちら
         </button>
         <button
           onClick={handleLogout}
