@@ -9,6 +9,7 @@ Figma ID: 76-34426&t=nY2Lyv0WDjRhhF83-1
 - ログイン画面に遷移するだけの画面
 - 余裕があればゲームの説明画面にも遷移できるようにする
 - 余裕があれば設定画面にも遷移できるようにする
+- できれば、背景が出た後に時差でポヨーンとロゴが出てきて欲しい
 
 ## 2. ログイン画面
 Figma URL: https://www.figma.com/design/RVGRJNMHiHhvraIjkGAB6I/screen?node-id=76-3522&t=nY2Lyv0WDjRhhF83-1

@@ -17,6 +17,7 @@ type UseGameLogicOptions = {
   selectedIngredientEmojis?: string[];
 };
 
+// @ts-ignore: 'getRandomGeneratedChart' is declared but its value is never read.
 const getRandomGeneratedChart = (): ChartItem[] => {
   const generatedCharts = Object.values(generatedChartModules);
 
