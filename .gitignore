@@ -36,3 +36,7 @@ logs/
 
 target/
 **/target/
+# Xcode
+xcuserdata/
+*.xcuserdatad
+*.xcworkspace

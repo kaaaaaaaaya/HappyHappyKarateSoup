@@ -2,14 +2,13 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { resolveApiBaseUrl } from '../api/apiBase';
-import { registerControllerRoom } from '../api/controllerRoomApi';
+import { registerControllerRoom, fetchControllerRoomStatus } from '../api/controllerRoomApi';
 import { Button } from '../components/Button';
 import bgConnection from '../assets/backgrounds/bg_connection.png';
 import logoSmall from '../assets/ui/logo_small.png';
 
 export default function Connect() {
-  const [roomId, setRoomId] = useState<string | null>(null);
-  const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
+  const [roomId, setRoomId] = useState<string>('');
   const [error] = useState<string | null>(null);
   const [manualApiBase, setManualApiBase] = useState(() => sessionStorage.getItem('controllerApiBaseOverride') ?? '');
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
@@ -31,6 +30,9 @@ export default function Connect() {
   const controllerApiBase = shouldIgnoreManualOverride
     ? defaultApiBase
     : (normalizedManualApiBase || defaultApiBase);
+
+  // キャンセル時の戻り先パスを判定（ログインしていればホーム一覧、未ログインならトップ画面へ）
+  const cancelPath = sessionStorage.getItem('authToken') ? '/home-logged-in' : '/';
 
   const isApiBaseLocalhost = (() => {
     try {
@@ -55,24 +57,87 @@ export default function Connect() {
     sessionStorage.removeItem('controllerApiBaseOverride');
   }, [normalizedManualApiBase]);
 
+  // マウント時にランダムなRoom IDを生成する処理（origin/mainの復元）
   useEffect(() => {
-    async function initRoom() {
-      try {
-        const newRoomId = Math.floor(1000 + Math.random() * 9000).toString();
-        const room = await registerControllerRoom(newRoomId);
-        setRoomId(room.roomId);
-        // FIXME: IPアドレスや本番用のホストに後で書き換える
-        setQrCodeUrl(`${controllerApiBase}/controller?roomId=${room.roomId}`);
-      } catch (err) {
-        console.error('Failed to create room via API, using fallback mode.', err);
-        // デバッグ用: バックエンドが不在でもUIを確認できるようにモックを設定
-        const fallbackRoomId = Math.floor(1000 + Math.random() * 9000).toString();
-        setRoomId(fallbackRoomId);
-        setQrCodeUrl(`${controllerApiBase}/controller?roomId=${fallbackRoomId}`);
-      }
+    const randomId = Math.random().toString(36).substring(2, 7);
+    setRoomId(`room-${randomId}`);
+  }, []);
+
+  // Roomの登録と、コントローラー接続状態のポーリング（origin/mainの復元）
+  useEffect(() => {
+    if (!roomId) {
+      return;
     }
-    initRoom();
-  }, [controllerApiBase]);
+
+    let cancelled = false;
+
+    const setupAndWatchRoom = async () => {
+      // 接続完了後の遷移先（認証済みならホーム、未認証なら食材選択などの設定に合わせた遷移でも良いが、元のPRに従う）
+      const nextPath = sessionStorage.getItem('authToken')
+        ? '/home-logged-in'
+        : '/select';
+
+      try {
+        const registeredState = await registerControllerRoom(roomId);
+        if (registeredState.connected && !cancelled) {
+          sessionStorage.setItem('connectedRoomId', roomId);
+          navigate(nextPath, { state: { roomId } });
+          return undefined;
+        }
+      } catch (error) {
+        console.error('Failed to register room:', error);
+      }
+
+      try {
+        const initialStatus = await fetchControllerRoomStatus(roomId);
+        if (initialStatus.connected && !cancelled) {
+          sessionStorage.setItem('connectedRoomId', roomId);
+          navigate(nextPath, { state: { roomId } });
+          return undefined;
+        }
+      } catch (error) {
+        console.error('Failed to fetch initial room status:', error);
+      }
+
+      // 1秒ごとにコントローラーが接続されたかポーリングチェックする
+      const intervalId = window.setInterval(async () => {
+        if (cancelled) {
+          return;
+        }
+
+        try {
+          const status = await fetchControllerRoomStatus(roomId);
+          if (status.connected) {
+            window.clearInterval(intervalId);
+            if (!cancelled) {
+              sessionStorage.setItem('connectedRoomId', roomId);
+              navigate(nextPath, { state: { roomId } });
+            }
+          }
+        } catch (error) {
+          console.error('Failed to poll room status:', error);
+        }
+      }, 1000);
+
+      return intervalId;
+    };
+
+    let activeIntervalId: number | undefined;
+    void setupAndWatchRoom().then((intervalId) => {
+      activeIntervalId = intervalId;
+    });
+
+    return () => {
+      cancelled = true;
+      if (activeIntervalId !== undefined) {
+        window.clearInterval(activeIntervalId);
+      }
+    };
+  }, [roomId, navigate]);
+
+  // iOSアプリが読み取るための専用ディープリンクスキーム（origin/mainの復元）
+  // 注意：ここで http:// URL ではなく custom scheme を使うことで、iOSのカメラで読むと直接アプリが開きます。
+  const qrCodeValue = `happykaratesoup://connect?roomId=${encodeURIComponent(roomId)}&apiBase=${encodeURIComponent(controllerApiBase)}`;
 
   const handleStart = () => {
     // プレイヤーが揃ったと仮定してゲーム画面へ
@@ -179,8 +244,8 @@ export default function Connect() {
             borderRadius: 'var(--radius-md)',
             marginBottom: '32px'
           }}>
-            {qrCodeUrl ? (
-               <QRCodeSVG value={qrCodeUrl} size={200} />
+            {qrCodeValue ? (
+               <QRCodeSVG value={qrCodeValue} size={200} />
             ) : (
                <div style={{ width: '200px', height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--c-slate-400)', fontFamily: 'var(--f-dotgothic)' }}>
                  Generating...
@@ -218,6 +283,17 @@ export default function Connect() {
             <Button variant="secondary" style={{ width: '100%', marginTop: '8px', fontSize: '14px' }}>
               接続完了（モック）
             </Button>
+          </Link>
+        </div>
+
+        <div style={{ marginTop: '24px' }}>
+          <Link to={cancelPath} style={{ 
+            color: 'var(--c-slate-500)', 
+            textDecoration: 'none', 
+            fontSize: '14px',
+            fontFamily: 'var(--f-dotgothic)'
+          }}>
+            キャンセルして戻る
           </Link>
         </div>
       </div>

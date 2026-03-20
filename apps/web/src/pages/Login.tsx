@@ -53,6 +53,8 @@ export default function Login() {
   const storeAuth = (payload: { token: string; userId: number; username: string; email: string; provider: string }) => {
     sessionStorage.setItem('authToken', payload.token);
     sessionStorage.setItem('authUser', JSON.stringify(payload));
+    // 新しいアカウントでログインし直した時に、以前のルーム接続情報をクリアする
+    sessionStorage.removeItem('connectedRoomId');
   };
 
   useEffect(() => {
