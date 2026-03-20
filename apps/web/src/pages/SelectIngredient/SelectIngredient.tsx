@@ -126,7 +126,7 @@ export default function SelectIngredient() {
                     cursor: (isSelected || selectedChar.length < 3) ? 'pointer' : 'not-allowed',
                     opacity: (!isSelected && selectedChar.length >= 3) ? 0.5 : 1,
                     transition: 'all 0.1s',
-                    boxShadow: isFocused ? '0 0 0 4px var(--c-blue-500)' : '0 4px 0 rgba(0,0,0,0.1)',
+                    boxShadow: isFocused ? '0 0 0 6px #007BFF' : '0 4px 0 rgba(0,0,0,0.1)',
                     transform: isFocused ? 'scale(1.05)' : 'scale(1)',
                     zIndex: isFocused ? 10 : 1
                   }}
@@ -190,7 +190,7 @@ export default function SelectIngredient() {
               justifyContent: 'center',
               alignItems: 'center',
               position: 'relative',
-              boxShadow: cursorIndex === currentItems.length ? '0 0 0 4px var(--c-blue-500)' : 'none',
+              boxShadow: cursorIndex === currentItems.length ? '0 0 0 6px #007BFF' : 'none',
               transform: cursorIndex === currentItems.length ? 'scale(1.05)' : 'none'
             }}
           >
@@ -210,7 +210,7 @@ export default function SelectIngredient() {
                 padding: '24px 32px',
                 fontSize: '24px',
                 animation: 'bounce 1s infinite',
-                boxShadow: cursorIndex === currentItems.length + 1 ? '0 0 0 4px var(--c-blue-500)' : undefined,
+                boxShadow: cursorIndex === currentItems.length + 1 ? '0 0 0 6px #007BFF' : undefined,
                 transform: cursorIndex === currentItems.length + 1 ? 'scale(1.05)' : undefined
               }}
             >
