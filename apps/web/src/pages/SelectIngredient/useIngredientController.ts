@@ -50,38 +50,33 @@ export function useIngredientController(
 
             if (cmd === 'left') {
               setCursorIndex((prev) => {
-                const isTabArea = prev >= maxIndex + 2;
-                if (isTabArea) {
-                  const newIdx = Math.max(maxIndex + 2, prev - 1);
-                  if (newIdx < maxIndex + 2 && onTabChangeRef.current) {
-                    onTabChangeRef.current('left');
-                  }
-                  return prev - 1 >= maxIndex + 2 ? prev - 1 : prev;
+                if (prev === -1 && onTabChangeRef.current) {
+                  onTabChangeRef.current('left');
+                  return -1;
                 }
                 return Math.max(0, prev - 1);
               });
             } else if (cmd === 'right') {
               setCursorIndex((prev) => {
-                const isTabArea = prev >= maxIndex + 2;
-                if (isTabArea) {
-                  return Math.min(maxIndex + 4, prev + 1);
+                if (prev === -1 && onTabChangeRef.current) {
+                  onTabChangeRef.current('right');
+                  return -1;
                 }
                 return Math.min(maxIndex + 1, prev + 1); // allow entering the buttons area
               });
             } else if (cmd === 'up') {
               setCursorIndex((prev) => {
-                if (prev >= maxIndex + 2) {
-                  // from tabs down to grid
-                  return 0;
-                }
-                if (prev < cols && onTabChangeRef.current) {
-                  // moving up from the top row goes to the tabs
-                  return maxIndex + 2; // +2, +3, +4 depending on active tab, but let's just default to first tab (maxIndex + currentTabOffset)
+                if (prev === -1) return -1;
+                if (prev < cols) {
+                  return -1; // Go up to tabs area
                 }
                 return Math.max(0, prev - cols);
               });
             } else if (cmd === 'down') {
-              setCursorIndex((prev) => Math.min(maxIndex, prev + cols));
+              setCursorIndex((prev) => {
+                if (prev === -1) return 0; // Go down to grid
+                return Math.min(maxIndex, prev + cols);
+              });
             } else if (cmd === 'confirm' || cmd === 'punch' || cmd === 'chop' || cmd.startsWith('aim@')) {
               // Note: aim@ might trigger on Confirm depending on controller setup, but we only use 'confirm'/'punch'/'chop'.
               if (cmd === 'confirm' || cmd === 'punch' || cmd === 'chop') {

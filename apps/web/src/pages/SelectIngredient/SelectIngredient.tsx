@@ -74,10 +74,12 @@ export default function SelectIngredient() {
     handleTabChange
   );
 
-  // Reset cursor to 0 when tab changes
+  // Ensure cursor index is bound correctly when maxIdx changes
   useEffect(() => {
-    setCursorIndex(0);
-  }, [activeTab, setCursorIndex]);
+    if (cursorIndex > maxIdx) {
+      setCursorIndex(maxIdx);
+    }
+  }, [maxIdx, cursorIndex, setCursorIndex]);
 
   return (
     <div style={{
@@ -108,8 +110,15 @@ export default function SelectIngredient() {
               <Button
                 key={tab}
                 variant={activeTab === tab ? 'primary' : 'secondary'}
-                onClick={() => setActiveTab(tab)}
-                style={{ padding: '10px 20px', fontSize: '18px' }}
+                onClick={() => {
+                  setActiveTab(tab);
+                  setCursorIndex(-1); // Automatically focus tab area when clicked
+                }}
+                style={{ 
+                  padding: '10px 20px', 
+                  fontSize: '18px',
+                  boxShadow: (cursorIndex === -1 && activeTab === tab) ? '0 0 0 6px #E65100' : 'none'
+                }}
               >
                 {tab === 'VEGETABLE' ? '野菜' : tab === 'MEAT_FISH' ? '肉・魚' : 'その他'}
               </Button>
