@@ -55,6 +55,10 @@ public class SoupGenerationService {
             );
         } catch (RuntimeException ex) {
             if (!isGeminiConfigMissing(ex)) {
+                if (isGeminiTemporaryFailure(ex)) {
+                    LOG.warn("Gemini temporary failure detected; returning local fallback response", ex);
+                    return buildLocalFallbackResponse(ingredients);
+                }
                 throw ex;
             }
 
@@ -81,6 +85,27 @@ public class SoupGenerationService {
                         || message.contains("GEMINI_PROJECT_ID is not configured")
                         || message.contains("GEMINI_LOCATION is not configured")
                         || message.contains("Failed to obtain Vertex access token")) {
+                    return true;
+                }
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    // [EN] Detects retryable/temporary Gemini failures (quota or transient upstream errors).
+    // [JA] Gemini の一時障害（クォータ超過や上流エラー）を判定します。
+    private boolean isGeminiTemporaryFailure(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            String message = current.getMessage();
+            if (message != null) {
+                String normalized = message.toLowerCase();
+                if (normalized.contains("429 too many requests")
+                        || normalized.contains("resource_exhausted")
+                        || normalized.contains("quota")
+                        || normalized.contains("503 service unavailable")
+                        || normalized.contains("504 gateway timeout")) {
                     return true;
                 }
             }

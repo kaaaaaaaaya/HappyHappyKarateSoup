@@ -22,13 +22,14 @@ services:
     container_name: happy-soup-backend
     volumes:
       - ~/.config/gcloud:/root/.config/gcloud:ro
+      - ./apps/web/backend-java/.secrets:/run/secrets:ro
     environment:
       DB_HOST: mysql
       DB_PORT: 3306
       DB_NAME: happysoup
       DB_USERNAME: root
       DB_PASSWORD: root
-      GOOGLE_APPLICATION_CREDENTIALS: /root/.config/gcloud/application_default_credentials.json      
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-/run/secrets/vertex-ai-key.json}
       GEMINI_USE_VERTEX_AI: ${GEMINI_USE_VERTEX_AI:-false}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_PROJECT_ID: ${GEMINI_PROJECT_ID:-}

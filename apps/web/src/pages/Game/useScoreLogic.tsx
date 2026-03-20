@@ -1,5 +1,5 @@
 // useScoreLogic.ts
-import { useRef, useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import type { ActionType } from './types';
 import { postScoreCalculate } from '../../api/scoreApi';
 
@@ -20,7 +20,6 @@ export const useScoreLogic = () => {
     ok: 0,
     miss: 0
   });
-  const judgmentTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null); // 判定結果の表示時間を管理するための参照
 
   // 判定処理のコア部分（叩いた時 ＆ 見逃した時の両方で使う）
   const processJudgment = useCallback((
@@ -55,16 +54,7 @@ export const useScoreLogic = () => {
       }
     }
 
-    if (judgmentTimeoutRef.current) {
-      clearTimeout(judgmentTimeoutRef.current); // 前のタイマーがあればクリア
-    }
-
-    setLastJudgment({ text: result, key: Date.now() }); // 判定結果を更新
-
-    judgmentTimeoutRef.current = setTimeout(() => {
-      setLastJudgment(null); // 1秒後に判定結果を消す
-      judgmentTimeoutRef.current = null; // タイマーIDをリセット
-    },200);
+    setLastJudgment({ text: result, key: Date.now() }); // 次の有効判定まで表示を維持
 
     // 判定結果の保存
     setJudgments(prev => ({ ...prev, [resultKey]: prev[resultKey] + 1 }));
@@ -74,8 +64,6 @@ export const useScoreLogic = () => {
       setMaxCombo(max => Math.max(max, newCombo)); // 最大コンボ数を更新
       return newCombo;
     });
-
-    setLastJudgment({ text: result, key: Date.now() }); // 最後の判定結果を更新（keyはユニークな値であれば何でも良い）
 
     return { result, resultKey };
   }, []);
