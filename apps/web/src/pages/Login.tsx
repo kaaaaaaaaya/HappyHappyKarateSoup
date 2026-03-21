@@ -310,12 +310,3 @@ export default function Login() {
     </div>
   );
 }
-
-const inputStyle: React.CSSProperties = {
-  padding: '12px 14px',
-  fontSize: '16px',
-  borderRadius: '10px',
-  border: '1px solid #d9b979',
-  outline: 'none',
-  backgroundColor: '#fffdf9',
-};
