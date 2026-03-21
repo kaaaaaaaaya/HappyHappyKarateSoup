@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: ${PORT:8080}
 
 spring:
   application:
@@ -37,6 +37,8 @@ app:
       detail: 300
   cors:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  gcs:
+    bucket-name: ${APP_GCS_BUCKET_NAME:happy-soup}
 
 management:
   endpoints:

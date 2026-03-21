@@ -259,13 +259,54 @@ Docker Desktop を起動してから再実行
 
 ### 7. Cloud Run デプロイ手順（Artifact Registry あり）
 この手順で、Web と Backend を Cloud Run にデプロイできます。
+このプロジェクトは、バックエンド（Spring Boot + MySQL）とフロントエンド（React/Vite）を Google Cloud Run にデプロイして動作させます。
+
+## 0. 前提条件 (Prerequisites)
+- Google Cloud CLI (`gcloud`) がインストール・ログイン済みであること
+- Docker がインストールされ、起動していること
+- 以下の GCP リソースが作成済みであること
+  - プロジェクト: `happy-happy-karate-soup`
+  - Cloud SQL インスタンス (MySQL): `karate-soup-instance`
+  - Cloud Storage バケット: `happy-soup`
+
+## 1. データベースの初回セットアップ (1回のみ)
+Cloud SQL インスタンスの中に、アプリケーション用のデータベースを作成します。
 
 ```bash
-# 0) 変数
-export PROJECT_ID="happy-happy-karate-soup"
-export REGION="us-central1"
-export REPO="happy-soup"
+# 'happysoup' という名前のデータベースを作成
+gcloud sql databases create happysoup --instance=karate-soup-instance
+```
 
+ルートディレクトリの.envにこれを記述
+```bash
+PROJECT_ID=happy-happy-karate-soup
+REGION=us-central1
+REPO=happy-soup
+
+GEMINI_USE_VERTEX_AI=true
+GEMINI_PROJECT_ID=happy-happy-karate-soup
+GEMINI_LOCATION=us-central1
+SOUP_LOCAL_FALLBACK_ENABLED=true
+
+APP_GCS_BUCKET_NAME=happy-soup
+APP_GCS_OBJECT_PREFIX=collections
+
+VITE_API_BASE_URL=http://localhost:8080
+
+DB_NAME=mysql
+INSTANCE_NAME=karate-soup-instance
+SPRING_JPA_DATABASE_PLATFORM=org.hibernate.dialect.MySQLDialect
+INSTANCE_CONNECTION_NAME=happy-happy-karate-soup:us-central1:karate-soup-instance
+SPRING_DATASOURCE_URL=jdbc:mysql:///happysoup?cloudSqlInstance=happy-happy-karate-soup:us-central1:karate-soup-instance&socketFactory=com.google.cloud.sql.mysql.SocketFactory
+
+SPRING_DATASOURCE_PASSWORD="ここにパスワードを入力"
+```
+.envの設定を反映
+```bash
+export $(grep -v '^#' .env | xargs)
+```
+
+```bash
 # 1) gcloud 設定
 gcloud config set project "$PROJECT_ID"
 gcloud auth configure-docker "$REGION-docker.pkg.dev"
@@ -300,24 +341,32 @@ docker buildx build \
 Cloud Run deploy:
 ```bash
 gcloud run deploy karate-soup-api \
-	--image "$REGION-docker.pkg.dev/$PROJECT_ID/$REPO/backend:latest" \
-	--region "$REGION" \
-	--platform managed \
-	--allow-unauthenticated
+    --image "us-central1-docker.pkg.dev/happy-happy-karate-soup/happy-soup/backend:latest" \
+    --platform managed \
+    --region us-central1 \
+    --allow-unauthenticated \
+    --add-cloudsql-instances happy-happy-karate-soup:us-central1:karate-soup-instance \
+    --set-env-vars SPRING_DATASOURCE_URL=$SPRING_DATASOURCE_URL \
+    --set-env-vars SPRING_DATASOURCE_USERNAME=$SPRING_DATASOURCE_USERNAME \
+    --set-env-vars SPRING_DATASOURCE_PASSWORD=$SPRING_DATASOURCE_PASSWORD
 
 gcloud run deploy karate-soup-web \
-	--image "$REGION-docker.pkg.dev/$PROJECT_ID/$REPO/web:latest" \
-	--region "$REGION" \
-	--platform managed \
-	--allow-unauthenticated
+  --image "us-central1-docker.pkg.dev/happy-happy-karate-soup/happy-soup/web:latest" \
+  --platform managed \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --port 80
 ```
 
 本番WebからAPIにアクセスできるよう CORS を設定:
 ```bash
-gcloud run services update karate-soup-api \
-	--region "$REGION" \
-	--project "$PROJECT_ID" \
-	--set-env-vars='^~^SPRING_DATASOURCE_URL=jdbc:h2:mem:testdb~SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.h2.Driver~SPRING_JPA_DATABASE_PLATFORM=org.hibernate.dialect.H2Dialect~GEMINI_USE_VERTEX_AI=true~GEMINI_PROJECT_ID=happy-happy-karate-soup~GEMINI_LOCATION=us-central1~APP_CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:8081,https://karate-soup-web-486336410817.us-central1.run.app'
+gcloud run deploy karate-soup-api \
+  --image "us-central1-docker.pkg.dev/happy-happy-karate-soup/happy-soup/backend:latest" \
+  --region "us-central1" \
+  --platform managed \
+  --allow-unauthenticated \
+  --add-cloudsql-instances "happy-happy-karate-soup:us-central1:karate-soup-instance" \
+  --set-env-vars='^~^SPRING_DATASOURCE_URL=jdbc:mysql:///happysoup?cloudSqlInstance=happy-happy-karate-soup:us-central1:karate-soup-instance&socketFactory=com.google.cloud.sql.mysql.SocketFactory~SPRING_DATASOURCE_USERNAME=root~SPRING_DATASOURCE_PASSWORD=ここにデータベースのパスワードを入力~GEMINI_USE_VERTEX_AI=true~GEMINI_PROJECT_ID=happy-happy-karate-soup~GEMINI_LOCATION=us-central1~APP_CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:8081,https://karate-soup-web-486336410817.us-central1.run.app~APP_GCS_BUCKET_NAME=happy-soup'
 ```
 
 補足:
