@@ -243,4 +243,6 @@ gcloud run deploy karate-soup-api \
 curl -s https://karate-soup-web-486336410817.us-central1.run.app | head -20
 curl -s https://karate-soup-api-486336410817.us-central1.run.app/actuator/health
 ```
+**アプリの起動**
+https://karate-soup-web-486336410817.us-central1.run.app
 
