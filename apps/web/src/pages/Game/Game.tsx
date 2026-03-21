@@ -79,6 +79,7 @@ type SelectedIngredient = {
 
 type GameLocationState = {
   selectedIngredients?: SelectedIngredient[];
+  selectedIngredientEmojis?: string[];
 };
 
 const toUserFriendlyGenerationError = (rawMessage: string): string => {
@@ -132,9 +133,30 @@ export default function Game() {
   const location = useLocation();
 
   const gameState = (location.state as GameLocationState | null) ?? null;
+  const storedSelectedIngredientEmojis = (() => {
+    const raw = sessionStorage.getItem('selectedIngredientEmojis');
+    if (!raw) {
+      return [] as string[];
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((item): item is string => typeof item === 'string');
+      }
+      return [] as string[];
+    } catch {
+      return [] as string[];
+    }
+  })();
   const selectedIngredients = gameState?.selectedIngredients ?? [];
-  const selectedIngredientEmojis = selectedIngredients.map((item) => item.emoji);
-  const selectedIngredientLabels = selectedIngredients.map((item) => item.label);
+  const selectedIngredientEmojis =
+    selectedIngredients.length > 0
+      ? selectedIngredients.map((item) => item.emoji)
+      : (gameState?.selectedIngredientEmojis ?? storedSelectedIngredientEmojis);
+  const selectedIngredientLabels =
+    selectedIngredients.length > 0
+      ? selectedIngredients.map((item) => item.label)
+      : selectedIngredientEmojis;
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
