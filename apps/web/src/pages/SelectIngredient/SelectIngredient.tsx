@@ -29,6 +29,7 @@ export default function SelectIngredient() {
   const connectedRoomId = sessionStorage.getItem('connectedRoomId');
 
   const handleComplete = useCallback(() => {
+    sessionStorage.setItem('selectedIngredientEmojis', JSON.stringify(selectedChar));
     if (connectedRoomId) {
       postControllerRoomCommand(connectedRoomId, 'start_game').catch(console.error);
     }
