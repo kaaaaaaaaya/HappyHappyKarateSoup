@@ -13,7 +13,4 @@ assignees: ''
 - [ ]
 - [ ] 
 
-### Completion Conditions
-- [ ] 
-
 ### Notes
