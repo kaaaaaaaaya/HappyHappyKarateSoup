@@ -30,10 +30,16 @@ struct ControllerView: View {
     }
 
     private struct RoomStatusResponse: Decodable {
+        struct CommandEntry: Decodable {
+            let sequence: Int
+            let command: String
+        }
+
         let roomId: String
         let connected: Bool
         let commandSequence: Int?
         let latestCommand: String?
+        let commands: [CommandEntry]?
     }
 
     let scannedCode: String
@@ -334,23 +340,51 @@ struct ControllerView: View {
 
     @MainActor
     private func fetchRoomStatus(baseURL: String, roomId: String) async {
-        guard let url = URL(string: "\(baseURL)/api/controller/rooms/\(roomId)/status") else {
+        var components = URLComponents(string: "\(baseURL)/api/controller/rooms/\(roomId)/status")
+        if lastSeenSequence >= 0 {
+            components?.queryItems = [URLQueryItem(name: "since", value: String(lastSeenSequence))]
+        }
+
+        guard let url = components?.url else {
             return
         }
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
             let res = try JSONDecoder().decode(RoomStatusResponse.self, from: data)
             let seq = res.commandSequence ?? 0
-            if seq > lastSeenSequence {
-                lastSeenSequence = seq
-                let cmd = res.latestCommand ?? ""
+
+            let commandEntries: [RoomStatusResponse.CommandEntry]
+            if let incremental = res.commands, !incremental.isEmpty {
+                commandEntries = incremental
+            } else if seq > lastSeenSequence, let latest = res.latestCommand {
+                commandEntries = [.init(sequence: seq, command: latest)]
+            } else {
+                commandEntries = []
+            }
+
+            for entry in commandEntries {
+                let cmd = entry.command
                 if cmd == "start_game" {
                     mode = .action
                 } else if ["end_game", "return_remote"].contains(cmd) {
                     mode = .remote
+                } else if cmd == "hit" && mode == .action {
+                    print("[ControllerView] hit received (sequence: \(entry.sequence))")
+                    notifyHitHaptic()
                 }
             }
+
+            if seq > lastSeenSequence {
+                lastSeenSequence = seq
+            }
         } catch {}
+    }
+
+    private func notifyHitHaptic() {
+        // ゲームの打撃（ヒット）に最適な、重くて短い振動
+        let impactGenerator = UIImpactFeedbackGenerator(style: .heavy)
+        impactGenerator.prepare() // 事前に準備しておくと遅延なく振動
+        impactGenerator.impactOccurred()
     }
 }
 

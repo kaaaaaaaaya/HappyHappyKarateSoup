@@ -203,6 +203,7 @@ export default function Game() {
   const retryTimerRef = useRef<number | null>(null);
   const soupGenerationPromiseRef = useRef<Promise<SoupGenerateResponse | null> | null>(null);
   const soupGenerationResultRef = useRef<SoupGenerateResponse | null>(null);
+  const lastSentHitJudgmentKeyRef = useRef<number | null>(null);
   // Ingredient 型に位置情報を追加
   // フックから必要な状態を受け取る
   // useGameLogic の戻り値に burstingIds, setBurstingIds を追加して受け取る
@@ -465,6 +466,27 @@ export default function Game() {
 
     void handleFinishGame();
   }, [isGameFinished, isImageReady, generationError, isGenerating]);
+
+  useEffect(() => {
+    const connectedRoomId = sessionStorage.getItem('connectedRoomId');
+    if (!connectedRoomId || !lastJudgment) {
+      return;
+    }
+
+    if (lastSentHitJudgmentKeyRef.current === lastJudgment.key) {
+      return;
+    }
+
+    const isMiss = lastJudgment.text.toLowerCase().startsWith('miss');
+    if (isMiss) {
+      return;
+    }
+
+    lastSentHitJudgmentKeyRef.current = lastJudgment.key;
+    void postControllerRoomCommand(connectedRoomId, 'hit').catch((error) => {
+      console.error('Failed to notify controller room hit:', error);
+    });
+  }, [lastJudgment]);
 
   return (
     <div style={{ textAlign: 'center', padding: '50px' }}>
