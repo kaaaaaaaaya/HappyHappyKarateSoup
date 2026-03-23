@@ -198,7 +198,11 @@ struct ContentView: View {
 
             let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
             DispatchQueue.main.async {
-                controllerDebugMessage = "join status: \(statusCode)"
+                if statusCode == 200 {
+                    controllerDebugMessage = "Now Playing Happy Happy Karate Soup!"
+                } else {
+                    controllerDebugMessage = "join status: \(statusCode) (URL: \(url.absoluteString))"
+                }
             }
         }.resume()
     }
