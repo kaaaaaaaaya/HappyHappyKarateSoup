@@ -14,6 +14,21 @@ import { fetchControllerRoomStatus, postControllerRoomCommand } from '../../api/
 //         判定ゾーンの上下のライン強調が反映されてない
 //         ゾーンと鍋がずれてる
 
+// ユーティリティ関数
+const emojiToDataUrl = (emoji: string, size = 64): string => {
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return '';
+  ctx.font = `${size * 0.8}px serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(emoji, size / 2, size / 2);
+  return canvas.toDataURL();
+};
+
+
 // CSSアニメーションの定義
 const animationStyles = `
   @import url('https://fonts.googleapis.com/css2?family=DotGothic16&display=swap');
@@ -59,6 +74,22 @@ const animationStyles = `
     50% { transform: scale(1.2); }
     100% { transform: scale(1); }
   }
+      @keyframes burst-tl {
+    0%   { transform: translate(0,0) rotate(0deg) scale(1); opacity:1; }
+    100% { transform: translate(-80px,-90px) rotate(-45deg) scale(0.2); opacity:0; }
+  }
+  @keyframes burst-tr {
+    0%   { transform: translate(0,0) rotate(0deg) scale(1); opacity:1; }
+    100% { transform: translate(80px,-90px) rotate(45deg) scale(0.2); opacity:0; }
+  }
+  @keyframes burst-bl {
+    0%   { transform: translate(0,0) rotate(0deg) scale(1); opacity:1; }
+    100% { transform: translate(-80px,90px) rotate(-35deg) scale(0.2); opacity:0; }
+  }
+  @keyframes burst-br {
+    0%   { transform: translate(0,0) rotate(0deg) scale(1); opacity:1; }
+    100% { transform: translate(80px,90px) rotate(35deg) scale(0.2); opacity:0; }
+  }
 `;
 
 // [EN] Converts Blob to Data URL string.
@@ -72,7 +103,7 @@ const blobToDataUrl = (blob: Blob): Promise<string> =>
   });
 
 type SelectedIngredient = {
-  id: string;
+  id: number; // Changed from string to number
   emoji: string;
   label: string;
 };
@@ -172,20 +203,14 @@ export default function Game() {
   const retryTimerRef = useRef<number | null>(null);
   const soupGenerationPromiseRef = useRef<Promise<SoupGenerateResponse | null> | null>(null);
   const soupGenerationResultRef = useRef<SoupGenerateResponse | null>(null);
+  // Ingredient 型に位置情報を追加
   // フックから必要な状態を受け取る
-  const { phase,
-    count,
-    ingredients,
-    handleAction,
-    removeIngredient,
-    combo,
-    lastJudgment,
-    submitScore,
-    totalScore,
-    rank,
-    isChartFlowFinished } = useGameLogic({
-      selectedIngredientEmojis,
-    });
+  // useGameLogic の戻り値に burstingIds, setBurstingIds を追加して受け取る
+  const { phase, count, ingredients, handleAction, removeIngredient,
+    combo, lastJudgment, submitScore, totalScore, rank,
+    isChartFlowFinished,
+    burstingIds, setBurstingIds  // ← 追加
+  } = useGameLogic({ selectedIngredientEmojis });
 
   useEffect(() => {
     handleActionRef.current = handleAction;
@@ -523,46 +548,94 @@ export default function Game() {
               </div>
             )}
 
-            {/* 具材 */}
-            {ingredients.map((item) => (
-              <div
-                key={item.id}
-                onAnimationEnd={() => removeIngredient(item.id)}
-                style={{
-                  position: 'absolute',
-                  left: '50%',
-                  top: '0%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  animation: 'moveForward 3.0s ease-in forwards', //useGameLogicでの値より大きくする
-                  zIndex: 100,
+            {ingredients.map((item) => {
+              const dataUrl = emojiToDataUrl(item.emoji, 64);
+              const isBursting = burstingIds.has(item.id);
 
-                  //Missフラグがある場合の処理
-                  opacity: item.missed ? 0.2 : 1, // missedフラグが立っている場合は半透明にする
-                  filter: item.missed ? 'grayscale(100%)' : 'none', // missedフラグが立っている場合はグレースケールにする
-                  //transition: 'opacity 0s, filter 0.2s', // opacityとfilterの変化にスムーズなトランジションを追加
+              const fragStyle = (posX: number, posY: number): React.CSSProperties => ({
+                position: 'absolute',
+                width: '48px',        // 32px → 48px
+                height: '48px',       // 32px → 48px
+                backgroundImage: `url(${dataUrl})`,
+                backgroundSize: '96px 96px',  // 64px → 96px
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: `${posX}px ${posY}px`,
+              });
 
-                  // @ ts-ignore
-                  '--start-x': `${item.startX}px`,
-                  '--end-x': `${item.startX * 7}px`, // レールに沿う感じに調整したいところ
-                } as React.CSSProperties}
-              >
-                <div style={{ fontSize: '50px', lineHeight: '1' }}>
-                  {item.emoji}
+              // lane(-100〜100) をコンテナ幅の割合に変換
+              // lane=0 → 中央(50%), lane=-100 → 左端, lane=100 → 右端
+              // 判定ゾーンは y=85% 付近（80%〜90%の中間）
+              const burstLeftPercent = 50 + (item.startX / 100) * 25; // 5%〜95% の範囲にマップ
+              const burstTopPercent = 85;
+
+              return (
+                <div
+                  key={item.id}
+                  onAnimationEnd={() => !isBursting && removeIngredient(item.id)}
+                  style={{
+                    position: 'absolute',
+                    left: isBursting ? `${burstLeftPercent}%` : '50%',
+                    top: isBursting ? `${burstTopPercent}%` : '0%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    transform: isBursting ? 'translate(-50%, -50%)' : undefined,
+                    animation: isBursting ? 'none' : 'moveForward 3.0s ease-in forwards',
+                    zIndex: 100,
+                    opacity: item.missed ? 0.2 : 1,
+                    filter: item.missed ? 'grayscale(100%)' : 'none',
+                    '--start-x': `${item.startX}px`,
+                    '--end-x': `${item.startX * 7}px`,
+                  } as React.CSSProperties}
+                >
+                  {isBursting ? (
+                    <div style={{ position: 'relative', width: '96px', height: '96px' }}>
+                      {[
+                        { cls: 'tl', x: 0, y: 0, anim: 'burst-tl' },
+                        { cls: 'tr', x: -48, y: 0, anim: 'burst-tr' },
+                        { cls: 'bl', x: 0, y: -48, anim: 'burst-bl' },
+                        { cls: 'br', x: -48, y: -48, anim: 'burst-br' },
+                      ].map(({ cls, x, y, anim }) => (
+                        <div
+                          key={cls}
+                          style={{
+                            ...fragStyle(x, y),
+                            top: cls.startsWith('b') ? '48px' : '0',
+                            left: cls.endsWith('r') ? '48px' : '0',
+                            animation: `${anim} 0.5s ease-out forwards`,
+                          }}
+                          onAnimationEnd={() => {
+                            if (cls === 'br') {
+                              setBurstingIds(prev => {
+                                const next = new Set(prev);
+                                next.delete(item.id);
+                                return next;
+                              });
+                              removeIngredient(item.id);
+                            }
+                          }}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: '50px', lineHeight: '1' }}>
+                        {item.emoji}
+                      </div>
+                      <div style={{
+                        fontFamily: "'DotGothic16', sans-serif",
+                        fontSize: '20px',
+                        color: item.type === 'punch' ? '#ff3b3b' : '#32cd32',
+                        textShadow: '1px 1px 0 #fff, -1px -1px 0 #fff',
+                        marginTop: '5px'
+                      }}>
+                        {item.type === 'punch' ? 'Punch!!' : 'Chop!'}
+                      </div>
+                    </>
+                  )}
                 </div>
-                <div style={{
-                  fontFamily: "'DotGothic16', sans-serif",
-                  fontSize: '20px',
-                  color: item.type === 'punch' ? '#ff3b3b' : '#32cd32',
-                  textShadow: '1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff',
-                  marginTop: '5px'
-                }}>
-                  {item.type === 'punch' ? 'Punch!!' : 'Chop!'}
-                </div>
-              </div>
-            ))}
-
+              );
+            })}
             {/* 鍋の画像 */}
             <div style={{
               position: 'absolute',

@@ -13,19 +13,21 @@ export const useScoreLogic = () => {
   const [isSubmittingScore, setIsSubmittingScore] = useState(false); // 送信中フラグ
   const [scoreSubmitError, setScoreSubmitError] = useState<string | null>(null); // 送信エラー
 
-  const [lastJudgment, setLastJudgment] = useState<{ text: string; key: number } | null>(null); // 最後の判定結果を管理する状態
+  const [lastJudgment, setLastJudgment] = useState<{ text: string; key: number; ingredientId?: number } | null>(null); // 最後の判定結果を管理する状態
   const [judgments, setJudgments] = useState({ // 判定結果を管理する状態
     perfect: 0,
     good: 0,
     ok: 0,
     miss: 0
   });
+  const [burstingIds, setBurstingIds] = useState<Set<number>>(new Set());
 
   // 判定処理のコア部分（叩いた時 ＆ 見逃した時の両方で使う）
   const processJudgment = useCallback((
     actionType: ActionType | 'none', // 'none' は見逃し時
     diff: number,
-    isCorrectType: boolean
+    isCorrectType: boolean,
+    ingredientId?: number
   ) => {
     let result = '';
     let resultKey: 'perfect' | 'good' | 'ok' | 'miss' = 'miss'; // デフォルトは'miss'とする
@@ -35,11 +37,10 @@ export const useScoreLogic = () => {
       result = 'Miss (No Action)';
       resultKey = 'miss';
     } else {
-      // 叩いた場合の判定条件
-      if (!isCorrectType) { // タイミングが近いのにタイプが違う場合もMissとする
+      if (!isCorrectType) {
         result = 'Miss (different Action)';
         resultKey = 'miss';
-      } else if (diff < 200) { 
+      } else if (diff < 200) {
         result = 'Perfect!!';
         resultKey = 'perfect';
       } else if (diff < 350) {
@@ -54,11 +55,14 @@ export const useScoreLogic = () => {
       }
     }
 
-    setLastJudgment({ text: result, key: Date.now() }); // 次の有効判定まで表示を維持
+    setLastJudgment({ text: result, key: Date.now(), ingredientId });
 
-    // 判定結果の保存
+    // ingredientId が undefined でないことを確認してから追加
+    if ((resultKey != 'miss') && ingredientId !== undefined) {
+      setBurstingIds(prev => new Set(prev).add(ingredientId));
+    }
+
     setJudgments(prev => ({ ...prev, [resultKey]: prev[resultKey] + 1 }));
-    // 最大コンボ数の更新
     setCombo(prev => {
       const newCombo = resultKey === 'miss' ? 0 : prev + 1; // ミスなら0に戻す、それ以外は+1
       setMaxCombo(max => Math.max(max, newCombo)); // 最大コンボ数を更新
@@ -75,12 +79,9 @@ export const useScoreLogic = () => {
     }
   };
 
-  // [EN] Sends current score data to backend and stores returned totalScore and rank.
-  // [JA] 現在のスコアデータをバックエンドへ送信し、返却された totalScore と rank を保持します。
   const submitScore = useCallback(async () => {
     setIsSubmittingScore(true);
     setScoreSubmitError(null);
-
     try {
       const response = await postScoreCalculate({
         score_data: {
@@ -88,9 +89,8 @@ export const useScoreLogic = () => {
           judgments,
         },
       });
-
       setTotalScore(response.totalScore);
-      setRank(response.rank); // [EN] Store rank from response. [JA] レスポンスからランクを保持
+      setRank(response.rank);
       return response;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to submit score';
@@ -108,8 +108,10 @@ export const useScoreLogic = () => {
     processJudgment,
     submitScore,
     totalScore,
-    rank, // [EN] Rank from backend score calculation. [JA] バックエンド採点からのランク
+    rank,
     isSubmittingScore,
     scoreSubmitError,
+    burstingIds,      // ← 追加
+    setBurstingIds,   // ← 追加（Game.tsx でバースト終了時に削除するため）
   };
 };
