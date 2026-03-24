@@ -60,6 +60,8 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
     rank,
     isSubmittingScore,
     scoreSubmitError,
+    burstingIds,      // ← 追加
+    setBurstingIds,   // ← 追加
   } = useScoreLogic();
 
   const resolveIngredientEmoji = useCallback((chartIngredient: number | string, chartIndex: number): string => {
@@ -129,14 +131,14 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
 
     const isCorrectType = target.type === actionType;
 
-    // 判定処理とスコア記録を行う（見逃しもここで処理する）
-    const { result } = processJudgment(actionType, diff, isCorrectType);
+    const { result, resultKey } = processJudgment(actionType, diff, isCorrectType, Number(target.id));
 
-    //有効な判定に対して、結果とタイミングの差分をコンソールに表示
     console.log(`${result} | Error: ${Math.round(now - target.id)}ms | Target: ${target.emoji}`);
 
-    // 叩いたら消す（removeIngredientを再利用）
-    removeIngredient(target.id);
+    // perfect/good はバーストアニメーション終了時に removeIngredient が呼ばれるので、ここでは削除しない
+    if (resultKey === 'miss') {
+      removeIngredient(target.id);
+    }
   }, [activeIngredients, startTimeRef, removeIngredient, processJudgment]);
 
 
@@ -199,6 +201,11 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
       // 画面外に出た具材のミスフラグを立てる
       setActiveIngredients((prev) =>
         prev.map((item) => {
+          // すでに成功判定でバースト中の具材は見逃し判定しない
+          if (burstingIds.has(item.id)) {
+            return item;
+          }
+
           // まだミスになっていない 且つ 判定時間を200ms過ぎたもの
           if (!item.missed && elapsed > item.id + 200) {
             // 見逃し判定
@@ -215,7 +222,7 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
 
     requestRef = requestAnimationFrame(update);
     return () => cancelAnimationFrame(requestRef);
-  }, [phase, chart, processJudgment, resolveIngredientEmoji]);
+  }, [phase, chart, processJudgment, resolveIngredientEmoji, burstingIds]);
 
 
   // --- 3. キーボードリスナー ---
@@ -256,5 +263,7 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
     isSubmittingScore,
     scoreSubmitError,
     isChartFlowFinished,
+    burstingIds,      // ← 追加
+    setBurstingIds,   // ← 追加
   };
 };
