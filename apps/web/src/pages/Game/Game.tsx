@@ -74,21 +74,30 @@ const animationStyles = `
     50% { transform: scale(1.2); }
     100% { transform: scale(1); }
   }
-      @keyframes burst-tl {
-    0%   { transform: translate(0,0) rotate(0deg) scale(1); opacity:1; }
-    100% { transform: translate(-80px,-90px) rotate(-45deg) scale(0.2); opacity:0; }
+
+  @keyframes parabola-tl {
+    0%   { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; }
+    100% { transform: translate(-40px, 50px) rotate(-230deg) scale(0.8); opacity: 0; }
   }
-  @keyframes burst-tr {
-    0%   { transform: translate(0,0) rotate(0deg) scale(1); opacity:1; }
-    100% { transform: translate(80px,-90px) rotate(45deg) scale(0.2); opacity:0; }
+  @keyframes parabola-tr {
+    0%   { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; }
+    100% { transform: translate(40px, 50px) rotate(230deg) scale(0.8); opacity: 0; }
   }
-  @keyframes burst-bl {
-    0%   { transform: translate(0,0) rotate(0deg) scale(1); opacity:1; }
-    100% { transform: translate(-80px,90px) rotate(-35deg) scale(0.2); opacity:0; }
+  @keyframes parabola-bl {
+    0%   { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; }
+    100% { transform: translate(-50px, 60px) rotate(-230deg) scale(0.8); opacity: 0; }
   }
-  @keyframes burst-br {
-    0%   { transform: translate(0,0) rotate(0deg) scale(1); opacity:1; }
-    100% { transform: translate(80px,90px) rotate(35deg) scale(0.2); opacity:0; }
+  @keyframes parabola-br {
+    0%   { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; }
+    100% { transform: translate(50px, 60px) rotate(230deg) scale(0.8); opacity: 0; }
+  }
+  @keyframes chop-left-fall {
+    0%   { transform: translate(0,0) rotate(0deg) scale(1); opacity: 1; }
+    100% { transform: translate(-64px, 80px) rotate(-45deg) scale(0.85); opacity: 0; }
+  }
+  @keyframes chop-right-fall {
+    0%   { transform: translate(0,0) rotate(0deg) scale(1); opacity: 1; }
+    100% { transform: translate(64px, 80px) rotate(45deg) scale(0.85); opacity: 0; }
   }
 `;
 
@@ -573,6 +582,7 @@ export default function Game() {
             {ingredients.map((item) => {
               const dataUrl = emojiToDataUrl(item.emoji, 64);
               const isBursting = burstingIds.has(item.id);
+              const isChopSplit = isBursting && item.type === 'chop';
 
               const fragStyle = (posX: number, posY: number): React.CSSProperties => ({
                 position: 'absolute',
@@ -583,12 +593,20 @@ export default function Game() {
                 backgroundRepeat: 'no-repeat',
                 backgroundPosition: `${posX}px ${posY}px`,
               });
+              const finishBurst = () => {
+                setBurstingIds(prev => {
+                  const next = new Set(prev);
+                  next.delete(item.id);
+                  return next;
+                });
+                removeIngredient(item.id);
+              };
 
               // lane(-100〜100) をコンテナ幅の割合に変換
               // lane=0 → 中央(50%), lane=-100 → 左端, lane=100 → 右端
-              // 判定ゾーンは y=85% 付近（80%〜90%の中間）
+              // 判定ゾーンは y=80% 付近（70%〜85%の中間）
               const burstLeftPercent = 50 + (item.startX / 100) * 25; // 5%〜95% の範囲にマップ
-              const burstTopPercent = 85;
+              const burstTopPercent = 75;
 
               return (
                 <div
@@ -612,32 +630,62 @@ export default function Game() {
                 >
                   {isBursting ? (
                     <div style={{ position: 'relative', width: '96px', height: '96px' }}>
-                      {[
-                        { cls: 'tl', x: 0, y: 0, anim: 'burst-tl' },
-                        { cls: 'tr', x: -48, y: 0, anim: 'burst-tr' },
-                        { cls: 'bl', x: 0, y: -48, anim: 'burst-bl' },
-                        { cls: 'br', x: -48, y: -48, anim: 'burst-br' },
-                      ].map(({ cls, x, y, anim }) => (
-                        <div
-                          key={cls}
-                          style={{
-                            ...fragStyle(x, y),
-                            top: cls.startsWith('b') ? '48px' : '0',
-                            left: cls.endsWith('r') ? '48px' : '0',
-                            animation: `${anim} 0.5s ease-out forwards`,
-                          }}
-                          onAnimationEnd={() => {
-                            if (cls === 'br') {
-                              setBurstingIds(prev => {
-                                const next = new Set(prev);
-                                next.delete(item.id);
-                                return next;
-                              });
-                              removeIngredient(item.id);
-                            }
-                          }}
-                        />
-                      ))}
+                      {isChopSplit ? (
+                        <>
+                          <div
+                            style={{
+                              position: 'absolute',
+                              top: 0,
+                              left: 0,
+                              width: '48px',
+                              height: '96px',
+                              backgroundImage: `url(${dataUrl})`,
+                              backgroundSize: '96px 96px',
+                              backgroundRepeat: 'no-repeat',
+                              backgroundPosition: '0 0',
+                              animation: 'chop-left-fall 0.30s ease-in forwards',
+                            }}
+                          />
+                          <div
+                            style={{
+                              position: 'absolute',
+                              top: 0,
+                              left: '48px',
+                              width: '48px',
+                              height: '96px',
+                              backgroundImage: `url(${dataUrl})`,
+                              backgroundSize: '96px 96px',
+                              backgroundRepeat: 'no-repeat',
+                              backgroundPosition: '-48px 0',
+                              animation: 'chop-right-fall 0.30s ease-in forwards',
+                            }}
+                            onAnimationEnd={finishBurst}
+                          />
+                        </>
+                      ) : (
+                        [
+                          { cls: 'tl', x: 0, y: 0, anim: 'parabola-tl' },
+                          { cls: 'tr', x: -48, y: 0, anim: 'parabola-tr' },
+                          { cls: 'bl', x: 0, y: -48, anim: 'parabola-bl' },
+                          { cls: 'br', x: -48, y: -48, anim: 'parabola-br' },
+                        ].map(({ cls, x, y, anim }) => (
+                          <div
+                            key={cls}
+                            style={{
+                              ...fragStyle(x, y),
+                              top: cls.startsWith('b') ? '48px' : '0',
+                              left: cls.endsWith('r') ? '48px' : '0',
+                              // 変更後
+                              animation: `${anim} 0.5s cubic-bezier(0.25, 0.8, 0.5, 1) forwards`,
+                            }}
+                            onAnimationEnd={() => {
+                              if (cls === 'br') {
+                                finishBurst();
+                              }
+                            }}
+                          />
+                        ))
+                      )}
                     </div>
                   ) : (
                     <>

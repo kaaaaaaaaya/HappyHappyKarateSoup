@@ -13,7 +13,13 @@ export const useScoreLogic = () => {
   const [isSubmittingScore, setIsSubmittingScore] = useState(false); // 送信中フラグ
   const [scoreSubmitError, setScoreSubmitError] = useState<string | null>(null); // 送信エラー
 
-  const [lastJudgment, setLastJudgment] = useState<{ text: string; key: number; ingredientId?: number } | null>(null); // 最後の判定結果を管理する状態
+  const [lastJudgment, setLastJudgment] = useState<{
+    text: string;
+    key: number;
+    ingredientId?: number;
+    actionType?: ActionType | 'none';
+    resultKey?: 'perfect' | 'good' | 'ok' | 'miss';
+  } | null>(null); // 最後の判定結果を管理する状態
   const [judgments, setJudgments] = useState({ // 判定結果を管理する状態
     perfect: 0,
     good: 0,
@@ -55,7 +61,7 @@ export const useScoreLogic = () => {
       }
     }
 
-    setLastJudgment({ text: result, key: Date.now(), ingredientId });
+    setLastJudgment({ text: result, key: Date.now(), ingredientId, actionType, resultKey });
 
     // ingredientId が undefined でないことを確認してから追加
     if ((resultKey != 'miss') && ingredientId !== undefined) {
