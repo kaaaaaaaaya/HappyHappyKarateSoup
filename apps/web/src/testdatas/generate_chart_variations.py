@@ -97,7 +97,7 @@ CHART_PROFILES = [
         "count": 10,
         "note_count": 150,
         "final_time_ms": 120_000,
-        "min_gap_ms": 450,
+        "min_gap_ms": 550,
     },
 ]
 

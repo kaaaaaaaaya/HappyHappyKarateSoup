@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Phase, Ingredient, ActionType } from './types';
 import charData from '../../testdatas/demo/charData-demo-30s-01.json'; // 譜面データをインポート
 import { useScoreLogic } from './useScoreLogic'; // 分割したスコアロジックをインポート
+import { NOTE_SPAWN_LEAD_MS } from './timing';
 
 // 譜面データの型 (バックエンドからのレスポンスを想定)
 // [タイミング(ms), パンチorチョップ, ingredientIndex(0-2) or emoji, レーン(-100〜100)]
@@ -16,6 +17,8 @@ const generatedChartModules = import.meta.glob('../../testdatas/charData-random-
 type UseGameLogicOptions = {
   selectedIngredientEmojis?: string[];
 };
+
+const JUDGE_WINDOW_MS = 500;
 
 // @ts-ignore: 'getRandomGeneratedChart' is declared but its value is never read.
 const getRandomGeneratedChart = (): ChartItem[] => {
@@ -47,6 +50,8 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
   const elapsedRef = useRef<number>(0);
   // 処理済みの譜面インデックス
   const chartIndexRef = useRef<number>(0);
+  // ヒット済みノートIDを保持（自動見逃し判定との二重計上を防ぐ）
+  const judgedIdsRef = useRef<Set<number>>(new Set());
 
   // スコアと判定のロジックを呼び出す
 
@@ -60,6 +65,7 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
     rank,
     isSubmittingScore,
     scoreSubmitError,
+    battleStats,
     burstingIds,      // ← 追加
     setBurstingIds,   // ← 追加
   } = useScoreLogic();
@@ -88,10 +94,10 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
   }, []);
 
   //入力を受け取って結果を判定する関数
-  const handleAction = useCallback((actionType: ActionType, horizontalTargetNorm?: number) => {
+  const handleAction = useCallback((actionType: ActionType, actionAcceleration?: number) => {
     if (activeIngredients.length === 0) {
       // [JA] 入力は来ているので無反応に見せないため Miss 表示を返す。
-      processJudgment(actionType, 999, true);
+      processJudgment(actionType, 999, true, undefined, actionAcceleration);
       return;
     }
 
@@ -100,38 +106,26 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
 
     const availableTargets = activeIngredients.filter((item) => !item.missed);
     if (availableTargets.length === 0) {
-      processJudgment(actionType, 999, true);
+      processJudgment(actionType, 999, true, undefined, actionAcceleration);
       return;
     }
 
-    const judgeWindowMs = 600;
-    const timedCandidates = availableTargets.filter((item) => Math.abs(now - item.id) < judgeWindowMs);
+    const timedCandidates = availableTargets.filter((item) => Math.abs(now - item.id) < JUDGE_WINDOW_MS);
     if (timedCandidates.length === 0) {
-      processJudgment(actionType, 999, true);
+      processJudgment(actionType, 999, true, undefined, actionAcceleration);
       return;
     }
 
-    const target = (() => {
-      if (horizontalTargetNorm === undefined) {
-        return timedCandidates[0];
-      }
-
-      const clampedNorm = Math.max(0, Math.min(1, horizontalTargetNorm));
-      const targetLane = (clampedNorm - 0.5) * 200; // [-100, 100] lane scale
-
-      return timedCandidates.reduce((best, candidate) => {
-        const bestDistance = Math.abs(best.startX - targetLane) * 3 + Math.abs(now - best.id);
-        const candidateDistance = Math.abs(candidate.startX - targetLane) * 3 + Math.abs(now - candidate.id);
-        return candidateDistance < bestDistance ? candidate : best;
-      });
-    })();
+    // レーン位置は使わず、時間窓に入った先頭ノーツを判定対象にする
+    const target = timedCandidates[0];
 
     const diff = Math.abs(now - target.id); // 理想のタイミングとの差分(ms)
-    if (diff >= judgeWindowMs) return; // 判定範囲外は無視
+    if (diff >= JUDGE_WINDOW_MS) return; // 判定範囲外は無視
 
     const isCorrectType = target.type === actionType;
 
-    const { result, resultKey } = processJudgment(actionType, diff, isCorrectType, Number(target.id));
+    judgedIdsRef.current.add(target.id);
+    const { result, resultKey } = processJudgment(actionType, diff, isCorrectType, Number(target.id), actionAcceleration);
 
     console.log(`${result} | Error: ${Math.round(now - target.id)}ms | Target: ${target.emoji}`);
 
@@ -156,6 +150,7 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
         setPhase('playing'); //譜面切り替えと同時にplayingフェーズに移行
         startTimeRef.current = performance.now(); // 精度の高い開始時間を記録
         chartIndexRef.current = 0; // インデックスをリセット
+        judgedIdsRef.current.clear();
       }, 1000);
     }
   }, [phase, count]);
@@ -176,15 +171,13 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
     const update = () => {
       const elapsed = performance.now() - startTimeRef.current; // ゲーム開始からの経過時間を高精度で取得
       elapsedRef.current = elapsed;
-      const animationDuration = 2000; // アニメーションの総時間(ms)
-
       // 譜面データの中で、まだ処理していないものがあるかチェック
       if (chartIndexRef.current < chart.length) {
         // 譜面データから次に処理するアイテムの情報を取得
         const [targetTime, type, chartIngredient, lane] = chart[chartIndexRef.current];
 
-        // 経過時間がターゲット時間の2000ms前に達したら具材を出現させる
-        if (elapsed >= targetTime - animationDuration) {
+        // 判定時刻より一定時間前に具材を出現させる（render側と同じ定数を参照）
+        if (elapsed >= targetTime - NOTE_SPAWN_LEAD_MS) {
           const newIngredient: Ingredient = { //ingredient型のオブジェクトを新規生成
             id: targetTime, // 判定時に使うため、ターゲットとなる時間をIDにする
             emoji: resolveIngredientEmoji(chartIngredient, chartIndexRef.current),
@@ -206,8 +199,8 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
             return item;
           }
 
-          // まだミスになっていない 且つ 判定時間を200ms過ぎたもの
-          if (!item.missed && elapsed > item.id + 200) {
+          // 判定窓を過ぎた具材を見逃し扱いにする
+          if (!item.missed && !judgedIdsRef.current.has(item.id) && elapsed > item.id + JUDGE_WINDOW_MS) {
             // 見逃し判定
             const { result } = processJudgment('none', 0, false);
             console.log(`${result} | Target: ${item.emoji}`);
@@ -242,7 +235,7 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
   // [EN] True when enough time has passed after the last note timing.
   // [JA] 最終ノート時刻を過ぎ、十分なバッファ時間が経過したら true になります。
   const lastNoteTime = chart.length > 0 ? chart[chart.length - 1][0] : 0;
-  const chartFinishBufferMs = 3000; // 具材アニメーション完了待ちバッファ
+  const chartFinishBufferMs = 2000; // 具材アニメーション完了待ちバッファ
   const isChartFlowFinished =
     phase === 'playing' &&
     chart.length > 0 &&
@@ -262,6 +255,7 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
     rank,
     isSubmittingScore,
     scoreSubmitError,
+    battleStats,
     isChartFlowFinished,
     burstingIds,      // ← 追加
     setBurstingIds,   // ← 追加
