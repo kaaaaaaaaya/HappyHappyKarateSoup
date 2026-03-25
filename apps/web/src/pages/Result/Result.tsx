@@ -2,8 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
 import FlavorRadarChart from './writeChart.tsx';
-import bgTitle from '../../assets/backgrounds/bg_title.png';
-import logoSmall from '../../assets/ui/logo_small.png';
+import BrandedBackground from '../../components/BrandedBackground';
 
 import type { SoupGenerateResponse } from '../../api/soupApi';
 import { fetchControllerRoomStatus, postControllerRoomCommand } from '../../api/controllerRoomApi';
@@ -164,56 +163,16 @@ export default function Result() {
       <style>{globalStyle}</style>
 
       {/* ページ全体 */}
-      <div style={{
-        minHeight: '100dvh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '2dvh 2vw 3dvh',
-        backgroundImage: `url(${bgTitle})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-        position: 'relative',
-        ...pf,
-      }}>
-
-        {/* ロゴ・タイトル (左上固定) */}
-        <div style={{
-          position: 'absolute',
-          top: '2dvh',
-          left: '1.5vw',
+      <BrandedBackground
+        contentStyle={{
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
-          gap: '1vw',
-          zIndex: 5,
-          pointerEvents: 'none',
-        }}>
-          <img
-            src={logoSmall}
-            alt="Happy Soup logo"
-            style={{
-              width: '5dvh',
-              height: '5dvh',
-              objectFit: 'contain',
-              display: 'block',
-            }}
-          />
-          <span style={{
-            color: '#FFF',
-            ...pixelFont,
-            fontSize: '1.5vw',
-            fontWeight: 400,
-            lineHeight: 1.4,
-            letterSpacing: '-0.35px',
-            textTransform: 'uppercase',
-            WebkitTextStrokeWidth: '1.2px',
-            WebkitTextStrokeColor: '#000',
-          }}>
-            HAPPY HAPPY KARATE SOUP
-          </span>
-        </div>
+          justifyContent: 'center',
+          padding: '2dvh 2vw 3dvh',
+          ...pf,
+        }}
+      >
 
         {/* ─── メインカード ─── */}
         <div style={{
@@ -538,7 +497,7 @@ export default function Result() {
           ))}
         </div>
 
-      </div>
+      </BrandedBackground>
     </>
   );
 }
