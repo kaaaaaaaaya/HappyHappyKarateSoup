@@ -6,6 +6,7 @@ final class ControllerMotionDetector: ObservableObject {
     private let manager = CMMotionManager()
     @Published var punchEventId: Int = 0
     @Published var chopEventId: Int = 0
+    @Published var lastActionAcceleration: Double = 0
     private var lastActionAt: TimeInterval = 0
 
     // 誤爆防止のためのクールダウン。腕を引く時の逆方向の揺れを無視する。
@@ -40,6 +41,7 @@ final class ControllerMotionDetector: ObservableObject {
 
         // Z軸 (画面奥への突き出し) をパンチとする
         if ua.z < punchThreshold {
+            lastActionAcceleration = sqrt((ua.x * ua.x) + (ua.y * ua.y) + (ua.z * ua.z))
             punchEventId += 1
             lastActionAt = now
             return
@@ -47,6 +49,7 @@ final class ControllerMotionDetector: ObservableObject {
 
         // X/Y軸の複合 (スマホの持ち方によるブレを吸収して縦振りをチョップとする)
         if ua.y < chopThreshold || ua.x < chopThreshold {
+            lastActionAcceleration = sqrt((ua.x * ua.x) + (ua.y * ua.y) + (ua.z * ua.z))
             chopEventId += 1
             lastActionAt = now
             return

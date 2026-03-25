@@ -85,13 +85,13 @@ struct ControllerView: View {
         .onChange(of: motionDetector.punchEventId) { _, _ in
             if mode == .action {
                 showActionFlash(.punch)
-                sendActionCommand("punch")
+                sendActionCommand("punch", acceleration: motionDetector.lastActionAcceleration)
             }
         }
         .onChange(of: motionDetector.chopEventId) { _, _ in
             if mode == .action {
                 showActionFlash(.chop)
-                sendActionCommand("chop")
+                sendActionCommand("chop", acceleration: motionDetector.lastActionAcceleration)
             }
         }
     }
@@ -298,10 +298,15 @@ struct ControllerView: View {
         .allowsHitTesting(false)
     }
 
-    private func sendActionCommand(_ action: String) {
+    private func sendActionCommand(_ action: String, acceleration: Double?) {
         let x = String(format: "%.3f", max(0, min(1, aimX)))
         let y = String(format: "%.3f", max(0, min(1, aimY)))
-        onDirection("\(action)@\(x),\(y)")
+        if let acceleration {
+            let a = String(format: "%.3f", max(0, acceleration))
+            onDirection("\(action)@\(x),\(y),\(a)")
+        } else {
+            onDirection("\(action)@\(x),\(y)")
+        }
         let impact = UIImpactFeedbackGenerator(style: .medium)
         impact.impactOccurred()
     }

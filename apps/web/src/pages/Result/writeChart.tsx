@@ -34,10 +34,10 @@ interface FlavorRadarChartProps {
     umami: number;
     spicy: number;
   };
-  size?: number; // 任意でサイズを指定できるように
+  size?: number; // 指定時は固定px。未指定なら親コンテナいっぱい。
 }
 
-const FlavorRadarChart: React.FC<FlavorRadarChartProps> = ({ flavor, size = 300 }) => {
+const FlavorRadarChart: React.FC<FlavorRadarChartProps> = ({ flavor, size }) => {
   // チャート用データ
   const data = {
     labels: ['甘味', '酸味', '塩味', '苦味', 'うま味', '辛味'],
@@ -62,6 +62,7 @@ const FlavorRadarChart: React.FC<FlavorRadarChartProps> = ({ flavor, size = 300 
 
   // チャート設定
   const options: ChartOptions<'radar'> = {
+    responsive: true,
     scales: {
       r: {
         angleLines: { display: true },
@@ -79,11 +80,19 @@ const FlavorRadarChart: React.FC<FlavorRadarChartProps> = ({ flavor, size = 300 
     plugins: {
       legend: { display: false },
     },
+    aspectRatio: 1,
     maintainAspectRatio: false, // コンテナのサイズに合わせる
   };
 
   return (
-    <div style={{ width: `${size}px`, height: `${size}px` }}>
+    <div
+      style={{
+        width: size ? `${size}px` : '100%',
+        height: size ? `${size}px` : '100%',
+        margin: '0 auto',
+        position: 'relative',
+      }}
+    >
       <Radar data={data} options={options} />
     </div>
   );
