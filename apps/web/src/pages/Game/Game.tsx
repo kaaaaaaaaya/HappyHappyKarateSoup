@@ -648,7 +648,7 @@ export default function Game() {
                     flexDirection: 'column',
                     alignItems: 'center',
                     transform: isBursting ? 'translate(-50%, -50%)' : undefined,
-                    animation: isBursting ? 'none' : `moveForward ${NOTE_ANIMATION_MS}ms linear forwards`,
+                    animation: isBursting ? 'none' : `moveForward ${NOTE_ANIMATION_MS}ms ease-in forwards`,
                     zIndex: 100,
                     opacity: item.missed ? 0.2 : 1,
                     filter: item.missed ? 'grayscale(100%)' : 'none',
