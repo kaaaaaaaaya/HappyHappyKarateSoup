@@ -94,7 +94,7 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
   }, []);
 
   //入力を受け取って結果を判定する関数
-  const handleAction = useCallback((actionType: ActionType, horizontalTargetNorm?: number, actionAcceleration?: number) => {
+  const handleAction = useCallback((actionType: ActionType, actionAcceleration?: number) => {
     if (activeIngredients.length === 0) {
       // [JA] 入力は来ているので無反応に見せないため Miss 表示を返す。
       processJudgment(actionType, 999, true, undefined, actionAcceleration);
@@ -116,21 +116,8 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
       return;
     }
 
-    const target = (() => {
-      if (horizontalTargetNorm === undefined) {
-        // 入力位置情報がない場合は先頭ノーツを優先
-        return timedCandidates[0];
-      }
-
-      const clampedNorm = Math.max(0, Math.min(1, horizontalTargetNorm));
-      const targetLane = (clampedNorm - 0.5) * 200; // [-100, 100] lane scale
-
-      return timedCandidates.reduce((best, candidate) => {
-        const bestDistance = Math.abs(best.startX - targetLane) * 3 + Math.abs(now - best.id);
-        const candidateDistance = Math.abs(candidate.startX - targetLane) * 3 + Math.abs(now - candidate.id);
-        return candidateDistance < bestDistance ? candidate : best;
-      });
-    })();
+    // レーン位置は使わず、時間窓に入った先頭ノーツを判定対象にする
+    const target = timedCandidates[0];
 
     const diff = Math.abs(now - target.id); // 理想のタイミングとの差分(ms)
     if (diff >= JUDGE_WINDOW_MS) return; // 判定範囲外は無視
