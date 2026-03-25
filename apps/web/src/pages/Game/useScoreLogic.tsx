@@ -26,6 +26,11 @@ export const useScoreLogic = () => {
     ok: 0,
     miss: 0
   });
+  const [actionCounts, setActionCounts] = useState({
+    punch: 0,
+    chop: 0,
+  });
+  const [accelerationTotal, setAccelerationTotal] = useState(0);
   const [burstingIds, setBurstingIds] = useState<Set<number>>(new Set());
 
   // 判定処理のコア部分（叩いた時 ＆ 見逃した時の両方で使う）
@@ -33,7 +38,8 @@ export const useScoreLogic = () => {
     actionType: ActionType | 'none', // 'none' は見逃し時
     diff: number,
     isCorrectType: boolean,
-    ingredientId?: number
+    ingredientId?: number,
+    actionAcceleration?: number,
   ) => {
     let result = '';
     let resultKey: 'perfect' | 'good' | 'ok' | 'miss' = 'miss'; // デフォルトは'miss'とする
@@ -61,6 +67,11 @@ export const useScoreLogic = () => {
       }
     }
 
+    if (actionType !== 'none') {
+      setActionCounts((prev) => ({ ...prev, [actionType]: prev[actionType] + 1 }));
+      setAccelerationTotal((prev) => prev + Math.max(0, actionAcceleration ?? 0));
+    }
+
     setLastJudgment({ text: result, key: Date.now(), ingredientId, actionType, resultKey });
 
     // ingredientId が undefined でないことを確認してから追加
@@ -77,6 +88,24 @@ export const useScoreLogic = () => {
 
     return { result, resultKey };
   }, []);
+
+  const totalActions = actionCounts.punch + actionCounts.chop;
+  // [EN] Heuristic calorie estimation based on action count and acceleration total.
+  // [JA] アクション回数と加速度合計からの簡易推定カロリー。
+  const usedEnergyKcal = Number(
+    (
+      (totalActions * 0.04) +
+      (accelerationTotal * 0.18)
+    ).toFixed(2),
+  );
+
+  const battleStats = {
+    perfect: judgments.perfect,
+    good: judgments.good,
+    ok: judgments.ok,
+    miss: judgments.miss,
+    usedEnergyKcal,
+  };
 
   const scoreData = {
     score_data: {
@@ -117,6 +146,7 @@ export const useScoreLogic = () => {
     rank,
     isSubmittingScore,
     scoreSubmitError,
+    battleStats,
     burstingIds,      // ← 追加
     setBurstingIds,   // ← 追加（Game.tsx でバースト終了時に削除するため）
   };

@@ -6,6 +6,7 @@ import { useGameLogic } from './useGameLogic'; // 先ほど作ったフックを
 import { postSoupGenerate } from '../../api/soupApi';
 import type { SoupGenerateResponse } from '../../api/soupApi';
 import { fetchControllerRoomStatus, postControllerRoomCommand } from '../../api/controllerRoomApi';
+import { NOTE_ANIMATION_MS } from './timing';
 
 
 //Zindex ; 背景:0, レールの背景:50, レールの線:60, 絵文字:100, 鍋の画像:10, 判定ゾーン:55
@@ -138,7 +139,7 @@ const toUserFriendlyGenerationError = (rawMessage: string): string => {
 
 type ParsedControllerCommand =
   | { kind: 'aim'; xNorm: number }
-  | { kind: 'action'; action: 'punch' | 'chop'; xNorm?: number };
+  | { kind: 'action'; action: 'punch' | 'chop'; xNorm?: number; acceleration?: number };
 
 const parseCommandXNorm = (normalizedCommand: string): number | undefined => {
   const payload = normalizedCommand.split('@')[1] ?? '';
@@ -150,6 +151,20 @@ const parseCommandXNorm = (normalizedCommand: string): number | undefined => {
   return Math.max(0, Math.min(1, x));
 };
 
+const parseCommandAcceleration = (normalizedCommand: string): number | undefined => {
+  const payload = normalizedCommand.split('@')[1] ?? '';
+  const parts = payload.split(',');
+  const raw = parts[2];
+  if (!raw) {
+    return undefined;
+  }
+  const acceleration = Number.parseFloat(raw);
+  if (!Number.isFinite(acceleration)) {
+    return undefined;
+  }
+  return Math.max(0, acceleration);
+};
+
 const parseControllerCommand = (command: string): ParsedControllerCommand | null => {
   const normalized = command.trim().toLowerCase();
   if (normalized.startsWith('aim')) {
@@ -158,11 +173,21 @@ const parseControllerCommand = (command: string): ParsedControllerCommand | null
   }
 
   if (normalized.startsWith('punch')) {
-    return { kind: 'action', action: 'punch', xNorm: parseCommandXNorm(normalized) };
+    return {
+      kind: 'action',
+      action: 'punch',
+      xNorm: parseCommandXNorm(normalized),
+      acceleration: parseCommandAcceleration(normalized),
+    };
   }
 
   if (normalized.startsWith('chop')) {
-    return { kind: 'action', action: 'chop', xNorm: parseCommandXNorm(normalized) };
+    return {
+      kind: 'action',
+      action: 'chop',
+      xNorm: parseCommandXNorm(normalized),
+      acceleration: parseCommandAcceleration(normalized),
+    };
   }
 
   return null;
@@ -205,7 +230,7 @@ export default function Game() {
   const [isImageReady, setIsImageReady] = useState(false);
   const hasNavigatedRef = useRef(false);
   const isFinishingRef = useRef(false);
-  const handleActionRef = useRef<(action: 'punch' | 'chop', horizontalTargetNorm?: number) => void>(() => { });
+  const handleActionRef = useRef<(action: 'punch' | 'chop', horizontalTargetNorm?: number, acceleration?: number) => void>(() => { });
   const lastControllerCommandSequenceRef = useRef(0);
   const lastControllerRawCommandRef = useRef('');
   const isControllerSequenceInitializedRef = useRef(false);
@@ -218,6 +243,7 @@ export default function Game() {
   // useGameLogic の戻り値に burstingIds, setBurstingIds を追加して受け取る
   const { phase, count, ingredients, handleAction, removeIngredient,
     combo, lastJudgment, submitScore, totalScore, rank,
+    battleStats,
     isChartFlowFinished,
     burstingIds, setBurstingIds  // ← 追加
   } = useGameLogic({ selectedIngredientEmojis });
@@ -304,8 +330,8 @@ export default function Game() {
 
           if (parsedCommand.kind === 'action') {
             if (phase === 'playing') {
-              // Auto-aim mode: action type and timing only (ignore horizontal x input).
-              handleActionRef.current(parsedCommand.action);
+              // Use controller x input for lane-aware target selection when available.
+              handleActionRef.current(parsedCommand.action, parsedCommand.xNorm, parsedCommand.acceleration);
             }
           }
         }
@@ -428,6 +454,7 @@ export default function Game() {
           comment: generatedSoup.comment,
           totalScore: resolvedTotalScore,
           rank: resolvedRank, // [EN] Add rank to result. [JA] 結果にランクを追加
+          battleStats,
         }
         : {
           ingredients: [],
@@ -436,6 +463,7 @@ export default function Game() {
           comment: 'No comment available',
           totalScore: resolvedTotalScore,
           rank: resolvedRank, // [EN] Add rank to result. [JA] 結果にランクを追加
+          battleStats,
         };
 
       sessionStorage.setItem('latestSoupResult', JSON.stringify(resultData));
@@ -449,7 +477,7 @@ export default function Game() {
       }
 
       hasNavigatedRef.current = true;
-      navigate('/result', { state: { generated: resultData } });
+      navigate('/result', { state: { generated: resultData, battleStats } });
       return;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to finish game';
@@ -620,7 +648,7 @@ export default function Game() {
                     flexDirection: 'column',
                     alignItems: 'center',
                     transform: isBursting ? 'translate(-50%, -50%)' : undefined,
-                    animation: isBursting ? 'none' : 'moveForward 3.0s ease-in forwards',
+                    animation: isBursting ? 'none' : `moveForward ${NOTE_ANIMATION_MS}ms linear forwards`,
                     zIndex: 100,
                     opacity: item.missed ? 0.2 : 1,
                     filter: item.missed ? 'grayscale(100%)' : 'none',
