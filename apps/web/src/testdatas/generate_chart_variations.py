@@ -27,6 +27,13 @@ INGREDIENT_INDEXES = [0, 1, 2]
 LANE_MIN = -100
 LANE_MAX = 100
 
+# Game-side spawn timing:
+# note appears when elapsed >= (targetTime - animationDuration)
+# animationDuration is currently 2000ms in useGameLogic.ts.
+SPAWN_ANIMATION_DURATION_MS = 2_000
+FIRST_NOTE_SAFETY_MARGIN_MS = 300
+DEFAULT_FIRST_NOTE_MIN_MS = SPAWN_ANIMATION_DURATION_MS + FIRST_NOTE_SAFETY_MARGIN_MS
+
 
 CHART_PROFILES = [
     {
@@ -88,9 +95,9 @@ CHART_PROFILES = [
         "output_dir": "play/hard",
         "file_prefix": "charData-play-hard-120s",
         "count": 10,
-        "note_count": 120,
+        "note_count": 150,
         "final_time_ms": 120_000,
-        "min_gap_ms": 400,
+        "min_gap_ms": 450,
     },
 ]
 
@@ -99,13 +106,19 @@ def generate_intervals(
     note_count: int,
     final_time_ms: int,
     min_gap_ms: int,
+    first_note_min_ms: int,
     rng: random.Random,
 ) -> list[int]:
     """Generate `note_count` intervals that sum to `final_time_ms` with each >= min_gap_ms."""
-    minimum_total = note_count * min_gap_ms
+    first_gap_min = max(min_gap_ms, first_note_min_ms)
+    base_intervals = [min_gap_ms] * note_count
+    base_intervals[0] = first_gap_min
+
+    minimum_total = sum(base_intervals)
     if minimum_total > final_time_ms:
         raise ValueError(
-            f"Impossible constraints: note_count*min_gap_ms={minimum_total} > {final_time_ms}"
+            "Impossible constraints: "
+            f"first_gap_min + (note_count-1)*min_gap_ms={minimum_total} > {final_time_ms}"
         )
 
     extra = final_time_ms - minimum_total
@@ -119,7 +132,7 @@ def generate_intervals(
         previous = point
     extras.append(extra - previous)
 
-    return [min_gap_ms + v for v in extras]
+    return [base + v for base, v in zip(base_intervals, extras)]
 
 
 def build_chart(
@@ -128,11 +141,13 @@ def build_chart(
     note_count: int,
     final_time_ms: int,
     min_gap_ms: int,
+    first_note_min_ms: int = DEFAULT_FIRST_NOTE_MIN_MS,
 ) -> list[list[int | str]]:
     intervals = generate_intervals(
         note_count=note_count,
         final_time_ms=final_time_ms,
         min_gap_ms=min_gap_ms,
+        first_note_min_ms=first_note_min_ms,
         rng=rng,
     )
 
@@ -154,6 +169,7 @@ def validate_chart(
     expected_note_count: int,
     expected_final_time_ms: int,
     expected_min_gap_ms: int,
+    expected_first_note_min_ms: int,
 ) -> None:
     if len(chart) != expected_note_count:
         raise ValueError(f"Invalid note count: {len(chart)}")
@@ -162,6 +178,12 @@ def validate_chart(
     if last_time != expected_final_time_ms:
         raise ValueError(
             f"Invalid final time: {last_time} (expected {expected_final_time_ms})"
+        )
+
+    first_time = int(chart[0][0])
+    if first_time < expected_first_note_min_ms:
+        raise ValueError(
+            f"First note too early: {first_time} (expected >= {expected_first_note_min_ms})"
         )
 
     for i in range(1, len(chart)):
@@ -179,11 +201,15 @@ def main() -> None:
 
         for i in range(1, profile["count"] + 1):
             rng = random.Random()  # different random stream per file
+            first_note_min_ms = int(
+                profile.get("first_note_min_ms", DEFAULT_FIRST_NOTE_MIN_MS)
+            )
             chart = build_chart(
                 rng,
                 note_count=profile["note_count"],
                 final_time_ms=profile["final_time_ms"],
                 min_gap_ms=profile["min_gap_ms"],
+                first_note_min_ms=first_note_min_ms,
             )
 
             validate_chart(
@@ -191,6 +217,7 @@ def main() -> None:
                 expected_note_count=profile["note_count"],
                 expected_final_time_ms=profile["final_time_ms"],
                 expected_min_gap_ms=profile["min_gap_ms"],
+                expected_first_note_min_ms=first_note_min_ms,
             )
 
             output_path = output_dir / f"{profile['file_prefix']}-{i:02}.json"
