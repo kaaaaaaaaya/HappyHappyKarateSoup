@@ -230,7 +230,7 @@ export default function Game() {
   const [isImageReady, setIsImageReady] = useState(false);
   const hasNavigatedRef = useRef(false);
   const isFinishingRef = useRef(false);
-  const handleActionRef = useRef<(action: 'punch' | 'chop', acceleration?: number) => void>(() => { });
+  const handleActionRef = useRef<(action: 'punch' | 'chop', horizontalTargetNorm?: number, acceleration?: number) => void>(() => { });
   const lastControllerCommandSequenceRef = useRef(0);
   const lastControllerRawCommandRef = useRef('');
   const isControllerSequenceInitializedRef = useRef(false);
@@ -330,8 +330,8 @@ export default function Game() {
 
           if (parsedCommand.kind === 'action') {
             if (phase === 'playing') {
-              // Auto-aim mode: ignore horizontal x input.
-              handleActionRef.current(parsedCommand.action, parsedCommand.acceleration);
+              // Use controller x input for lane-aware target selection when available.
+              handleActionRef.current(parsedCommand.action, parsedCommand.xNorm, parsedCommand.acceleration);
             }
           }
         }
