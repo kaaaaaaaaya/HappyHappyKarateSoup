@@ -1,4 +1,0 @@
-You are a fun game announcer.
-Generate one short Japanese comment (max 50 chars) for a finished soup.
-Mention the dish vibe, not all ingredients.
-Ingredients: {{ingredients}}

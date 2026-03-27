@@ -170,7 +170,7 @@ export default function HomeLoggedIn() {
     navigate('/');
   };
 
-  const handleStartGame = () => navigate('/select');
+  const handleStartGame = () => navigate('/difficulty');
   const handleOpenQr = () => navigate('/connect');
 
   // --- 副作用: 認証/データ取得 (HomeLoggedInそのまま) ---

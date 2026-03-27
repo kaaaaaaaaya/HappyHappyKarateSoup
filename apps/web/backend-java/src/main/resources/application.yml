@@ -35,10 +35,13 @@ app:
     cache-seconds:
       list: 60
       detail: 300
+    local-fallback-enabled: ${SOUP_LOCAL_FALLBACK_ENABLED:false}
+    local-fallback-prefix: ${APP_CHART_LOCAL_FALLBACK_PREFIX:charts/play}
   cors:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173}
   gcs:
     bucket-name: ${APP_GCS_BUCKET_NAME:happy-soup}
+    chart-prefix-play: ${APP_GCS_CHART_PREFIX_PLAY:${APP_GCS_CHART_PREFIX_PLAY90S:charts/play}}
 
 management:
   endpoints:

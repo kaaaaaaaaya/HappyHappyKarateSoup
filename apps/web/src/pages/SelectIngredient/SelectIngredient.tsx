@@ -16,6 +16,7 @@ const CATEGORIES = {
 
 export default function SelectIngredient() {
   const navigate = useNavigate();
+  const selectedDifficulty = sessionStorage.getItem('selectedDifficulty') ?? 'normal';
   
   const [activeTab, setActiveTab] = useState<'VEGETABLE' | 'MEAT_FISH' | 'OTHERS'>('VEGETABLE');
   const [showCart, setShowCart] = useState(false);
@@ -82,6 +83,12 @@ export default function SelectIngredient() {
     }
   }, [maxIdx, cursorIndex, setCursorIndex]);
 
+  useEffect(() => {
+    if (!sessionStorage.getItem('selectedDifficulty')) {
+      sessionStorage.setItem('selectedDifficulty', 'normal');
+    }
+  }, []);
+
   return (
     <div style={{
       display: 'flex',
@@ -98,6 +105,9 @@ export default function SelectIngredient() {
         <h2 style={{ margin: 0, fontFamily: 'var(--f-pixel)', fontSize: '24px' }}>SELECT INGREDIENTS</h2>
         <div style={{ fontSize: '18px', fontWeight: 'bold' }}>
           あと {3 - selectedChar.length} 個選んでね
+        </div>
+        <div style={{ fontSize: '16px', fontWeight: 'bold' }}>
+          難易度: {selectedDifficulty.toUpperCase()}
         </div>
       </div>
 

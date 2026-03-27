@@ -1,10 +1,15 @@
 package com.happykaratesoup.backend.score;
 
+import com.google.cloud.storage.Storage;
+import com.happysoup.backend.BackendJavaApplication;
+import com.happysoup.backend.client.GeminiClient;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -18,12 +23,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * ScoreCalculationControllerの統合テスト
  * スコア計算APIのHTTPエンドポイントをテストします。
  */
-@SpringBootTest
+@SpringBootTest(classes = BackendJavaApplication.class)
 @AutoConfigureMockMvc
+@ActiveProfiles("test")
 class ScoreCalculationControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @MockBean
+    private Storage storage;
+
+    @MockBean
+    private GeminiClient geminiClient;
 
     /**
      * Test: Successful score calculation request with combo bonus and rank.
@@ -97,4 +109,3 @@ class ScoreCalculationControllerTest {
                 .andExpect(status().isBadRequest());
     }
 }
-

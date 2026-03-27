@@ -21,7 +21,7 @@ Reactのコンポーネントファイルです。主に「画面の描画」と
 
 ### ⚙️ `useGameLogic.ts` (状態管理・ロジック)
 UIと分離された、ゲームの核となる動き（ロジック）を定義する「カスタムフック」です。
-* `testdatas/charData-demo.json` などの譜面データ（具材が落ちてくるタイミングや種類など）の読み込み。
+* gcloud storage(GCS)から譜面取得の失敗時、src/main/resources/charts/play/<difficulty>/*.json`から`charData.json` などの譜面データ（具材が落ちてくるタイミングや種類など）を読み込みます。
 * 開始前の「カウントダウン処理」と、進行中の状態（`Phase`）の管理。
 * 時間経過に応じて出現するべき具材（`activeIngredients`）を計算しリスト化するなどの内部的なゲームループ・タイマー処理を含みます。
 

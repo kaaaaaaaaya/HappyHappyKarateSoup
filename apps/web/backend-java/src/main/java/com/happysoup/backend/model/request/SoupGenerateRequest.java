@@ -9,7 +9,8 @@ import jakarta.validation.constraints.NotEmpty;
 public record SoupGenerateRequest(
         @NotEmpty(message = "ingredients must not be empty")
         List<String> ingredients,
-        String referenceImageDataUrl
+        String referenceImageDataUrl,
+        String selectedDifficulty
         ) {
 
 }
