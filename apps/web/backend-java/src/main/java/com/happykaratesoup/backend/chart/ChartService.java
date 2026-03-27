@@ -76,7 +76,9 @@ public class ChartService {
     public synchronized int reloadCharts() {
         List<Chart> loadedCharts = loadChartsFromResource();
         chartStore.clear();
-        loadedCharts.forEach(chart -> chartStore.put(chart.chartId(), chart));
+        loadedCharts.stream()
+                .filter(chart -> chart != null && chart.chartId() != null && !chart.chartId().isBlank())
+                .forEach(chart -> chartStore.put(chart.chartId(), chart));
         return chartStore.size();
     }
 
