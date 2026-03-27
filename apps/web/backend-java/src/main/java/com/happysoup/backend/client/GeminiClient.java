@@ -6,6 +6,7 @@ import com.google.auth.oauth2.AccessToken;
 import com.google.auth.oauth2.GoogleCredentials;
 import org.springframework.http.MediaType;
 import org.springframework.http.HttpHeaders;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
@@ -22,6 +23,7 @@ import java.util.regex.Pattern;
 // [EN] Low-level Gemini API client for text and image generation.
 // [JA] テキスト生成・画像生成を行う Gemini API の低レイヤークライアントです。
 @Component
+@Profile("!test")
 public class GeminiClient {
 
     private static final String CLOUD_PLATFORM_SCOPE = "https://www.googleapis.com/auth/cloud-platform";
