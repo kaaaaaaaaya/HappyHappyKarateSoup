@@ -51,14 +51,24 @@ public class GeminiImageService {
     // [EN] Generates image prompt and image data URL.
     // [JA] 画像プロンプトを作り、画像 Data URL を生成します。
     public GeneratedImage generateSoupImage(List<String> ingredients) {
-        return generateSoupImage(ingredients, null);
+        return generateSoupImage(ingredients, null, null);
     }
 
     // [EN] Generates image prompt and image data URL with optional reference image.
     // [JA] 任意の参照画像を使って、画像プロンプトと画像 Data URL を生成します。
     public GeneratedImage generateSoupImage(List<String> ingredients, String referenceImageDataUrl) {
+        return generateSoupImage(ingredients, referenceImageDataUrl, null);
+    }
+
+    // [EN] Generates image prompt and image data URL with optional reference image and difficulty.
+    // [JA] 任意の参照画像と難易度を使って、画像プロンプトと画像 Data URL を生成します。
+    public GeneratedImage generateSoupImage(List<String> ingredients, String referenceImageDataUrl, String selectedDifficulty) {
         String promptTemplate = readPromptTemplate();
-        String imagePrompt = promptTemplate.replace("{{ingredients}}", String.join(", ", ingredients));
+        DifficultyProfile difficulty = DifficultyProfile.from(selectedDifficulty, ingredients);
+        String imagePrompt = promptTemplate
+                .replace("{{ingredients}}", String.join(", ", ingredients))
+                .replace("{{selectedDifficulty}}", difficulty.difficultyLabel)
+                .replace("{{baseIngredient}}", difficulty.baseIngredientLabel);
 
         String base64;
         try {
@@ -85,6 +95,54 @@ public class GeminiImageService {
                 : "data:%s;base64,%s".formatted(optimized.mimeType(), optimized.base64());
 
         return new GeneratedImage(dataUrl, imagePrompt);
+    }
+
+    // [EN] Lightweight helper carrying difficulty/base labels for prompt interpolation.
+    // [JA] プロンプト置換用の難易度/ベース情報を保持する補助オブジェクトです。
+    private static final class DifficultyProfile {
+        private final String difficultyLabel;
+        private final String baseIngredientLabel;
+
+        private DifficultyProfile(String difficultyLabel, String baseIngredientLabel) {
+            this.difficultyLabel = difficultyLabel;
+            this.baseIngredientLabel = baseIngredientLabel;
+        }
+
+        private static DifficultyProfile from(String selectedDifficulty, List<String> ingredients) {
+            String normalizedDifficulty = normalize(selectedDifficulty);
+            if (normalizedDifficulty.isBlank()) {
+                normalizedDifficulty = inferDifficultyFromIngredients(ingredients);
+            }
+
+            return switch (normalizedDifficulty) {
+                case "easy" -> new DifficultyProfile("easy", "miso");
+                case "hard" -> new DifficultyProfile("hard", "mala");
+                default -> new DifficultyProfile("normal", "tomato");
+            };
+        }
+
+        private static String inferDifficultyFromIngredients(List<String> ingredients) {
+            if (ingredients == null || ingredients.isEmpty()) {
+                return "normal";
+            }
+            for (String ingredient : ingredients) {
+                String token = normalize(ingredient);
+                if (token.contains("mala") || token.contains("麻辣") || token.contains("malatang")) {
+                    return "hard";
+                }
+                if (token.contains("miso") || token.contains("味噌")) {
+                    return "easy";
+                }
+                if (token.contains("tomato") || token.contains("トマト")) {
+                    return "normal";
+                }
+            }
+            return "normal";
+        }
+
+        private static String normalize(String value) {
+            return value == null ? "" : value.trim().toLowerCase();
+        }
     }
 
     // [EN] Optimizes generated image for transport by resizing and JPEG compression.

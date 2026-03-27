@@ -7,7 +7,6 @@ import com.happysoup.backend.config.GeminiProperties;
 import com.happysoup.backend.model.response.FlavorProfileResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
-import org.springframework.stereotype.Service;
 import org.springframework.util.StreamUtils;
 
 import java.io.IOException;
@@ -16,7 +15,6 @@ import java.util.List;
 
 // [EN] Uses Gemini to estimate six taste axes from ingredients.
 // [JA] 材料から6味（甘味・酸味・塩味・苦味・うま味・辛味）を Gemini で推定します。
-@Service
 public class GeminiFlavorService {
 
     private final GeminiClient geminiClient;
@@ -40,7 +38,10 @@ public class GeminiFlavorService {
     // [JA] 0..100 の範囲で正規化した味スコアを返します。
     public FlavorProfileResponse generateFlavorProfile(List<String> ingredients) {
         String promptTemplate = readPromptTemplate();
-        String prompt = promptTemplate.replace("{{ingredients}}", String.join(", ", ingredients));
+        String prompt = promptTemplate
+                .replace("{{ingredients}}", String.join(", ", ingredients))
+                .replace("{{selectedDifficulty}}", "normal")
+                .replace("{{baseIngredient}}", "tomato");
 
         String raw = geminiClient.generateText(properties.textModel(), prompt);
         String jsonText = normalizeJsonText(raw);

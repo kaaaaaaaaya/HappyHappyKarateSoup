@@ -35,15 +35,28 @@ public class SoupGenerationService {
     // [EN] Generates image, flavor chart data, and comment from ingredients.
     // [JA] 材料から画像・味チャートデータ・コメントを生成します。
     public SoupGenerateResponse generate(List<String> ingredients) {
-        return generate(ingredients, null);
+        return generate(ingredients, null, null);
     }
 
     // [EN] Generates outputs using ingredients and an optional reference image.
     // [JA] 材料と任意の参照画像を使って生成結果を作成します。
     public SoupGenerateResponse generate(List<String> ingredients, String referenceImageDataUrl) {
+        return generate(ingredients, referenceImageDataUrl, null);
+    }
+
+    // [EN] Generates outputs using ingredients, optional reference image, and selected difficulty.
+    // [JA] 材料・任意の参照画像・選択難易度を使って生成結果を作成します。
+    public SoupGenerateResponse generate(List<String> ingredients, String referenceImageDataUrl, String selectedDifficulty) {
         try {
-            GeminiImageService.GeneratedImage generatedImage = imageService.generateSoupImage(ingredients, referenceImageDataUrl);
-            GeminiFlavorCommentService.FlavorCommentResult flavorComment = flavorCommentService.generateFlavorAndComment(ingredients);
+            GeminiImageService.GeneratedImage generatedImage = imageService.generateSoupImage(
+                    ingredients,
+                    referenceImageDataUrl,
+                    selectedDifficulty
+            );
+            GeminiFlavorCommentService.FlavorCommentResult flavorComment = flavorCommentService.generateFlavorAndComment(
+                    ingredients,
+                    selectedDifficulty
+            );
             FlavorProfileResponse flavor = flavorComment.flavor();
             String comment = flavorComment.comment();
 

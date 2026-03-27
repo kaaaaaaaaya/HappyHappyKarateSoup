@@ -5,6 +5,7 @@ import { useLocation } from 'react-router-dom';
 import { useGameLogic } from './useGameLogic'; // 先ほど作ったフックを読み込む
 import { postSoupGenerate } from '../../api/soupApi';
 import type { SoupGenerateResponse } from '../../api/soupApi';
+import type { Difficulty } from '../../api/chartApi';
 import { fetchControllerRoomStatus, postControllerRoomCommand } from '../../api/controllerRoomApi';
 import { NOTE_ANIMATION_MS } from './timing';
 
@@ -123,6 +124,13 @@ type GameLocationState = {
   selectedIngredientEmojis?: string[];
 };
 
+const parseDifficulty = (raw: string | null): Difficulty => {
+  if (raw === 'easy' || raw === 'normal' || raw === 'hard') {
+    return raw;
+  }
+  return 'normal';
+};
+
 const toUserFriendlyGenerationError = (rawMessage: string): string => {
   const normalized = rawMessage.toLowerCase();
 
@@ -214,6 +222,7 @@ export default function Game() {
     }
   })();
   const selectedIngredients = gameState?.selectedIngredients ?? [];
+  const selectedDifficulty = parseDifficulty(sessionStorage.getItem('selectedDifficulty'));
   const selectedIngredientEmojis =
     selectedIngredients.length > 0
       ? selectedIngredients.map((item) => item.emoji)
@@ -246,7 +255,7 @@ export default function Game() {
     battleStats,
     isChartFlowFinished,
     burstingIds, setBurstingIds  // ← 追加
-  } = useGameLogic({ selectedIngredientEmojis });
+  } = useGameLogic({ selectedIngredientEmojis, selectedDifficulty });
 
   useEffect(() => {
     handleActionRef.current = handleAction;
@@ -256,18 +265,19 @@ export default function Game() {
     ? selectedIngredientLabels
     : ['tomato', 'onion', 'miso'];
 
-  // [EN] Sets default reference image (miso.png) in sessionStorage if not present.
-  // [JA] sessionStorage に参照画像がない場合、miso.png を既定値として保存します。
+  // [EN] Updates reference image based on selected difficulty.
+  // [JA] 選択された難易度に応じて参照画像を切り替えます。
   useEffect(() => {
-    if (sessionStorage.getItem('referenceImageDataUrl')) {
-      return;
-    }
-
     let cancelled = false;
+    const imageByDifficulty: Record<Difficulty, string> = {
+      easy: '/images/miso.png',
+      normal: '/images/tomato.png',
+      hard: '/images/malatang.png',
+    };
 
-    const setDefaultReferenceImage = async () => {
+    const setReferenceImageByDifficulty = async () => {
       try {
-        const response = await fetch('/images/miso.png');
+        const response = await fetch(imageByDifficulty[selectedDifficulty]);
         if (!response.ok) {
           return;
         }
@@ -278,16 +288,16 @@ export default function Game() {
           sessionStorage.setItem('referenceImageDataUrl', dataUrl);
         }
       } catch (error) {
-        console.warn('Failed to set default reference image:', error);
+        console.warn('Failed to set difficulty reference image:', error);
       }
     };
 
-    void setDefaultReferenceImage();
+    void setReferenceImageByDifficulty();
 
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [selectedDifficulty]);
 
   useEffect(() => {
     const connectedRoomId = sessionStorage.getItem('connectedRoomId');
@@ -373,6 +383,7 @@ export default function Game() {
       const generated = await postSoupGenerate({
         ingredients: ingredientPayload,
         referenceImageDataUrl,
+        selectedDifficulty,
       });
 
       soupGenerationResultRef.current = generated;

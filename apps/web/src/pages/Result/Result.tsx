@@ -465,7 +465,7 @@ export default function Result() {
           marginTop: '2dvh',
         }}>
           {[
-            { label: 'もう1度プレイ', onClick: () => navigate('/select') },
+            { label: 'もう1度プレイ', onClick: () => navigate('/difficulty') },
             { label: 'ホームに戻る', onClick: () => navigate(homePath) },
           ].map(({ label, onClick }) => (
             <button

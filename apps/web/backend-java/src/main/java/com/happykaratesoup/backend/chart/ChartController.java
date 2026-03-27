@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -84,5 +85,16 @@ public class ChartController {
             sample.stop(Timer.builder("charts.requests.duration").tag("endpoint", "detail").tag("status", "error").register(meterRegistry));
             throw ex;
         }
+    }
+
+    @GetMapping("/play")
+    public ResponseEntity<List<List<Object>>> getPlayChart(
+            @RequestParam String difficulty
+    ) {
+        Counter.builder("charts.requests.total").tag("endpoint", "play").register(meterRegistry).increment();
+        List<List<Object>> chart = chartService.getPlayChart(difficulty);
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noCache())
+                .body(chart);
     }
 }

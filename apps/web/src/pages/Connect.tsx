@@ -75,7 +75,7 @@ export default function Connect() {
       // 接続完了後の遷移先（認証済みならホーム、未認証なら食材選択などの設定に合わせた遷移でも良いが、元のPRに従う）
       const nextPath = sessionStorage.getItem('authToken')
         ? '/home-logged-in'
-        : '/select';
+        : '/difficulty';
 
       try {
         const registeredState = await registerControllerRoom(roomId);
@@ -141,7 +141,7 @@ export default function Connect() {
 
   const handleStart = () => {
     // プレイヤーが揃ったと仮定してゲーム画面へ
-    navigate('/select');
+    navigate('/difficulty');
   };
 
   return (

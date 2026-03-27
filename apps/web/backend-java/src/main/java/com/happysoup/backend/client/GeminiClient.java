@@ -35,6 +35,9 @@ public class GeminiClient {
     public GeminiClient(WebClient geminiWebClient, GeminiProperties properties) {
         this.webClient = geminiWebClient;
         this.properties = properties;
+        if (!Boolean.TRUE.equals(properties.useVertexAi())) {
+            throw new IllegalStateException("GEMINI_USE_VERTEX_AI must be true. Vertex AI is mandatory.");
+        }
     }
 
     // [EN] Generates plain text from a prompt.

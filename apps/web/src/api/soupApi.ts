@@ -3,6 +3,7 @@ import { resolveApiBaseUrl } from './apiBase';
 export type SoupGenerateRequest = {
     ingredients: string[];
     referenceImageDataUrl?: string;
+    selectedDifficulty?: 'easy' | 'normal' | 'hard';
 };
 
 export type FlavorProfile = {

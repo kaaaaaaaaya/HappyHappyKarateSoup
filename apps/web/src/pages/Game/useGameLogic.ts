@@ -1,36 +1,21 @@
 // useGameLogic.ts
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Phase, Ingredient, ActionType } from './types';
-import charData from '../../testdatas/demo/charData-demo-30s-01.json'; // 譜面データをインポート
+import { fetchPlayChart, type Difficulty } from '../../api/chartApi';
 import { useScoreLogic } from './useScoreLogic'; // 分割したスコアロジックをインポート
 
 // 譜面データの型 (バックエンドからのレスポンスを想定)
 // [タイミング(ms), パンチorチョップ, ingredientIndex(0-2) or emoji, レーン(-100〜100)]
 type ChartItem = [number, ActionType, number | string, number];
 
-const generatedChartModules = import.meta.glob('../../testdatas/charData-random-*.json', {
-  eager: true,
-  import: 'default',
-}) as Record<string, ChartItem[]>;
-
 type UseGameLogicOptions = {
   selectedIngredientEmojis?: string[];
-};
-
-// @ts-ignore: 'getRandomGeneratedChart' is declared but its value is never read.
-const getRandomGeneratedChart = (): ChartItem[] => {
-  const generatedCharts = Object.values(generatedChartModules);
-
-  if (generatedCharts.length === 0) {
-    return charData as ChartItem[];
-  }
-
-  const randomIndex = Math.floor(Math.random() * generatedCharts.length);
-  return generatedCharts[randomIndex];
+  selectedDifficulty?: Difficulty;
 };
 
 export const useGameLogic = (options: UseGameLogicOptions = {}) => {
   const selectedIngredientEmojis = options.selectedIngredientEmojis ?? [];
+  const selectedDifficulty = options.selectedDifficulty ?? 'normal';
   const [phase, setPhase] = useState<Phase>('countdown');
   const [count, setCount] = useState(3);
   const [activeIngredients, setActiveIngredients] = useState<Ingredient[]>([]);
@@ -58,6 +43,7 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
     submitScore,
     totalScore,
     rank,
+    battleStats,
     isSubmittingScore,
     scoreSubmitError,
     burstingIds,      // ← 追加
@@ -149,16 +135,33 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
       const timer = setTimeout(() => setCount((c) => c - 1), 1000);
       return () => clearTimeout(timer);
     } else if (phase === 'countdown' && count === 0) {
-      // 譜面を取得する（generate_chart で作られたランダム譜面を優先）
-      // エラー回避のため、setTimeoutの中にセット処理をまとめる
-      setTimeout(() => {
-        setChart(getRandomGeneratedChart());
+      let cancelled = false;
+
+      const prepareGameStart = async () => {
+        await new Promise((resolve) => window.setTimeout(resolve, 1000));
+        if (cancelled) {
+          return;
+        }
+
+        const loadedChart = await fetchPlayChart(selectedDifficulty);
+
+        if (cancelled) {
+          return;
+        }
+
+        setChart(loadedChart);
         setPhase('playing'); //譜面切り替えと同時にplayingフェーズに移行
         startTimeRef.current = performance.now(); // 精度の高い開始時間を記録
         chartIndexRef.current = 0; // インデックスをリセット
-      }, 1000);
+      };
+
+      void prepareGameStart();
+
+      return () => {
+        cancelled = true;
+      };
     }
-  }, [phase, count]);
+  }, [phase, count, selectedDifficulty]);
 
   // --- 2. ゲームループ (譜面に従って材料を出現させる) ---
   useEffect(() => {
@@ -260,6 +263,7 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
     submitScore,
     totalScore,
     rank,
+    battleStats,
     isSubmittingScore,
     scoreSubmitError,
     isChartFlowFinished,
