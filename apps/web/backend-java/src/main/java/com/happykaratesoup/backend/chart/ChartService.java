@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.ResourcePatternResolver;
 import org.springframework.http.HttpStatus;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -52,7 +53,7 @@ public class ChartService {
             ResourcePatternResolver resourcePatternResolver,
             ObjectMapper objectMapper,
             MeterRegistry meterRegistry,
-            Storage storage,
+            @Nullable Storage storage,
             @Value("${app.gcs.bucket-name:}") String gcsBucketName,
             @Value("${app.gcs.chart-prefix-play:charts/play_90s}") String gcsPlayChartPrefix,
             @Value("${app.charts.local-fallback-enabled:${SOUP_LOCAL_FALLBACK_ENABLED:false}}") boolean localFallbackEnabled,
@@ -190,6 +191,9 @@ public class ChartService {
     }
 
     private List<List<Object>> loadPlayChartFromGcs(DifficultyLevel level) {
+        if (storage == null) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "GCS Storage client is not available");
+        }
         if (gcsBucketName == null || gcsBucketName.isBlank()) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "app.gcs.bucket-name is not configured");
         }

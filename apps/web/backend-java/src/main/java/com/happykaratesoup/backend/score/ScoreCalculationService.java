@@ -28,6 +28,12 @@ public class ScoreCalculationService {
     private static final int RANK_A_THRESHOLD = 1400;
     private static final int RANK_B_THRESHOLD = 900;
 
+    // [EN] Achievement-rate thresholds when note count is available.
+    // [JA] ノーツ数が利用可能な場合の達成率ランク基準。
+    private static final double RATE_RANK_S_THRESHOLD = 0.88;
+    private static final double RATE_RANK_A_THRESHOLD = 0.72;
+    private static final double RATE_RANK_B_THRESHOLD = 0.55;
+
     /**
      * Calculates the total score from judgment counts.
      * Multiplies each judgment type by its point value and sums them up.
@@ -61,7 +67,7 @@ public class ScoreCalculationService {
 
         // [EN] Calculate rank based on total score.
         // [JA] 総スコアに基づいてランクを計算
-        String rank = calculateRank(totalScore);
+        String rank = calculateRank(totalScore, scoreData.noteCount());
 
         // Return response with total score and rank
         // totalScore とランクを含むレスポンスを返却
@@ -70,7 +76,25 @@ public class ScoreCalculationService {
 
     // [EN] Determines rank from total score.
     // [JA] 総スコアからランクを判定します
-    private String calculateRank(int totalScore) {
+    private String calculateRank(int totalScore, Integer noteCount) {
+        // [EN] Prefer achievement-rate ranking when note count is provided.
+        // [JA] ノーツ数が指定されている場合は達成率ランクを優先します。
+        if (noteCount != null && noteCount > 0) {
+            double maxTotal = noteCount * (PERFECT_POINT + COMBO_BONUS);
+            double achievedRate = totalScore / maxTotal;
+
+            if (achievedRate >= RATE_RANK_S_THRESHOLD) {
+                return "S";
+            } else if (achievedRate >= RATE_RANK_A_THRESHOLD) {
+                return "A";
+            } else if (achievedRate >= RATE_RANK_B_THRESHOLD) {
+                return "B";
+            }
+            return "C";
+        }
+
+        // [EN] Backward compatibility path when note count is absent.
+        // [JA] note_count がない旧クライアント向け互換ロジック。
         if (totalScore >= RANK_S_THRESHOLD) {
             return "S";
         } else if (totalScore >= RANK_A_THRESHOLD) {

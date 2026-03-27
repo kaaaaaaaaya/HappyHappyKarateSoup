@@ -48,7 +48,7 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
     scoreSubmitError,
     burstingIds,      // ← 追加
     setBurstingIds,   // ← 追加
-  } = useScoreLogic();
+  } = useScoreLogic(chart.length);
 
   const resolveIngredientEmoji = useCallback((chartIngredient: number | string, chartIndex: number): string => {
     // [EN] When chart provides index (generate_chart format), map to selected emojis first.
