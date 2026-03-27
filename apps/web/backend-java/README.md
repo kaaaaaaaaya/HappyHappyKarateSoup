@@ -140,8 +140,6 @@ apps/web/backend-java/
     │   │   └── service/
     │   │       ├── SoupGenerationService.java
     │   │       ├── GeminiImageService.java
-    │   │       ├── GeminiFlavorService.java
-    │   │       ├── GeminiCommentService.java
     │   │       └── GeminiFlavorCommentService.java
     │   └── resources/
     │       ├── application.yml
@@ -206,8 +204,6 @@ apps/web/backend-java/
 - `service/GeminiFlavorCommentService.java`
   - 味スコアとコメントを1回の Gemini テキスト生成でまとめて生成するサービス。
   - `resources/prompts/flavor_comment_prompt.txt` を読み込み、JSONをパースして味スコアとコメントを返却。
-- `service/GeminiFlavorService.java`
-  - 旧実装（非アクティブ）。`@Service` を外しており、通常起動では使用しません。
 
 #### main/resources
 - `application.yml`
