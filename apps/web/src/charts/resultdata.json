@@ -1,0 +1,14 @@
+{
+  "ingredients": ["tomato", "onion", "miso"],
+  "imageDataUrl": "data:image/png;base64,...",
+  "flavor": {
+    "sweet": 20,
+    "sour": 35,
+    "salty": 70,
+    "bitter": 10,
+    "umami": 80,
+    "spicy": 15
+  },
+  "totalScore": 4125,
+  "comment": "Using dummy data. 旨味が重なるパンチ系スープ！"
+}

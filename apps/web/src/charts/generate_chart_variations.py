@@ -9,11 +9,10 @@ Output format:
 ]
 
 Targets:
-- test: 15s chart x 1
-- demo: 60s chart x 1
-- play/easy:   90s chart x 10
-- play/normal: 90s chart x 10
-- play/hard:   90s chart x 10
+
+- play/easy:   45s chart x 10
+- play/normal: 45s chart x 10
+- play/hard:   45s chart x 10
 """
 
 from __future__ import annotations
@@ -37,69 +36,33 @@ DEFAULT_FIRST_NOTE_MIN_MS = SPAWN_ANIMATION_DURATION_MS + FIRST_NOTE_SAFETY_MARG
 
 CHART_PROFILES = [
     {
-        "name": "test",
-        "output_dir": "test",
-        "file_prefix": "charData-test-15s",
-        "count": 1,
-        "note_count": 15,
-        "final_time_ms": 15_000,
-        "min_gap_ms": 800,
-    },
-    {
-        "name": "demo",
-        "output_dir": "demo",
-        "file_prefix": "charData-demo-60s",
-        "count": 1,
-        "note_count": 60,
-        "final_time_ms": 60_000,
-        "min_gap_ms": 800,
-    },
-    {
-        "name": "demo",
-        "output_dir": "demo",
-        "file_prefix": "charData-demo-30s",
-        "count": 1,
-        "note_count": 30,
-        "final_time_ms": 30_000,
-        "min_gap_ms": 800,
-    },
-    {
-        "name": "demo",
-        "output_dir": "demo",
-        "file_prefix": "charData-demo-20s",
-        "count": 1,
-        "note_count": 20,
-        "final_time_ms": 20_000,
-        "min_gap_ms": 800,
-    },
-    {
         "name": "play-easy",
         "output_dir": "play/easy",
-        "file_prefix": "charData-play-easy-90s",
+        "file_prefix": "charData-play-easy-45s",
         "count": 10,
-        "note_count": 60,
-        "final_time_ms": 90_000,
+        "note_count": 35,
+        "final_time_ms": 45_000,
         "min_gap_ms": 800,
         "first_note_exact_ms": 3_000,
     },
     {
         "name": "play-normal",
         "output_dir": "play/normal",
-        "file_prefix": "charData-play-normal-90s",
+        "file_prefix": "charData-play-normal-45s",
         "count": 10,
-        "note_count": 75,
-        "final_time_ms": 90_000,
-        "min_gap_ms": 600,
+        "note_count": 45,
+        "final_time_ms": 45_000,
+        "min_gap_ms": 700,
         "first_note_exact_ms": 3_000,
     },
     {
         "name": "play-hard",
         "output_dir": "play/hard",
-        "file_prefix": "charData-play-hard-90s",
+        "file_prefix": "charData-play-hard-45s",
         "count": 10,
-        "note_count": 113,
-        "final_time_ms": 90_000,
-        "min_gap_ms": 450,
+        "note_count": 60,
+        "final_time_ms": 45_000,
+        "min_gap_ms": 600,
         "first_note_exact_ms": 3_000,
     },
 ]
@@ -213,7 +176,10 @@ def validate_chart(
         raise ValueError(
             f"First note too early: {first_time} (expected >= {expected_first_note_min_ms})"
         )
-    if expected_first_note_exact_ms is not None and first_time != expected_first_note_exact_ms:
+    if (
+        expected_first_note_exact_ms is not None
+        and first_time != expected_first_note_exact_ms
+    ):
         raise ValueError(
             f"First note mismatch: {first_time} (expected {expected_first_note_exact_ms})"
         )
