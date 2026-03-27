@@ -27,6 +27,7 @@ HappyHappyKarateSoup の Web バックエンド（Java / Spring Boot）です。
 - `POST /api/auth/register`
 - `POST /api/auth/login`
 - `POST /api/auth/google`
+- `GET /api/charts/play?difficulty=easy|normal|hard`
 
 ## 認証とユーザー保存
 - ユーザーは `app_users` テーブルに保存されます。
@@ -144,10 +145,15 @@ apps/web/backend-java/
     │   │       └── GeminiFlavorCommentService.java
     │   └── resources/
     │       ├── application.yml
+    │       ├── charts/
+    │       │   ├── play/easy/*.json
+    │       │   ├── play/normal/*.json
+    │       │   ├── play/hard/*.json
+    │       │   ├── generate_chart_variations.py
+    │       │   └── resultdata.json
     │       └── prompts/
     │           ├── image_prompt.txt
-    │           ├── flavor_prompt.txt
-    │           └── comment_prompt.txt
+    │           └── flavor_comment_prompt.txt
     └── test/
         └── java/com/happysoup/backend/
             └── BackendJavaApplicationTests.java
@@ -201,11 +207,7 @@ apps/web/backend-java/
   - 味スコアとコメントを1回の Gemini テキスト生成でまとめて生成するサービス。
   - `resources/prompts/flavor_comment_prompt.txt` を読み込み、JSONをパースして味スコアとコメントを返却。
 - `service/GeminiFlavorService.java`
-  - （旧）味スコア生成専用サービス。
-  - `resources/prompts/flavor_prompt.txt` を読み込み、JSONをパースして0〜100に正規化。
-- `service/GeminiCommentService.java`
-  - （旧）コメント生成専用サービス。
-  - `resources/prompts/comment_prompt.txt` を読み込み、短いコメントを生成。
+  - 旧実装（非アクティブ）。`@Service` を外しており、通常起動では使用しません。
 
 #### main/resources
 - `application.yml`
@@ -213,6 +215,9 @@ apps/web/backend-java/
 - `prompts/*.txt`
   - Gemini向けプロンプトテンプレート群。
   - プレースホルダ `{{ingredients}}` を各サービスで置換して使用。
+- `charts/play/*.json`
+  - `/api/charts/play` のローカルフォールバック譜面です。
+  - GCS 取得失敗時に `SOUP_LOCAL_FALLBACK_ENABLED=true` なら利用されます。
 
 #### test
 - `BackendJavaApplicationTests.java`
@@ -233,6 +238,18 @@ apps/web/backend-java/
   - `GOOGLE_APPLICATION_CREDENTIALS`
 - 手動で起動する場合は Maven の明示指定を使ってください。
   - `mvn org.springframework.boot:spring-boot-maven-plugin:3.4.3:run`
+
+## 難易度別譜面（GCS）
+- ゲーム開始時、フロントエンドは難易度を指定して `GET /api/charts/play?difficulty=...` を呼び出します。
+- 通常時は GCS の以下からランダムに1つ読み込みます。
+  - `charts/play/easy/charData-play-easy-45s-01.json` 〜 `10.json`
+  - `charts/play/normal/charData-play-normal-45s-01.json` 〜 `10.json`
+  - `charts/play/hard/charData-play-hard-45s-01.json` 〜 `10.json`
+- 参照元バケット: `APP_GCS_BUCKET_NAME`（既定: `happy-soup`）
+- GCS 取得に失敗した場合でも、`SOUP_LOCAL_FALLBACK_ENABLED=true` なら
+  `src/main/resources/charts/play/<difficulty>/*.json` からランダムに返します。
+- ローカルフォールバックの探索先は `APP_CHART_LOCAL_FALLBACK_PREFIX` で変更可能です
+  （既定: `charts/play`）。
 
 ## POSTテスト結果をファイルへ保存する
 
@@ -257,4 +274,3 @@ Base64 の `imageDataUrl` は長くなりやすいため、標準出力ではな
   - `REFERENCE_IMAGE_PATH="/absolute/path/to/miso.png" bash scripts/post_generate_to_files.sh`
 - 出力先を変更
   - `OUTPUT_DIR="./tmp/my-run" bash scripts/post_generate_to_files.sh`
-

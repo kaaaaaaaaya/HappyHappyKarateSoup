@@ -72,8 +72,10 @@ flowchart TD
 ### 🎮 ステップ2: ゲーム機能の初期化
 4. **PC (Web)**: `apps/web/src/pages/Game/useGameLogic.ts`
    * ゲームロジックが、**バックエンド (Java)** の Chart API にリクエストを送ります。
-5. **バックエンド**: `services/backend/src/main/java/.../chart/ChartController.java` 等
-   * ステージに応じた「譜面データJSON（例: `services/backend/src/main/resources/charts/soup_beginner_01.json`）」を取得して返却します。*(※現在はWeb側でテスト用として `apps/web/src/testdatas/charData-demo.json` を静的に読み込む実装にもなっています)*
+5. **バックエンド**: 
+   * ステージに応じた「譜面データJSON」をgcloud storage (GCS)から取得して返却します。
+   GCS取得に失敗した場合のみ、`SOUP_LOCAL_FALLBACK_ENABLED=true` のとき backend が
+  `apps/web/backend-java/src/main/resources/charts/play/<difficulty>/*.json` を返します。
 6. **PC (Web)**: `apps/web/src/pages/Game/Game.tsx`
    * 取得した譜面データに基づき、画面上部の奥から具材が降ってくる描画アニメーションが開始されます。
 
