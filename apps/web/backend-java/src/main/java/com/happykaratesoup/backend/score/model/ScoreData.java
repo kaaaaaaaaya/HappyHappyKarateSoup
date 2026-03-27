@@ -17,6 +17,8 @@ import jakarta.validation.constraints.NotNull;
 public record ScoreData(
         @JsonProperty("max_combo")
         @NotNull @Min(0) Integer maxCombo,
+        @JsonProperty("note_count")
+        @Min(1) Integer noteCount,
         @Valid @NotNull Judgments judgments
 ) {
 }

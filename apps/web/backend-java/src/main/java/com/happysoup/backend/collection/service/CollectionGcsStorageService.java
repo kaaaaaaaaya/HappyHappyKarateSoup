@@ -6,6 +6,7 @@ import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -26,7 +27,7 @@ public class CollectionGcsStorageService {
     private final String objectPrefix;
 
     public CollectionGcsStorageService(
-            Storage storage,
+            @Nullable Storage storage,
             @Value("${app.gcs.bucket-name:}") String bucketName,
             @Value("${app.gcs.object-prefix:collections}") String objectPrefix
     ) {
@@ -36,6 +37,7 @@ public class CollectionGcsStorageService {
     }
 
     public ImageUploadResult uploadImage(Long userId, String imageDataUrl, Map<String, String> metadata) {
+        ensureStorageConfigured();
         ensureBucketConfigured();
 
         ParsedDataUrl parsed = parseDataUrl(imageDataUrl);
@@ -52,6 +54,7 @@ public class CollectionGcsStorageService {
     }
 
     public String uploadPayload(Long userId, String jsonPayload) {
+        ensureStorageConfigured();
         ensureBucketConfigured();
 
         String objectPath = normalizePrefix(objectPrefix) + "/user-" + userId + "/" + UUID.randomUUID() + ".json";
@@ -64,6 +67,7 @@ public class CollectionGcsStorageService {
     }
 
     public byte[] downloadImage(String imageObjectPath) {
+        ensureStorageConfigured();
         ensureBucketConfigured();
 
         Blob blob = storage.get(BlobId.of(bucketName, imageObjectPath));
@@ -119,6 +123,12 @@ public class CollectionGcsStorageService {
     private void ensureBucketConfigured() {
         if (bucketName == null || bucketName.isBlank()) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "app.gcs.bucket-name is not configured");
+        }
+    }
+
+    private void ensureStorageConfigured() {
+        if (storage == null) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "GCS Storage client is not available");
         }
     }
 

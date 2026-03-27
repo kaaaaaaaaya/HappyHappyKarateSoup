@@ -38,7 +38,7 @@ class ScoreCalculationServiceTest {
         
         // Create score data with max combo and judgments
         // スコアデータを作成（最大コンボ数と判定データ）
-        var scoreData = new com.happykaratesoup.backend.score.model.ScoreData(42, judgments);
+        var scoreData = new com.happykaratesoup.backend.score.model.ScoreData(42, null, judgments);
         
         // Create the request object
         // リクエストオブジェクトを作成
@@ -59,7 +59,7 @@ class ScoreCalculationServiceTest {
     @Test
     void shouldCalculateRankS() {
         var judgments = new com.happykaratesoup.backend.score.model.Judgments(18, 0, 0, 2);
-        var scoreData = new com.happykaratesoup.backend.score.model.ScoreData(0, judgments);
+        var scoreData = new com.happykaratesoup.backend.score.model.ScoreData(0, null, judgments);
         ScoreCalculationRequest request = new ScoreCalculationRequest(scoreData);
         
         ScoreCalculationResponse response = service.calculate(request);
@@ -72,7 +72,7 @@ class ScoreCalculationServiceTest {
     @Test
     void shouldCalculateRankA() {
         var judgments = new com.happykaratesoup.backend.score.model.Judgments(14, 0, 0, 6);
-        var scoreData = new com.happykaratesoup.backend.score.model.ScoreData(0, judgments);
+        var scoreData = new com.happykaratesoup.backend.score.model.ScoreData(0, null, judgments);
         ScoreCalculationRequest request = new ScoreCalculationRequest(scoreData);
         
         ScoreCalculationResponse response = service.calculate(request);
@@ -85,7 +85,7 @@ class ScoreCalculationServiceTest {
     @Test
     void shouldCalculateRankB() {
         var judgments = new com.happykaratesoup.backend.score.model.Judgments(9, 0, 0, 11);
-        var scoreData = new com.happykaratesoup.backend.score.model.ScoreData(0, judgments);
+        var scoreData = new com.happykaratesoup.backend.score.model.ScoreData(0, null, judgments);
         ScoreCalculationRequest request = new ScoreCalculationRequest(scoreData);
         
         ScoreCalculationResponse response = service.calculate(request);
@@ -98,7 +98,7 @@ class ScoreCalculationServiceTest {
     @Test
     void shouldCalculateRankC() {
         var judgments = new com.happykaratesoup.backend.score.model.Judgments(5, 0, 0, 15);
-        var scoreData = new com.happykaratesoup.backend.score.model.ScoreData(0, judgments);
+        var scoreData = new com.happykaratesoup.backend.score.model.ScoreData(0, null, judgments);
         ScoreCalculationRequest request = new ScoreCalculationRequest(scoreData);
         
         ScoreCalculationResponse response = service.calculate(request);
@@ -106,5 +106,4 @@ class ScoreCalculationServiceTest {
         assertEquals("C", response.rank());
     }
 }
-
 

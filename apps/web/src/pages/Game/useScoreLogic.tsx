@@ -3,7 +3,7 @@ import { useState, useCallback } from 'react';
 import type { ActionType } from './types';
 import { postScoreCalculate } from '../../api/scoreApi';
 
-export const useScoreLogic = () => {
+export const useScoreLogic = (noteCount: number) => {
   //スコアデータの保存のためのstate
   const [combo, setCombo] = useState(0); // コンボ数を管理する状態
   const [maxCombo, setMaxCombo] = useState(0); // 最大コンボ数を管理する状態
@@ -110,6 +110,7 @@ export const useScoreLogic = () => {
   const scoreData = {
     score_data: {
       max_combo: maxCombo,
+      note_count: Math.max(1, noteCount),
       judgments: judgments
     }
   };
@@ -121,6 +122,7 @@ export const useScoreLogic = () => {
       const response = await postScoreCalculate({
         score_data: {
           max_combo: maxCombo,
+          note_count: Math.max(1, noteCount),
           judgments,
         },
       });
@@ -134,7 +136,7 @@ export const useScoreLogic = () => {
     } finally {
       setIsSubmittingScore(false);
     }
-  }, [maxCombo, judgments]);
+  }, [maxCombo, judgments, noteCount]);
 
   return {
     combo,

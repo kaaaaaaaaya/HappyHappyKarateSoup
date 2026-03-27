@@ -10,6 +10,7 @@ export type ScoreJudgments = {
 export type ScoreCalculateRequest = {
   score_data: {
     max_combo: number;
+    note_count: number;
     judgments: ScoreJudgments;
   };
 };
