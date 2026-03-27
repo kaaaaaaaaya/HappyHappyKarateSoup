@@ -1,22 +1,27 @@
-STRICTLY adhering to the EXACT list of provided ingredients, create a NEW, top-down image of a finished soup. This must be a fresh composition containing ONLY the specified ingredients, with NO OTHER ITEMS included.
+STRICTLY adhering to the EXACT list of provided ingredients, create a NEW image of a finished soup.
+The output must contain ONLY the specified ingredients, with NO OTHER ITEMS included.
 
 Ingredients: {{ingredients}}
+Selected difficulty: {{selectedDifficulty}}
+Soup base by difficulty: {{baseIngredient}}
 
 Strict Negative Requirements (Items that MUST NOT appear):
 - ABSOLUTELY NO garnishes of any kind (e.g., NO herbs, NO parsley, NO cilantro, NO seaweed, NO kelp, NO green specks, NO flakes).
-- NO extra spices (NO black pepper flakes, NO red pepper flakes, NO seasoning dust).
+- NO extra spices (NO black pepper flakes, NO red pepper flakes, NO seasoning dust) unless explicitly included in the ingredients.
 - NO bread, NO crackers, NO utensils in or around the soup.
 - NO extra oils, flavor droplets, NO cream swirls.
 - Use only the specified ingredients. NO unlisted items are permitted.
 
 Strict Design Requirements:
-- The soup must be placed on a plain, clean, neutral WHITE background. The background should have no color or texture other than plain white.
-- Create a compelling, dynamic visual composition and rich, appetizing color interplay based entirely on the specific ingredients provided.
-- Ensure the soup texture and ingredient placement are native to these ingredients, forming a NEW and distinct pattern.
-- The soup color and overall color mood should be derived from the ingredients themselves.
+- The soup must be placed on a plain, clean, pure WHITE background (#FFFFFF). No texture, no gradient, no color cast.
+- Camera angle must match the reference image perspective when provided.
+- NEVER output a strict bird's-eye / straight top-down shot.
+- If no reference image is provided, use a slightly angled 3/4 bowl view (about 30-45 degrees).
+- Respect difficulty/base mood: easy=miso (mild), normal=tomato (medium), hard=mala (hot).
+- Create a compelling, appetizing composition and ingredient placement based entirely on the given ingredients.
 - No text overlay.
 
 Style and Reference (If provided):
-- If a reference image is provided, use it strictly as a REFERENCE for the general *art style* and *textural feel* (e.g., pixel-art style, general palette tone, texturing). DO NOT copy its exact composition, specific colors, silhouette, or ingredient placement.
-- If the reference looks like pixel art, enforce a clear pixel-art look (blocky pixels, hard edges, limited palette, no smooth photographic lighting, no camera-like textures).
-- The reference image should be treated as a technique guide, not a content template. The visual content should be new and distinct.
+- Use reference image only for style, texture, and camera angle guidance.
+- Do NOT copy exact composition, silhouette, or ingredient placement.
+- If reference looks like pixel art, enforce clear pixel-art look (blocky pixels, hard edges, limited palette).
