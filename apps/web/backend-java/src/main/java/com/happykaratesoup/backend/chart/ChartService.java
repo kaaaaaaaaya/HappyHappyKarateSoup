@@ -92,7 +92,15 @@ public class ChartService {
             for (Resource resource : resources) {
                 try (InputStream inputStream = resource.getInputStream()) {
                     Chart chart = objectMapper.readValue(inputStream, Chart.class);
+                    if (chart == null || chart.chartId() == null || chart.chartId().isBlank()) {
+                        log.debug("Skipping non-chart or incomplete chart resource: {}", resource.getFilename());
+                        continue;
+                    }
                     loaded.add(chart);
+                } catch (IOException perFileError) {
+                    // [EN] Ignore non-Chart JSONs under charts/ (e.g. helper artifacts) to keep startup resilient.
+                    // [JA] charts/ 配下に Chart 以外の JSON が混在していても、起動を継続できるよう無視します。
+                    log.debug("Skipping unsupported chart resource: {}", resource.getFilename(), perFileError);
                 }
             }
 

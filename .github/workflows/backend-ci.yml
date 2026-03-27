@@ -37,3 +37,24 @@ jobs:
           SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.h2.Driver
           SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.H2Dialect
           GEMINI_USE_VERTEX_AI: "false"
+
+      - name: Dump surefire reports on failure
+        if: failure()
+        run: |
+          echo "=== surefire report files ==="
+          find target/surefire-reports -type f | sort || true
+          echo ""
+          for f in target/surefire-reports/*.txt; do
+            [ -f "$f" ] || continue
+            echo "=== $f ==="
+            sed -n '1,260p' "$f" || true
+            echo ""
+          done
+
+      - name: Upload surefire reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-surefire-reports
+          path: apps/web/backend-java/target/surefire-reports
+          if-no-files-found: ignore
