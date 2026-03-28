@@ -235,7 +235,6 @@ export default function Game() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [isGameFinished, setIsGameFinished] = useState(false);
-  const [isImageGenerating, setIsImageGenerating] = useState(false);
   const [isImageReady, setIsImageReady] = useState(false);
   const hasNavigatedRef = useRef(false);
   const isFinishingRef = useRef(false);
@@ -374,7 +373,6 @@ export default function Game() {
       retryTimerRef.current = null;
     }
 
-    setIsImageGenerating(true);
     setGenerationError(null);
 
     soupGenerationPromiseRef.current = (async () => {
@@ -385,6 +383,11 @@ export default function Game() {
         referenceImageDataUrl,
         selectedDifficulty,
       });
+
+      // Treat empty image payload as generation failure and trigger retry flow.
+      if (!generated.imageDataUrl || generated.imageDataUrl.trim() === '') {
+        throw new Error('Generated image is empty');
+      }
 
       soupGenerationResultRef.current = generated;
       setIsImageReady(true);
@@ -403,10 +406,7 @@ export default function Game() {
         }, 3000);
 
         return null;
-      })
-      .finally(() => {
-        setIsImageGenerating(false);
-      });
+        });
   };
 
   useEffect(() => {
@@ -551,12 +551,6 @@ export default function Game() {
       ) : (
         <div>
           <h2>ゲームプレイ（パンチ画面）</h2>
-          <p>タイミングを合わせてスマホを振ってね！</p>
-          {isImageGenerating && <p>生成AIで画像を作成中...</p>}
-          {!isImageGenerating && isImageReady && !isGameFinished && <p>画像生成: 完了（ゲーム終了を待機中）</p>}
-          {!isImageGenerating && !isImageReady && generationError && <p>画像生成リトライ中...（3秒後に再試行）</p>}
-          {isGameFinished && !isImageReady && <p>ゲーム終了。画像生成完了を待っています...</p>}
-          {isGameFinished && isImageReady && <p>ゲーム終了。リザルトへ遷移します...</p>}
           {totalScore !== null && <p>最新スコア: {totalScore}</p>}
 
           {/*ゲーム画面内の設定*/}
@@ -852,32 +846,6 @@ export default function Game() {
               />
 
             </svg>
-          </div>
-
-          <div style={{ marginTop: '50px' }}>
-            <button
-              onClick={handleFinishGame}
-              disabled={isGenerating || !isImageReady}
-              style={{
-                padding: '15px 30px',
-                fontSize: '18px',
-                cursor: (isGenerating || !isImageReady) ? 'not-allowed' : 'pointer',
-                backgroundColor: '#f44336',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '5px',
-                opacity: (isGenerating || !isImageReady) ? 0.7 : 1,
-                marginRight: '12px',
-              }}
-            >
-              {isGenerating ? '遷移準備中...' : !isImageReady ? '画像生成待機中...' : 'リザルトへ'}
-            </button>
-
-            {generationError && (
-              <p style={{ marginTop: '12px', color: '#d32f2f' }}>
-                生成に失敗しました: {generationError}
-              </p>
-            )}
           </div>
         </div>
       )}

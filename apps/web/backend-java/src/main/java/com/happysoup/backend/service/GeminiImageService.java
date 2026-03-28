@@ -33,6 +33,7 @@ public class GeminiImageService {
     private static final Logger LOG = LoggerFactory.getLogger(GeminiImageService.class);
     private static final int MAX_IMAGE_SIZE = 512;
     private static final float JPEG_QUALITY = 0.75f;
+    private static final int MAX_EMPTY_IMAGE_RETRIES = 2;
 
     private final GeminiClient geminiClient;
     private final GeminiProperties properties;
@@ -70,23 +71,33 @@ public class GeminiImageService {
                 .replace("{{selectedDifficulty}}", difficulty.difficultyLabel)
                 .replace("{{baseIngredient}}", difficulty.baseIngredientLabel);
 
-        String base64;
-        try {
-            base64 = geminiClient.generateImageBase64(properties.imageModel(), imagePrompt, referenceImageDataUrl);
-        } catch (RuntimeException ex) {
-            // [EN] Fallback for unavailable image model: continue API response without image.
-            // [JA] 画像モデルが利用不可の場合は、画像なしでAPIレスポンスを継続します。
-            String message = ex.getMessage() == null ? "" : ex.getMessage();
-            if (message.contains("404 Not Found") || message.contains("400 Bad Request")) {
-                LOG.warn("Gemini image generation fallback: model={} message={}", properties.imageModel(), message);
-                base64 = "";
-            } else {
-                throw ex;
+        String base64 = "";
+        for (int attempt = 1; attempt <= MAX_EMPTY_IMAGE_RETRIES + 1; attempt++) {
+            try {
+                base64 = geminiClient.generateImageBase64(properties.imageModel(), imagePrompt, referenceImageDataUrl);
+            } catch (RuntimeException ex) {
+                // [EN] Fallback for unavailable image model: continue API response without image.
+                // [JA] 画像モデルが利用不可の場合は、画像なしでAPIレスポンスを継続します。
+                String message = ex.getMessage() == null ? "" : ex.getMessage();
+                if (message.contains("404 Not Found") || message.contains("400 Bad Request")) {
+                    LOG.warn("Gemini image generation fallback: model={} message={}", properties.imageModel(), message);
+                    base64 = "";
+                } else {
+                    throw ex;
+                }
+            }
+
+            if (!base64.isBlank()) {
+                break;
+            }
+
+            if (attempt <= MAX_EMPTY_IMAGE_RETRIES) {
+                LOG.warn("Gemini image inline data is empty: model={} attempt={}", properties.imageModel(), attempt);
             }
         }
 
         if (base64.isBlank()) {
-            LOG.warn("Gemini image inline data is empty: model={}", properties.imageModel());
+            throw new IllegalStateException("Gemini image data is empty");
         }
 
         OptimizedImage optimized = optimizeImage(base64);

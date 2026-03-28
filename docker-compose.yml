@@ -6,9 +6,11 @@ services:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: happysoup
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
+    networks:
+      - hhks-net
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot"]
       interval: 10s
@@ -29,11 +31,11 @@ services:
       DB_NAME: happysoup
       DB_USERNAME: root
       DB_PASSWORD: root
-      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-/run/secrets/vertex-ai-key.json}
-      GEMINI_USE_VERTEX_AI: ${GEMINI_USE_VERTEX_AI:-false}
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/vertex-ai-key.json
+      GEMINI_USE_VERTEX_AI: ${GEMINI_USE_VERTEX_AI:-true}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      GEMINI_PROJECT_ID: ${GEMINI_PROJECT_ID:-}
-      GEMINI_LOCATION: ${GEMINI_LOCATION:-}
+      GEMINI_PROJECT_ID: ${GEMINI_PROJECT_ID:-happy-happy-karate-soup}
+      GEMINI_LOCATION: ${GEMINI_LOCATION:-us-central1}
       SOUP_LOCAL_FALLBACK_ENABLED: ${SOUP_LOCAL_FALLBACK_ENABLED:-false}
       APP_GCS_BUCKET_NAME: "happy-soup"
       APP_GCS_OBJECT_PREFIX: ${APP_GCS_OBJECT_PREFIX:-collections}
@@ -41,6 +43,8 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+    networks:
+      - hhks-net
     ports:
       - "8080:8080"
 
@@ -54,8 +58,14 @@ services:
     container_name: happy-soup-web
     depends_on:
       - backend
+    networks:
+      - hhks-net
     ports:
       - "8081:80"
+
+networks:
+  hhks-net:
+    driver: bridge
 
 volumes:
   mysql_data:

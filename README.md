@@ -134,6 +134,23 @@ cd HappyHappyKarateSoup
 docker compose up --build -d
 ```
 
+`apps/web/backend-java/.env.local` を使う場合（推奨）:
+```bash
+# 1) 初回だけ雛形をコピー
+cp apps/web/backend-java/.env.local.example apps/web/backend-java/.env.local
+
+# 2) apps/web/backend-java/.env.local を編集
+#    GEMINI_USE_VERTEX_AI, GEMINI_PROJECT_ID, GEMINI_LOCATION, GOOGLE_APPLICATION_CREDENTIALS など
+
+# 3) --env-file を明示して起動
+docker compose --env-file apps/web/backend-java/.env.local up -d --build backend web
+```
+
+補足:
+- `bash scripts/run_dev_backend.sh` は `.env` / `.env.local` を自動読込しますが、これは「Dockerを使わないローカルJava起動」向けです。
+- `docker compose` は `apps/web/backend-java/.env.local` を自動読込しないため、`--env-file` を使うか、ルート `.env` に集約してください。
+- Docker起動時の `GOOGLE_APPLICATION_CREDENTIALS` はコンテナ内パス `/run/secrets/vertex-ai-key.json` を使います（`.env.local` のホスト絶対パスは使いません）。
+
 起動後:
 - Web: http://localhost:8081
 - Backend health: http://localhost:8080/actuator/health
@@ -260,6 +277,16 @@ Docker Desktop を起動してから再実行
 ### 7. Cloud Run デプロイ手順（Artifact Registry あり）
 この手順で、Web と Backend を Cloud Run にデプロイできます。
 このプロジェクトは、バックエンド（Spring Boot + MySQL）とフロントエンド（React/Vite）を Google Cloud Run にデプロイして動作させます。
+
+最短フロー（Dockerでローカル動作確認できた後）:
+1. `docker buildx build` で backend / web イメージを build & push
+2. `gcloud run deploy` で `karate-soup-api` と `karate-soup-web` を更新
+3. Cloud Run 側の環境変数（`GEMINI_*`, `APP_GCS_BUCKET_NAME`, DB接続）を設定
+4. `actuator/health` と Web URL で疎通確認
+
+重要:
+- 本番は `.env.local` ではなく、Cloud Run の環境変数設定（または Secret Manager）を正としてください。
+- ローカルでDockerが動くことと、本番での秘密情報管理は別です。本番値はGitへコミットしないでください。
 
 #### 0. 前提条件 (Prerequisites)
 - Google Cloud CLI (`gcloud`) がインストール・ログイン済みであること
