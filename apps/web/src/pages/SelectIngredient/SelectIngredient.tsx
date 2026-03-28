@@ -31,10 +31,13 @@ export default function SelectIngredient() {
 
   const handleComplete = useCallback(() => {
     sessionStorage.setItem('selectedIngredientEmojis', JSON.stringify(selectedChar));
-    if (connectedRoomId) {
-      postControllerRoomCommand(connectedRoomId, 'start_game').catch(console.error);
-    }
     navigate('/game', { state: { selectedIngredientEmojis: selectedChar } });
+
+    if (connectedRoomId) {
+      void postControllerRoomCommand(connectedRoomId, 'start_game').catch((error) => {
+        console.error('Failed to notify controller room start_game:', error);
+      });
+    }
   }, [navigate, selectedChar, connectedRoomId]);
   
   const currentItems = CATEGORIES[activeTab];

@@ -143,7 +143,20 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
           return;
         }
 
-        const loadedChart = await fetchPlayChart(selectedDifficulty);
+        let loadedChart: ChartItem[];
+        try {
+          loadedChart = await fetchPlayChart(selectedDifficulty);
+        } catch (error) {
+          console.error('Failed to load play chart. Retrying...', error);
+          if (!cancelled) {
+            window.setTimeout(() => {
+              if (!cancelled) {
+                void prepareGameStart();
+              }
+            }, 3000);
+          }
+          return;
+        }
 
         if (cancelled) {
           return;
