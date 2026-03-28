@@ -139,8 +139,7 @@ export default function Connect() {
   // 注意：ここで http:// URL ではなく custom scheme を使うことで、iOSのカメラで読むと直接アプリが開きます。
   const qrCodeValue = `happykaratesoup://connect?roomId=${encodeURIComponent(roomId)}&apiBase=${encodeURIComponent(controllerApiBase)}`;
 
-  const handleStart = () => {
-    // プレイヤーが揃ったと仮定してゲーム画面へ
+  const handleMockComplete = () => {
     navigate('/difficulty');
   };
 
@@ -268,22 +267,15 @@ export default function Connect() {
           </div>
         )}
 
-        <Button 
-          variant="primary" 
-          onClick={handleStart} 
-          disabled={!roomId}
-          style={{ width: '100%', padding: '16px', fontSize: '18px' }}
-        >
-          ゲーム開始
-        </Button>
-
         <div style={{ marginTop: '20px' }}>
           <p style={{ fontSize: '14px', color: 'var(--c-slate-500)', fontFamily: 'var(--f-dotgothic)' }}>↓モックアップ用：スマホが接続されたと仮定して進む↓</p>
-          <Link to="/select" style={{ textDecoration: 'none' }}>
-            <Button variant="secondary" style={{ width: '100%', marginTop: '8px', fontSize: '14px' }}>
-              接続完了（モック）
-            </Button>
-          </Link>
+          <Button
+            variant="secondary"
+            onClick={handleMockComplete}
+            style={{ width: '100%', marginTop: '8px', padding: '16px', fontSize: '18px' }}
+          >
+            接続完了（モック）
+          </Button>
         </div>
 
         <div style={{ marginTop: '24px' }}>
