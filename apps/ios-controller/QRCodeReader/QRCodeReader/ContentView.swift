@@ -36,6 +36,21 @@ struct ContentView: View {
         }
         .padding()
         .onAppear(perform: requestCameraAccessIfNeeded)
+        .onAppear {
+            if !isControllerPresented {
+                AppDelegate.lockOrientation(.portrait)
+            }
+        }
+        .onDisappear {
+            AppDelegate.lockOrientation(.allButUpsideDown)
+        }
+        .onChange(of: isControllerPresented) { _, presented in
+            if presented {
+                AppDelegate.lockOrientation(.allButUpsideDown)
+            } else {
+                AppDelegate.lockOrientation(.portrait)
+            }
+        }
         .fullScreenCover(isPresented: $isControllerPresented) {
             ControllerView(
                 scannedCode: scannedCode,
