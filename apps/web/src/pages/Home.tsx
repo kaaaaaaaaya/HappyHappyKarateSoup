@@ -56,7 +56,7 @@ export default function Home() {
         <img
           src="/images/Title.png"
           alt="Happy Happy Karate Soup"
-          className="w-full max-w-[540px] object-contain drop-shadow-[0_8px_0_rgba(28,14,10,0.7)]"
+          className="w-full max-w-[540px] object-contain drop-shadow-[0_8px_0_rgba(28,14,10,0.7)] animate-bounce"
         />
 
         <div className="mt-8 flex w-full max-w-[460px] flex-col items-center gap-3 sm:mt-10 sm:flex-row sm:justify-center sm:gap-4">
