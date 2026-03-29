@@ -40,6 +40,11 @@ final class Coordinator: NSObject, AVCaptureMetadataOutputObjectsDelegate {
     func configureSession(in view: PreviewView) {
         view.videoPreviewLayer.session = session
         view.videoPreviewLayer.videoGravity = .resizeAspectFill
+        if let previewConnection = view.videoPreviewLayer.connection,
+            previewConnection.isVideoOrientationSupported
+        {
+            previewConnection.videoOrientation = .portrait
+        }
 
         sessionQueue.async {
             guard !self.isConfigured else { return }
@@ -56,6 +61,11 @@ final class Coordinator: NSObject, AVCaptureMetadataOutputObjectsDelegate {
                 self.session.addOutput(self.metadataOutput)
                 self.metadataOutput.setMetadataObjectsDelegate(self, queue: DispatchQueue.main)
                 self.metadataOutput.metadataObjectTypes = [.qr]
+                if let metadataConnection = self.metadataOutput.connection(with: .video),
+                    metadataConnection.isVideoOrientationSupported
+                {
+                    metadataConnection.videoOrientation = .portrait
+                }
             }
 
             if self.isScanning && !self.session.isRunning {
