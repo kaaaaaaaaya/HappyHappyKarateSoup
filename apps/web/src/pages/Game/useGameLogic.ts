@@ -259,6 +259,11 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
   // [JA] 最終ノート時刻を過ぎ、十分なバッファ時間が経過したら true になります。
   const lastNoteTime = chart.length > 0 ? chart[chart.length - 1][0] : 0;
   const chartFinishBufferMs = 3000; // 具材アニメーション完了待ちバッファ
+  const totalDurationMs = chart.length > 0 ? lastNoteTime + chartFinishBufferMs : 0;
+  const progress =
+    phase === 'playing' && totalDurationMs > 0
+      ? Math.min(elapsedRef.current / totalDurationMs, 1)
+      : 0;
   const isChartFlowFinished =
     phase === 'playing' &&
     chart.length > 0 &&
@@ -280,6 +285,7 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
     isSubmittingScore,
     scoreSubmitError,
     isChartFlowFinished,
+    progress,
     burstingIds,      // ← 追加
     setBurstingIds,   // ← 追加
   };
