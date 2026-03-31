@@ -41,9 +41,9 @@ final class Coordinator: NSObject, AVCaptureMetadataOutputObjectsDelegate {
         view.videoPreviewLayer.session = session
         view.videoPreviewLayer.videoGravity = .resizeAspectFill
         if let previewConnection = view.videoPreviewLayer.connection,
-            previewConnection.isVideoOrientationSupported
+            previewConnection.isVideoRotationAngleSupported(90)
         {
-            previewConnection.videoOrientation = .portrait
+            previewConnection.videoRotationAngle = 90
         }
 
         sessionQueue.async {
@@ -62,9 +62,9 @@ final class Coordinator: NSObject, AVCaptureMetadataOutputObjectsDelegate {
                 self.metadataOutput.setMetadataObjectsDelegate(self, queue: DispatchQueue.main)
                 self.metadataOutput.metadataObjectTypes = [.qr]
                 if let metadataConnection = self.metadataOutput.connection(with: .video),
-                    metadataConnection.isVideoOrientationSupported
+                    metadataConnection.isVideoRotationAngleSupported(90)
                 {
-                    metadataConnection.videoOrientation = .portrait
+                    metadataConnection.videoRotationAngle = 90
                 }
             }
 
