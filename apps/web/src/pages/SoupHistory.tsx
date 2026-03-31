@@ -20,6 +20,7 @@ export default function SoupHistory() {
   const [collections, setCollections] = useState<CollectionItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [gridTemplateColumns, setGridTemplateColumns] = useState('repeat(4, minmax(0, 1fr))');
 
   const mockCollections = useMemo<CollectionItem[]>(
     () => [
@@ -89,6 +90,24 @@ export default function SoupHistory() {
     }
   }, [mockCollections]);
 
+  useEffect(() => {
+    const resolveGridTemplate = () => {
+      const width = window.innerWidth;
+      if (width >= 1080) return 'repeat(4, minmax(0, 1fr))';
+      if (width >= 820) return 'repeat(3, minmax(0, 1fr))';
+      if (width >= 640) return 'repeat(2, minmax(0, 1fr))';
+      return 'repeat(1, minmax(0, 1fr))';
+    };
+
+    const applyGridTemplate = () => {
+      setGridTemplateColumns(resolveGridTemplate());
+    };
+
+    applyGridTemplate();
+    window.addEventListener('resize', applyGridTemplate);
+    return () => window.removeEventListener('resize', applyGridTemplate);
+  }, []);
+
   return (
     <BrandedConnectionBackground>
       <main
@@ -146,8 +165,8 @@ export default function SoupHistory() {
               maxHeight: 'calc(100vh - 240px)',
               overflowY: 'auto',
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
-              gap: '1.5rem',
+              gridTemplateColumns,
+              gap: '1.2rem',
               paddingRight: '0.8rem',
             }}
           >
@@ -162,7 +181,6 @@ export default function SoupHistory() {
                     key={item.id}
                     style={{
                       width: '100%',
-                      maxWidth: 280,
                       background: '#f8f8f8',
                       border: '3px solid #111',
                       borderRadius: 22,
@@ -170,7 +188,7 @@ export default function SoupHistory() {
                       display: 'flex',
                       flexDirection: 'column',
                       gap: '0.7rem',
-                      minHeight: 430,
+                      minHeight: 400,
                     }}
                   >
                     <div style={{ textAlign: 'right', fontSize: '0.78rem', color: '#222' }}>{formatDateTime(item.createdAt)}</div>

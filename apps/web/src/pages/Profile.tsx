@@ -175,15 +175,15 @@ export default function Profile() {
                 style={{
                   border: '3px solid #181818',
                   borderRadius: 24,
-                  padding: '1rem clamp(1.2rem, 3vw, 3rem)',
+                  padding: '0.9rem 1.4rem',
                   display: 'grid',
-                  gridTemplateColumns: 'minmax(140px, 190px) 1fr',
+                  gridTemplateColumns: '160px 1fr',
                   alignItems: 'center',
                   background: '#f5f5f5',
                   boxShadow: '2px 2px 0 0 #000',
-                  width: 'min(550px, 100%)',
-                  minHeight: 230,
-                  height: 230,
+                  width: '100%',
+                  maxWidth: 500,
+                  height: 210,
                   boxSizing: 'border-box',
                 }}
               >
