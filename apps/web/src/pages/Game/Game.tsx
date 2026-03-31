@@ -7,6 +7,7 @@ import { postSoupGenerate } from '../../api/soupApi';
 import type { SoupGenerateResponse } from '../../api/soupApi';
 import type { Difficulty } from '../../api/chartApi';
 import { fetchControllerRoomStatus, postControllerRoomCommand } from '../../api/controllerRoomApi';
+import { postMartialSession } from '../../api/profileApi';
 import { NOTE_ANIMATION_MS } from './timing';
 
 
@@ -246,6 +247,7 @@ export default function Game() {
   const soupGenerationPromiseRef = useRef<Promise<SoupGenerateResponse | null> | null>(null);
   const soupGenerationResultRef = useRef<SoupGenerateResponse | null>(null);
   const lastSentHitJudgmentKeyRef = useRef<number | null>(null);
+  const hasPostedMartialSessionRef = useRef(false);
   // Ingredient 型に位置情報を追加
   // フックから必要な状態を受け取る
   // useGameLogic の戻り値に burstingIds, setBurstingIds を追加して受け取る
@@ -480,6 +482,28 @@ export default function Game() {
       // [EN] AI-generated image is required for result transition.
       // [JA] リザルト遷移には生成AI画像を必須とします。
       const generatedSoup = soupGenerationResultRef.current;
+
+      if (!hasPostedMartialSessionRef.current) {
+        const authUserRaw = sessionStorage.getItem('authUser');
+        if (authUserRaw) {
+          try {
+            const authUser = JSON.parse(authUserRaw) as { userId?: number };
+            if (authUser.userId) {
+              const playedAt = new Date().toISOString().slice(0, 19);
+              await postMartialSession({
+                userId: authUser.userId,
+                playedAt,
+                punchCount: battleStats.punchCount,
+                chopCount: battleStats.chopCount,
+                usedEnergyKcal: battleStats.usedEnergyKcal,
+              });
+              hasPostedMartialSessionRef.current = true;
+            }
+          } catch (error) {
+            console.error('Failed to save martial session:', error);
+          }
+        }
+      }
 
       const resultData = generatedSoup
         ? {

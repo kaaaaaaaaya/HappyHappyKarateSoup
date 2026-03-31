@@ -25,11 +25,7 @@ export default function HomeLoggedIn() {
       display: 'flex',
       flexDirection: 'column' as const,
       alignItems: 'center',
-      backgroundImage: `url(/images/background2.png)`,
-      backgroundSize: 'cover',
-      backgroundPosition: 'center',
-      backgroundAttachment: 'fixed',
-      backgroundRepeat: 'no-repeat',
+      backgroundColor: '#fff',
       fontFamily: "'DotGothic16', sans-serif",
       color: '#000',
       overflowX: 'hidden' as const,
@@ -57,11 +53,19 @@ export default function HomeLoggedIn() {
     },
     subtitle: {
       fontSize: '1.2rem',
-      marginBottom: '3rem',
+      margin: 0,
       backgroundColor: '#fff',
       padding: '0.2rem 1rem',
       border: '2px solid #000',
       borderRadius: '8px',
+    },
+    subtitleRow: {
+      width: '100%',
+      position: 'relative' as const,
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: '2rem',
     },
     scrollWrapper: {
       width: '100vw',
@@ -80,7 +84,7 @@ export default function HomeLoggedIn() {
       position: 'relative' as const,
       flexShrink: 0,
       width: '15rem',
-      aspectRatio: '2 / 3',
+      aspectRatio: '2 / 3.3',
       backgroundColor: '#fff',
       padding: '1rem',
       display: 'flex',
@@ -107,14 +111,14 @@ export default function HomeLoggedIn() {
       objectFit: 'cover' as const,
       border: '2px solid #000',
       borderRadius: '16px',
-      marginBottom: '1rem',
+      marginBottom: '0.45rem',
     },
     rankScoreContainer: {
       display: 'flex',
       justifyContent: 'center',
       alignItems: 'baseline',
       gap: '0.5rem',
-      margin: '0.5rem 0',
+      margin: '0.1rem 0 0.4rem',
     },
     rankText: {
       fontSize: '3.5rem',
@@ -133,6 +137,7 @@ export default function HomeLoggedIn() {
       backgroundColor: '#f1f2f6',
       border: '1px solid #000',
       borderRadius: '8px',
+      minHeight: '3rem',
       flex: 1,
       overflow: 'hidden',
     },
@@ -147,6 +152,23 @@ export default function HomeLoggedIn() {
       borderRadius: '24px',
       transition: '0.2s',
       width: '20rem',
+    },
+    profileButtonArea: {
+      position: 'absolute' as const,
+      right: '5%',
+      display: 'flex',
+      alignItems: 'center',
+    },
+    profileButton: {
+      padding: '0.5rem 1rem',
+      fontSize: '1.15rem',
+      fontFamily: "'DotGothic16', sans-serif",
+      fontWeight: 'bold',
+      cursor: 'pointer',
+      border: '3px solid #000',
+      borderRadius: '12px',
+      transition: '0.2s',
+      backgroundColor: '#fff',
     }
   };
 
@@ -172,6 +194,7 @@ export default function HomeLoggedIn() {
 
   const handleStartGame = () => navigate('/difficulty');
   const handleOpenQr = () => navigate('/connect');
+  const handleOpenProfile = () => navigate('/profile');
 
   // --- 副作用: 認証/データ取得 (HomeLoggedInそのまま) ---
   useEffect(() => {
@@ -247,7 +270,14 @@ export default function HomeLoggedIn() {
       </header>
 
       <h1 style={styles.title}>MY DOJO</h1>
-      <p style={styles.subtitle}>ようこそ、修行者の{username}さん！</p>
+      <div style={styles.subtitleRow}>
+        <p style={styles.subtitle}>ようこそ、修行者の{username}さん！</p>
+        <div style={styles.profileButtonArea}>
+          <button onClick={handleOpenProfile} style={styles.profileButton}>
+            → プロフィールを見る
+          </button>
+        </div>
+      </div>
 
       {/* 🌟 コレクション無限スクロールエリア */}
       <div style={styles.scrollWrapper}>
@@ -264,8 +294,9 @@ export default function HomeLoggedIn() {
                   <span style={styles.scoreText}>{item.totalScore}pts</span>
                 </div>
                 <div style={styles.commentText}>
-                  {/* APIからコメントが来る場合はここに入れる */}
-                  本日の修行成果。{item.rank === 'S' ? '免許皆伝級の味わいだ！' : 'さらなる精進を期待する。'}
+                  {item.comment?.trim()
+                    ? item.comment
+                    : `本日の修行成果。${item.rank === 'S' ? '免許皆伝級の味わいだ！' : 'さらなる精進を期待する。'}`}
                 </div>
               </div>
             ))}

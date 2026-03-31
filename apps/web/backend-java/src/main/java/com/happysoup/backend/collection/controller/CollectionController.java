@@ -2,6 +2,7 @@ package com.happysoup.backend.collection.controller;
 
 import com.happysoup.backend.collection.dto.CollectionItemResponse;
 import com.happysoup.backend.collection.dto.CollectionSaveRequest;
+import com.happysoup.backend.collection.dto.BeltRankResponse;
 import com.happysoup.backend.collection.service.CollectionService;
 import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
@@ -34,6 +35,11 @@ public class CollectionController {
     @GetMapping
     public List<CollectionItemResponse> list(@RequestParam Long userId) {
         return collectionService.listByUserId(userId);
+    }
+
+    @GetMapping("/rank")
+    public BeltRankResponse rank(@RequestParam Long userId) {
+        return collectionService.getBeltRank(userId);
     }
 
     @GetMapping("/{collectionId}/image")

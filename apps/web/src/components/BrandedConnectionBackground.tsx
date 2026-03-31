@@ -10,13 +10,15 @@ export default function BrandedConnectionBackground({ children }: BrandedConnect
   return (
     <div
       style={{
-        minHeight: '100vh',
+        minHeight: '100dvh',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         backgroundImage: `url(${bgConnection})`,
-        backgroundSize: 'cover',
+        backgroundSize: 'contain',
         backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundColor: '#1a1a1f',
         padding: '24px',
         boxSizing: 'border-box',
         position: 'relative',

@@ -7,6 +7,8 @@ import SelectDifficulty from './pages/SelectDifficulty';
 import SelectIngredient from './pages/SelectIngredient/SelectIngredient';
 import Game from './pages/Game/Game';
 import Result from './pages/Result/Result';
+import Profile from './pages/Profile';
+import SoupHistory from './pages/SoupHistory';
 
 function App() {
   return (
@@ -20,6 +22,8 @@ function App() {
         <Route path="/select" element={<SelectIngredient />} />
         <Route path="/game" element={<Game />} />
         <Route path="/result" element={<Result />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/soup-history" element={<SoupHistory />} />
       </Routes>
     </BrowserRouter>
   );
