@@ -121,18 +121,18 @@ export default function SoupHistory() {
             }}
           >
             <h1 style={{ margin: 0, fontSize: 'clamp(1.2rem, 2.5vw, 3rem)', color: '#121212' }}>SOUP HISTORY</h1>
-          <button
-            type="button"
-            onClick={() => navigate('/profile')}
-            style={{
-              border: '3px solid #1c1c1c',
-              borderRadius: 8,
-              background: '#fff',
-              boxShadow: '4px 4px 0 0 #000',
-              cursor: 'pointer',
-              fontSize: '1.6rem',
-              width: 56,
-              height: 56,
+            <button
+              type="button"
+              onClick={() => navigate('/profile')}
+              style={{
+                border: '3px solid #1c1c1c',
+                borderRadius: 8,
+                background: '#fff',
+                boxShadow: '4px 4px 0 0 #000',
+                cursor: 'pointer',
+                fontSize: '1.6rem',
+                width: 56,
+                height: 56,
                 lineHeight: 1,
               }}
               aria-label="プロフィールに戻る"
@@ -146,7 +146,7 @@ export default function SoupHistory() {
               maxHeight: 'calc(100vh - 240px)',
               overflowY: 'auto',
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
               gap: '1.5rem',
               paddingRight: '0.8rem',
             }}
@@ -162,7 +162,7 @@ export default function SoupHistory() {
                     key={item.id}
                     style={{
                       width: '100%',
-                      maxWidth: 260,
+                      maxWidth: 280,
                       background: '#f8f8f8',
                       border: '3px solid #111',
                       borderRadius: 22,
@@ -174,31 +174,31 @@ export default function SoupHistory() {
                     }}
                   >
                     <div style={{ textAlign: 'right', fontSize: '0.78rem', color: '#222' }}>{formatDateTime(item.createdAt)}</div>
-                  <div
-                    style={{
-                      border: '3px solid #111',
-                      borderRadius: 16,
-                      overflow: 'hidden',
-                      background: '#fff',
-                      boxShadow: '4px 4px 0 0 #000',
-                      height: 220,
-                    }}
-                  >
+                    <div
+                      style={{
+                        border: '3px solid #111',
+                        borderRadius: 16,
+                        overflow: 'hidden',
+                        background: '#fff',
+                        boxShadow: '4px 4px 0 0 #000',
+                        height: 220,
+                      }}
+                    >
                       <img
                         src={item.imageUrl}
                         alt={`Soup #${item.id}`}
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       />
                     </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.3rem', lineHeight: 1.1, margin: '0.35rem 0 0.5rem' }}>
-                    <span>RANK: {item.rank}</span>
-                    <span>SCORE: {item.totalScore}</span>
-                  </div>
-                  <p style={{ margin: 0, fontSize: '0.95rem', lineHeight: 1.45, color: '#111' }}>
-                    {item.comment || 'コメントはありません。'}
-                  </p>
-                </article>
-              ))
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.3rem', lineHeight: 1.1, margin: '0.35rem 0 0.5rem' }}>
+                      <span>RANK: {item.rank}</span>
+                      <span>SCORE: {item.totalScore}</span>
+                    </div>
+                    <p style={{ margin: 0, fontSize: '0.95rem', lineHeight: 1.45, color: '#111' }}>
+                      {item.comment || 'コメントはありません。'}
+                    </p>
+                  </article>
+                ))
             ) : (
               <p style={{ margin: 0 }}>まだスープ履歴がありません。</p>
             )}
