@@ -146,9 +146,9 @@ export default function SoupHistory() {
               maxHeight: 'calc(100vh - 240px)',
               overflowY: 'auto',
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))',
-              gap: '2rem',
-              paddingRight: '2rem',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))',
+              gap: '1.5rem',
+              paddingRight: '0.8rem',
             }}
           >
             {isLoading ? (
@@ -161,6 +161,8 @@ export default function SoupHistory() {
                   <article
                     key={item.id}
                     style={{
+                      width: '100%',
+                      maxWidth: 260,
                       background: '#f8f8f8',
                       border: '3px solid #111',
                       borderRadius: 22,
@@ -188,7 +190,7 @@ export default function SoupHistory() {
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       />
                     </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.5rem', lineHeight: 1.1, margin: '0.35rem 0 0.5rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.3rem', lineHeight: 1.1, margin: '0.35rem 0 0.5rem' }}>
                     <span>RANK: {item.rank}</span>
                     <span>SCORE: {item.totalScore}</span>
                   </div>
