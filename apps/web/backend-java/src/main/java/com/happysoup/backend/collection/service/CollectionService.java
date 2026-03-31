@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.happysoup.backend.auth.model.AppUser;
 import com.happysoup.backend.auth.repository.AppUserRepository;
+import com.happysoup.backend.collection.dto.BeltRankResponse;
 import com.happysoup.backend.collection.dto.CollectionItemResponse;
 import com.happysoup.backend.collection.dto.CollectionSaveRequest;
 import com.happysoup.backend.collection.dto.FlavorProfileDto;
@@ -16,12 +17,20 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 @Service
 public class CollectionService {
+    private static final BeltThreshold[] BELT_THRESHOLDS = {
+            new BeltThreshold(0, "白"),
+            new BeltThreshold(10, "紫"),
+            new BeltThreshold(25, "緑"),
+            new BeltThreshold(40, "黄"),
+            new BeltThreshold(60, "赤"),
+            new BeltThreshold(80, "茶"),
+            new BeltThreshold(100, "黒"),
+    };
 
     private final AppUserRepository appUserRepository;
     private final SoupCollectionRepository soupCollectionRepository;
@@ -60,7 +69,13 @@ public class CollectionService {
 
         CollectionGcsStorageService.ImageUploadResult image = storageService.uploadImage(user.getId(), request.imageDataUrl(), objectMetadata);
 
-        String payloadJson = buildPayloadJson(ingredients, flavor, request.comment(), totalScore, rank);
+        String payloadJson = buildPayloadJson(
+                ingredients,
+                flavor,
+                request.comment(),
+                totalScore,
+                rank
+        );
         String payloadPath = storageService.uploadPayload(user.getId(), payloadJson);
 
         SoupCollection entity = new SoupCollection();
@@ -97,6 +112,38 @@ public class CollectionService {
 
         byte[] imageBytes = storageService.downloadImage(collection.getGcsImagePath());
         return new ImagePayload(collection.getImageContentType(), imageBytes);
+    }
+
+    @Transactional(readOnly = true)
+    public BeltRankResponse getBeltRank(Long userId) {
+        if (!appUserRepository.existsById(userId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "user not found");
+        }
+
+        long soupCount = soupCollectionRepository.countByUser_Id(userId);
+        BeltThreshold current = BELT_THRESHOLDS[0];
+        BeltThreshold next = null;
+
+        for (int i = 0; i < BELT_THRESHOLDS.length; i++) {
+            BeltThreshold candidate = BELT_THRESHOLDS[i];
+            if (soupCount >= candidate.threshold()) {
+                current = candidate;
+                next = (i + 1 < BELT_THRESHOLDS.length) ? BELT_THRESHOLDS[i + 1] : null;
+            }
+        }
+
+        Integer nextThreshold = next != null ? next.threshold() : null;
+        Integer remainingToNext = next != null ? (int) Math.max(0, next.threshold() - soupCount) : null;
+
+        return new BeltRankResponse(
+                userId,
+                soupCount,
+                current.color(),
+                current.threshold(),
+                next != null ? next.color() : null,
+                nextThreshold,
+                remainingToNext
+        );
     }
 
     private CollectionItemResponse toResponse(SoupCollection collection) {
@@ -166,5 +213,8 @@ public class CollectionService {
     }
 
     public record ImagePayload(String contentType, byte[] bytes) {
+    }
+
+    private record BeltThreshold(int threshold, String color) {
     }
 }
