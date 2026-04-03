@@ -174,6 +174,8 @@ const parseCommandAcceleration = (normalizedCommand: string): number | undefined
   return Math.max(0, acceleration);
 };
 
+const CONTROLLER_MIN_ACTION_ACCELERATION = 1.9;
+
 const parseControllerCommand = (command: string): ParsedControllerCommand | null => {
   const normalized = command.trim().toLowerCase();
   if (normalized.startsWith('aim')) {
@@ -182,20 +184,28 @@ const parseControllerCommand = (command: string): ParsedControllerCommand | null
   }
 
   if (normalized.startsWith('punch')) {
+    const acceleration = parseCommandAcceleration(normalized);
+    if (acceleration !== undefined && acceleration < CONTROLLER_MIN_ACTION_ACCELERATION) {
+      return null;
+    }
     return {
       kind: 'action',
       action: 'punch',
       xNorm: parseCommandXNorm(normalized),
-      acceleration: parseCommandAcceleration(normalized),
+      acceleration,
     };
   }
 
   if (normalized.startsWith('chop')) {
+    const acceleration = parseCommandAcceleration(normalized);
+    if (acceleration !== undefined && acceleration < CONTROLLER_MIN_ACTION_ACCELERATION) {
+      return null;
+    }
     return {
       kind: 'action',
       action: 'chop',
       xNorm: parseCommandXNorm(normalized),
-      acceleration: parseCommandAcceleration(normalized),
+      acceleration,
     };
   }
 
@@ -345,19 +355,25 @@ export default function Game() {
           return;
         }
 
-        const hasIncrementalCommands = incrementalCommands.length > 0;
         const isSequenceAdvanced = currentSequence > lastControllerCommandSequenceRef.current;
-        const isRawCommandChanged = latestCommand !== '' && latestCommand !== lastControllerRawCommandRef.current;
-
-        if (!hasIncrementalCommands && !isSequenceAdvanced && !isRawCommandChanged) {
+        if (!isSequenceAdvanced) {
           return;
         }
 
-        const commandEntries = hasIncrementalCommands
+        const commandEntries = incrementalCommands.length > 0
           ? incrementalCommands
-          : [{ sequence: currentSequence, command: latestCommand }];
+          : latestCommand !== ''
+            ? [{ sequence: currentSequence, command: latestCommand }]
+            : [];
+
+        let maxProcessedSequence = lastControllerCommandSequenceRef.current;
 
         for (const entry of commandEntries) {
+          if (entry.sequence <= lastControllerCommandSequenceRef.current) {
+            continue;
+          }
+
+          maxProcessedSequence = Math.max(maxProcessedSequence, entry.sequence);
           const parsedCommand = parseControllerCommand(entry.command ?? '');
           if (!parsedCommand) {
             continue;
@@ -371,9 +387,7 @@ export default function Game() {
           }
         }
 
-        if (isSequenceAdvanced) {
-          lastControllerCommandSequenceRef.current = currentSequence;
-        }
+        lastControllerCommandSequenceRef.current = Math.max(maxProcessedSequence, currentSequence);
         if (latestCommand !== '') {
           lastControllerRawCommandRef.current = latestCommand;
         }
