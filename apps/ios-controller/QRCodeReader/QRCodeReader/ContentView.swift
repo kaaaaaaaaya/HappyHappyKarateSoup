@@ -20,7 +20,6 @@ struct ContentView: View {
     @State private var isScanning = false
     @State private var scannedCode: String = ""
     @State private var isControllerPresented = false
-    @State private var controllerDebugMessage: String = ""
 
     var body: some View {
         VStack(spacing: 16) {
@@ -54,7 +53,6 @@ struct ContentView: View {
         .fullScreenCover(isPresented: $isControllerPresented) {
             ControllerView(
                 scannedCode: scannedCode,
-                debugMessage: controllerDebugMessage,
                 onDirection: { direction in
                     sendControlCommand(direction, from: scannedCode)
                 },
@@ -63,7 +61,6 @@ struct ContentView: View {
                 },
                 onClose: {
                     scannedCode = ""
-                    controllerDebugMessage = ""
                     isScanning = true
                     isControllerPresented = false
                 }
@@ -204,20 +201,13 @@ struct ContentView: View {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         URLSession.shared.dataTask(with: request) { _, response, error in
-            if let error {
-                DispatchQueue.main.async {
-                    controllerDebugMessage = "join failed: \(error.localizedDescription)"
-                }
+            if error != nil {
                 return
             }
 
             let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
-            DispatchQueue.main.async {
-                if statusCode == 200 {
-                    controllerDebugMessage = "Now Playing Happy Happy Karate Soup!"
-                } else {
-                    controllerDebugMessage = "join status: \(statusCode) (URL: \(url.absoluteString))"
-                }
+            if statusCode != 200 {
+                print("join status: \(statusCode) (URL: \(url.absoluteString))")
             }
         }.resume()
     }
@@ -257,17 +247,12 @@ struct ContentView: View {
 
         URLSession.shared.dataTask(with: request) { _, response, error in
             if let error {
-                DispatchQueue.main.async {
-                    controllerDebugMessage =
-                        "cmd \(command): failed (\(error.localizedDescription))"
-                }
+                print("cmd \(command): failed (\(error.localizedDescription))")
                 return
             }
 
             let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
-            DispatchQueue.main.async {
-                controllerDebugMessage = "cmd \(command): status \(statusCode)"
-            }
+            print("cmd \(command): status \(statusCode)")
         }.resume()
     }
 }

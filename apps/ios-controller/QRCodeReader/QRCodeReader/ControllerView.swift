@@ -43,7 +43,6 @@ struct ControllerView: View {
     }
 
     let scannedCode: String
-    let debugMessage: String
     var onDirection: (String) -> Void
     var onConfirm: () -> Void
     var onClose: () -> Void
@@ -196,17 +195,6 @@ struct ControllerView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(.pink)
-                }
-
-                if !scannedCode.isEmpty {
-                    Text("接続コード")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.8))
-                    Text(scannedCode)
-                        .font(.caption2.monospaced())
-                        .foregroundStyle(.white.opacity(0.9))
-                        .lineLimit(2)
-                        .truncationMode(.middle)
                 }
 
                 Spacer()
@@ -489,7 +477,6 @@ private struct DecorativeBackground: View {
 #Preview(traits: .landscapeRight) {
     ControllerView(
         scannedCode: "happykaratesoup://connect?roomId=room-preview&apiBase=http://localhost:8080",
-        debugMessage: "Now Playing Happy Happy Karate Soup!",
         onDirection: { _ in },
         onConfirm: {},
         onClose: {}
