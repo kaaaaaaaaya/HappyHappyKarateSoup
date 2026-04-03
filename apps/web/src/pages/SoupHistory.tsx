@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchCollectionsByUser, type CollectionItem } from '../api/collectionApi';
 import BrandedConnectionBackground from '../components/BrandedConnectionBackground';
+import { fetchControllerRoomStatus } from '../api/controllerRoomApi';
 
 const formatDateTime = (value: string): string => {
   const date = new Date(value);
@@ -21,6 +22,12 @@ export default function SoupHistory() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [gridTemplateColumns, setGridTemplateColumns] = useState('repeat(4, minmax(0, 1fr))');
+  const [isBackFocused, setIsBackFocused] = useState(true);
+  const connectedRoomId = sessionStorage.getItem('connectedRoomId');
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const lastSequenceRef = useRef(0);
+  const isSequenceInitializedRef = useRef(false);
+  const pageEnteredAtRef = useRef(Date.now());
 
   const mockCollections = useMemo<CollectionItem[]>(
     () => [
@@ -108,6 +115,69 @@ export default function SoupHistory() {
     return () => window.removeEventListener('resize', applyGridTemplate);
   }, []);
 
+  useEffect(() => {
+    pageEnteredAtRef.current = Date.now();
+  }, []);
+
+  useEffect(() => {
+    if (!connectedRoomId) {
+      return;
+    }
+
+    const timerId = window.setInterval(async () => {
+      try {
+        const status = await fetchControllerRoomStatus(connectedRoomId, {
+          since: lastSequenceRef.current,
+        });
+        const currentSequence = status.commandSequence ?? 0;
+        const latestCommand = (status.latestCommand ?? '').toLowerCase().trim();
+        const incrementalCommands = status.commands ?? [];
+
+        if (!isSequenceInitializedRef.current) {
+          lastSequenceRef.current = currentSequence;
+          isSequenceInitializedRef.current = true;
+          return;
+        }
+
+        const commandEntries = incrementalCommands.length > 0
+          ? incrementalCommands
+          : currentSequence > lastSequenceRef.current && latestCommand !== ''
+            ? [{ sequence: currentSequence, command: latestCommand }]
+            : [];
+
+        let maxProcessedSequence = lastSequenceRef.current;
+        for (const entry of commandEntries) {
+          if (entry.sequence <= lastSequenceRef.current) {
+            continue;
+          }
+
+          maxProcessedSequence = Math.max(maxProcessedSequence, entry.sequence);
+          const cmd = (entry.command ?? '').toLowerCase().trim();
+          if (cmd === 'left' || cmd === 'right') {
+            setIsBackFocused(true);
+          } else if (cmd === 'up') {
+            scrollContainerRef.current?.scrollBy({ top: -260, behavior: 'smooth' });
+          } else if (cmd === 'down') {
+            scrollContainerRef.current?.scrollBy({ top: 260, behavior: 'smooth' });
+          } else if (cmd === 'confirm' && isBackFocused) {
+            if (Date.now() - pageEnteredAtRef.current < 700) {
+              continue;
+            }
+            navigate('/profile');
+          }
+        }
+
+        lastSequenceRef.current = Math.max(maxProcessedSequence, currentSequence);
+      } catch (error) {
+        console.error('Failed to poll controller command on soup history page:', error);
+      }
+    }, 120);
+
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, [connectedRoomId, isBackFocused, navigate]);
+
   return (
     <BrandedConnectionBackground>
       <main
@@ -146,8 +216,8 @@ export default function SoupHistory() {
               style={{
                 border: '3px solid #1c1c1c',
                 borderRadius: 8,
-                background: '#fff',
-                boxShadow: '4px 4px 0 0 #000',
+                background: isBackFocused ? '#ffde00' : '#fff',
+                boxShadow: isBackFocused ? '6px 6px 0 0 #000' : '4px 4px 0 0 #000',
                 cursor: 'pointer',
                 fontSize: '1.6rem',
                 width: 56,
@@ -161,6 +231,7 @@ export default function SoupHistory() {
           </header>
 
           <div
+            ref={scrollContainerRef}
             style={{
               maxHeight: 'calc(100vh - 240px)',
               overflowY: 'auto',

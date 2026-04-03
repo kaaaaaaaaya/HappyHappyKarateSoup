@@ -11,7 +11,7 @@ export default function HomeLoggedIn() {
   const [userId, setUserId] = useState<number | null>(null);
   const [collections, setCollections] = useState<CollectionItem[]>([]);
   const [isLoadingCollections, setIsLoadingCollections] = useState(false);
-  const [focusedButton, setFocusedButton] = useState<'start' | 'qr' | 'logout'>('start');
+  const [focusedButton, setFocusedButton] = useState<'profile' | 'start' | 'qr' | 'logout'>('qr');
 
   const connectedRoomId = sessionStorage.getItem('connectedRoomId') ?? '';
   const lastCommandSequenceRef = useRef(0);
@@ -173,11 +173,25 @@ export default function HomeLoggedIn() {
   };
 
   // 🌟 フォーカス状態に合わせた動的スタイル
+  const isControllerConnected = connectedRoomId !== '';
+
   const getButtonStyle = (btnName: 'start' | 'qr' | 'logout') => ({
     ...styles.buttonBase,
-    backgroundColor: focusedButton === btnName ? '#ffde00' : '#fff', // フォーカス時は黄色
-    boxShadow: focusedButton === btnName ? '6px 6px 0px 0px #000' : '2px 2px 0px 0px #000',
-    transform: focusedButton === btnName ? 'translate(-2px, -2px)' : 'none',
+    backgroundColor:
+      (isControllerConnected && focusedButton === btnName)
+      || (!isControllerConnected && btnName === 'qr')
+        ? '#ffde00'
+        : '#fff', // 未連携時は QR を初期強調
+    boxShadow:
+      (isControllerConnected && focusedButton === btnName)
+      || (!isControllerConnected && btnName === 'qr')
+        ? '6px 6px 0px 0px #000'
+        : '2px 2px 0px 0px #000',
+    transform:
+      (isControllerConnected && focusedButton === btnName)
+      || (!isControllerConnected && btnName === 'qr')
+        ? 'translate(-2px, -2px)'
+        : 'none',
   });
 
   // --- アニメーション用データ複製 ---
@@ -234,11 +248,22 @@ export default function HomeLoggedIn() {
         if (currentSequence > lastCommandSequenceRef.current) {
           lastCommandSequenceRef.current = currentSequence;
           if (latestCommand === 'up') {
-            setFocusedButton((prev) => (prev === 'logout' ? 'qr' : prev === 'qr' ? 'start' : 'start'));
+            setFocusedButton((prev) =>
+              prev === 'logout' ? 'qr'
+                : prev === 'qr' ? 'start'
+                  : prev === 'start' ? 'profile'
+                    : 'profile',
+            );
           } else if (latestCommand === 'down') {
-            setFocusedButton((prev) => (prev === 'start' ? 'qr' : prev === 'qr' ? 'logout' : 'logout'));
+            setFocusedButton((prev) =>
+              prev === 'profile' ? 'start'
+                : prev === 'start' ? 'qr'
+                  : prev === 'qr' ? 'logout'
+                    : 'logout',
+            );
           } else if (latestCommand === 'confirm') {
-            if (focusedButton === 'start') handleStartGame();
+            if (focusedButton === 'profile') handleOpenProfile();
+            else if (focusedButton === 'start') handleStartGame();
             else if (focusedButton === 'qr') handleOpenQr();
             else handleLogout();
           }
@@ -273,7 +298,15 @@ export default function HomeLoggedIn() {
       <div style={styles.subtitleRow}>
         <p style={styles.subtitle}>ようこそ、修行者の{username}さん！</p>
         <div style={styles.profileButtonArea}>
-          <button onClick={handleOpenProfile} style={styles.profileButton}>
+          <button
+            onClick={handleOpenProfile}
+            style={{
+              ...styles.profileButton,
+              backgroundColor: isControllerConnected && focusedButton === 'profile' ? '#ffde00' : '#fff',
+              boxShadow: isControllerConnected && focusedButton === 'profile' ? '4px 4px 0px 0px #000' : '2px 2px 0px 0px #000',
+              transform: isControllerConnected && focusedButton === 'profile' ? 'translate(-2px, -2px)' : 'none',
+            }}
+          >
             → プロフィールを見る
           </button>
         </div>
@@ -321,11 +354,6 @@ export default function HomeLoggedIn() {
         </button>
       </div>
 
-      {connectedRoomId && (
-        <p style={{ fontSize: '0.8rem', backgroundColor: '#000', color: '#fff', padding: '0.2rem 1rem', borderRadius: '4px' }}>
-          CONTROLLER CONNECTED: {connectedRoomId}
-        </p>
-      )}
     </div>
   );
 }

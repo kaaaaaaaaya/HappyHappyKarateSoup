@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import WeeklyCaloriesChart, { type WeeklyCaloriesPoint } from '../components/WeeklyCaloriesChart';
 import BrandedConnectionBackground from '../components/BrandedConnectionBackground';
 import { fetchProfileMartialData } from '../api/profileApi';
+import { fetchControllerRoomStatus } from '../api/controllerRoomApi';
 
 type ProfileViewData = {
   email: string;
@@ -23,6 +24,11 @@ export default function Profile() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [viewData, setViewData] = useState<ProfileViewData | null>(null);
+  const [focusedButton, setFocusedButton] = useState<'back' | 'history'>('history');
+  const connectedRoomId = sessionStorage.getItem('connectedRoomId');
+  const lastSequenceRef = useRef(0);
+  const isSequenceInitializedRef = useRef(false);
+  const pageEnteredAtRef = useRef(Date.now());
 
   const mockData = useMemo<ProfileViewData>(
     () => ({
@@ -99,6 +105,71 @@ export default function Profile() {
 
   }, [mockData]);
 
+  useEffect(() => {
+    pageEnteredAtRef.current = Date.now();
+  }, []);
+
+  useEffect(() => {
+    if (!connectedRoomId) {
+      return;
+    }
+
+    const timerId = window.setInterval(async () => {
+      try {
+        const status = await fetchControllerRoomStatus(connectedRoomId, {
+          since: lastSequenceRef.current,
+        });
+        const currentSequence = status.commandSequence ?? 0;
+        const latestCommand = (status.latestCommand ?? '').toLowerCase().trim();
+        const incrementalCommands = status.commands ?? [];
+
+        if (!isSequenceInitializedRef.current) {
+          lastSequenceRef.current = currentSequence;
+          isSequenceInitializedRef.current = true;
+          return;
+        }
+
+        const commandEntries = incrementalCommands.length > 0
+          ? incrementalCommands
+          : currentSequence > lastSequenceRef.current && latestCommand !== ''
+            ? [{ sequence: currentSequence, command: latestCommand }]
+            : [];
+
+        let maxProcessedSequence = lastSequenceRef.current;
+        for (const entry of commandEntries) {
+          if (entry.sequence <= lastSequenceRef.current) {
+            continue;
+          }
+
+          maxProcessedSequence = Math.max(maxProcessedSequence, entry.sequence);
+          const cmd = (entry.command ?? '').toLowerCase().trim();
+          if (cmd === 'up' || cmd === 'left') {
+            setFocusedButton('back');
+          } else if (cmd === 'down' || cmd === 'right') {
+            setFocusedButton('history');
+          } else if (cmd === 'confirm') {
+            if (Date.now() - pageEnteredAtRef.current < 700) {
+              continue;
+            }
+            if (focusedButton === 'back') {
+              navigate('/home-logged-in');
+            } else {
+              navigate('/soup-history');
+            }
+          }
+        }
+
+        lastSequenceRef.current = Math.max(maxProcessedSequence, currentSequence);
+      } catch (error) {
+        console.error('Failed to poll controller command on profile page:', error);
+      }
+    }, 120);
+
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, [connectedRoomId, focusedButton, navigate]);
+
   const data = viewData ?? mockData;
   const avatarByBeltColor: Record<string, string> = {
     白: '/images/avatars/avatar_white.png',
@@ -158,8 +229,8 @@ export default function Profile() {
                   width: 48,
                   height: 48,
                   borderRadius: 6,
-                  background: '#f9f9f9',
-                  boxShadow: '3px 3px 0 0 #000',
+                  background: focusedButton === 'back' ? '#ffde00' : '#f9f9f9',
+                  boxShadow: focusedButton === 'back' ? '5px 5px 0 0 #000' : '3px 3px 0 0 #000',
                   cursor: 'pointer',
                   fontSize: '1.5rem',
                 }}
@@ -282,8 +353,8 @@ export default function Profile() {
                   marginTop: 'auto',
                   border: '2px solid #1c1c1c',
                   borderRadius: 24,
-                  background: '#fff',
-                  boxShadow: '4px 4px 0 0 #000',
+                  background: focusedButton === 'history' ? '#ffde00' : '#fff',
+                  boxShadow: focusedButton === 'history' ? '6px 6px 0 0 #000' : '4px 4px 0 0 #000',
                   fontSize: '1.4rem',
                   padding: '1rem 1.2rem',
                   cursor: 'pointer',
