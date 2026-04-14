@@ -8,6 +8,7 @@
 import AVFoundation
 import Foundation
 import SwiftUI
+import UIKit
 
 private enum CameraAuthorizationState {
     case notDetermined
@@ -35,7 +36,12 @@ struct ContentView: View {
             resultSection
         }
         .padding()
-        .onAppear(perform: requestCameraAccessIfNeeded)
+        .onAppear {
+            // 1. カメラの許可を確認
+            requestCameraAccessIfNeeded()
+            // 2. 画面を「縦」に強制する
+            setOrientation(.portrait)
+        }
         .fullScreenCover(isPresented: $isControllerPresented) {
             ControllerView(
                 scannedCode: scannedCode,
@@ -47,6 +53,7 @@ struct ContentView: View {
                     sendControlCommand("confirm", from: scannedCode)
                 },
                 onClose: {
+                    setOrientation(.portrait) //縦に回転
                     scannedCode = ""
                     controllerDebugMessage = ""
                     isScanning = true
@@ -259,4 +266,26 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
+}
+
+
+//画面向きを切り替える関数
+// import UIKit
+
+func setOrientation(_ orientation: UIInterfaceOrientationMask) {
+    // 1. まず AppDelegate のロックを更新する
+    AppDelegate.lockOrientation(orientation)
+    
+    // 2. 現在の ViewController を探して「設定が変わったよ！」と伝える
+    guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+          let rootVC = windowScene.windows.first?.rootViewController else { return }
+    
+    // これを呼ぶと AppDelegate の supportedInterfaceOrientationsFor が再読み込みされる
+    rootVC.setNeedsUpdateOfSupportedInterfaceOrientations()
+    
+    // 3. iOS 16以上の場合は、強制回転のリクエストも送る
+    if #available(iOS 16.0, *) {
+        let geometryUpdate = UIWindowScene.GeometryUpdate.iOS(interfaceOrientations: orientation)
+        windowScene.requestGeometryUpdate(geometryUpdate)
+    }
 }

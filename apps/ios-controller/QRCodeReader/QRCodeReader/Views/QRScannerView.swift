@@ -40,6 +40,13 @@ final class Coordinator: NSObject, AVCaptureMetadataOutputObjectsDelegate {
     func configureSession(in view: PreviewView) {
         view.videoPreviewLayer.session = session
         view.videoPreviewLayer.videoGravity = .resizeAspectFill
+        
+        // QRリーダー画面のカメラ向きを縦固定
+        if let connection = view.videoPreviewLayer.connection {
+                if connection.isVideoOrientationSupported {
+                    connection.videoOrientation = .portrait
+                }
+            }
 
         sessionQueue.async {
             guard !self.isConfigured else { return }
@@ -114,4 +121,17 @@ final class PreviewView: UIView {
     var videoPreviewLayer: AVCaptureVideoPreviewLayer {
         layer as! AVCaptureVideoPreviewLayer
     }
+    
+    override func layoutSubviews() {
+            super.layoutSubviews()
+            videoPreviewLayer.frame = self.bounds
+            
+            if let connection = videoPreviewLayer.connection {
+                if connection.isVideoOrientationSupported {
+                    // 90度回転しているなら、ここで .portrait を叩き込む
+                    connection.videoOrientation = .portrait
+                }
+            }
+        }
+        
 }

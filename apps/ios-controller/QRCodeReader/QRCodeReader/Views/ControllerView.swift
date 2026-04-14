@@ -72,10 +72,12 @@ struct ControllerView: View {
         }
         .ignoresSafeArea()
         .onAppear {
+            setOrientation(.landscapeRight) //rotate screen
             startPollingRoomStatus()
             motionDetector.start()
         }
         .onDisappear {
+            setOrientation(.portrait) //return to original direction
             pollTask?.cancel()
             pollTask = nil
             hideFlashTask?.cancel()

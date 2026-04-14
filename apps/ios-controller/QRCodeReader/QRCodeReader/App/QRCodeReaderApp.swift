@@ -9,6 +9,10 @@ import SwiftUI
 
 @main
 struct QRCodeReaderApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    init() {
+            setOrientation(.portrait)
+        }
     var body: some Scene {
         WindowGroup {
             ContentView()
