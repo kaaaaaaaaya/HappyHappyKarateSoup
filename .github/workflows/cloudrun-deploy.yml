@@ -1,0 +1,129 @@
+name: Cloud Run Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deploy target environment"
+        required: true
+        type: choice
+        options:
+          - staging
+          - prod
+        default: staging
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/web/**"
+      - "infra/cloudrun/**"
+      - ".github/workflows/cloudrun-deploy.yml"
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: cloudrun-deploy-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment || 'staging' }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: deploy to cloud run
+    runs-on: ubuntu-latest
+    environment: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment || 'staging' }}
+
+    env:
+      REGION: us-central1
+      REPO: happy-soup
+      BACKEND_SERVICE: karate-soup-api
+      WEB_SERVICE: karate-soup-web
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (Workload Identity Federation)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker auth
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Set image tags
+        id: vars
+        run: |
+          echo "backend_image=${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPO }}/backend" >> "$GITHUB_OUTPUT"
+          echo "web_image=${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPO }}/web" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build & push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/web/backend-java
+          push: true
+          tags: |
+            ${{ steps.vars.outputs.backend_image }}:${{ github.sha }}
+            ${{ steps.vars.outputs.backend_image }}:latest
+
+      - name: Deploy backend to Cloud Run
+        run: |
+          gcloud run deploy "${{ env.BACKEND_SERVICE }}" \
+            --project "${{ secrets.GCP_PROJECT_ID }}" \
+            --region "${{ env.REGION }}" \
+            --platform managed \
+            --allow-unauthenticated \
+            --image "${{ steps.vars.outputs.backend_image }}:${{ github.sha }}" \
+            --add-cloudsql-instances "${{ secrets.CLOUDSQL_INSTANCE_CONNECTION_NAME }}" \
+            --set-env-vars "SPRING_DATASOURCE_URL=${{ secrets.SPRING_DATASOURCE_URL }}" \
+            --set-env-vars "SPRING_DATASOURCE_USERNAME=${{ secrets.SPRING_DATASOURCE_USERNAME }}" \
+            --set-env-vars "SPRING_DATASOURCE_PASSWORD=${{ secrets.SPRING_DATASOURCE_PASSWORD }}" \
+            --set-env-vars "GEMINI_USE_VERTEX_AI=true" \
+            --set-env-vars "GEMINI_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}" \
+            --set-env-vars "GEMINI_LOCATION=${{ env.REGION }}" \
+            --set-env-vars "GEMINI_TEXT_MODEL=gemini-2.5-flash" \
+            --set-env-vars "GEMINI_IMAGE_MODEL=gemini-2.5-flash-image" \
+            --set-env-vars "SOUP_LOCAL_FALLBACK_ENABLED=false" \
+            --set-env-vars "APP_GCS_BUCKET_NAME=${{ secrets.APP_GCS_BUCKET_NAME }}" \
+            --set-env-vars "APP_GCS_OBJECT_PREFIX=${{ secrets.APP_GCS_OBJECT_PREFIX }}" \
+            --set-env-vars "APP_CORS_ALLOWED_ORIGINS=${{ secrets.APP_CORS_ALLOWED_ORIGINS }}"
+
+      - name: Resolve backend URL
+        id: backend-url
+        run: |
+          url="$(gcloud run services describe "${{ env.BACKEND_SERVICE }}" --project "${{ secrets.GCP_PROJECT_ID }}" --region "${{ env.REGION }}" --format='value(status.url)')"
+          if [ -z "$url" ]; then
+            echo "[ERROR] Failed to resolve backend URL" >&2
+            exit 1
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "[INFO] backend_url=$url"
+
+      - name: Build & push web image
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/web
+          push: true
+          build-args: |
+            VITE_API_BASE_URL=${{ steps.backend-url.outputs.url }}
+            VITE_GOOGLE_CLIENT_ID=${{ secrets.VITE_GOOGLE_CLIENT_ID }}
+          tags: |
+            ${{ steps.vars.outputs.web_image }}:${{ github.sha }}
+            ${{ steps.vars.outputs.web_image }}:latest
+
+      - name: Deploy web to Cloud Run
+        run: |
+          gcloud run deploy "${{ env.WEB_SERVICE }}" \
+            --project "${{ secrets.GCP_PROJECT_ID }}" \
+            --region "${{ env.REGION }}" \
+            --platform managed \
+            --allow-unauthenticated \
+            --image "${{ steps.vars.outputs.web_image }}:${{ github.sha }}" \
+            --port 80

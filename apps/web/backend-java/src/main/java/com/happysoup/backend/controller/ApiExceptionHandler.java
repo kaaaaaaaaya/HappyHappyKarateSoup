@@ -6,6 +6,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import java.util.Map;
 
@@ -24,6 +25,21 @@ public class ApiExceptionHandler {
                         .findFirst()
                         .map(err -> err.getDefaultMessage() == null ? "Validation failed" : err.getDefaultMessage())
                         .orElse("Validation failed")
+        ));
+    }
+
+    // [EN] Handles upstream (Vertex/Gemini) failures.
+    // [JA] 上流（Vertex/Gemini）起因のエラーを処理します。
+    @ExceptionHandler(WebClientResponseException.class)
+    public ResponseEntity<Map<String, String>> handleWebClient(WebClientResponseException ex) {
+        String detail = ex.getResponseBodyAsString();
+        String message = ex.getMessage() == null ? "Upstream request failed" : ex.getMessage();
+        if (detail != null && !detail.isBlank()) {
+            message = message + " | upstream_body=" + detail;
+        }
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(Map.of(
+                "error", "UPSTREAM_ERROR",
+                "message", message
         ));
     }
 

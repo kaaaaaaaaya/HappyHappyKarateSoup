@@ -1,10 +1,11 @@
 package com.happysoup.backend.config;
 
-import com.happysoup.backend.client.GeminiClient;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.web.reactive.function.client.WebClient;
+
+import com.happysoup.backend.client.GeminiClient;
 
 @Configuration
 @Profile("test")

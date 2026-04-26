@@ -193,8 +193,8 @@ public class GeminiClient {
     private JsonNode callVertexGenerateContent(String model, String prompt, boolean imageRequest, String referenceImageDataUrl) {
         ensureVertexConfig();
 
-        String endpoint = "https://%s-aiplatform.googleapis.com/v1/projects/%s/locations/%s/publishers/google/models/%s:generateContent"
-                .formatted(properties.location(), properties.projectId(), properties.location(), model);
+        String endpoint = "%s/v1/projects/%s/locations/%s/publishers/google/models/%s:generateContent"
+                .formatted(vertexEndpointBase(), properties.projectId(), properties.location(), model);
 
         Map<String, Object> body = buildRequestBody(prompt, imageRequest, referenceImageDataUrl);
 
@@ -214,8 +214,8 @@ public class GeminiClient {
     private JsonNode callVertexImagenPredict(String model, String prompt, String referenceImageDataUrl) {
         ensureVertexConfig();
 
-        String endpoint = "https://%s-aiplatform.googleapis.com/v1/projects/%s/locations/%s/publishers/google/models/%s:predict"
-                .formatted(properties.location(), properties.projectId(), properties.location(), model);
+        String endpoint = "%s/v1/projects/%s/locations/%s/publishers/google/models/%s:predict"
+                .formatted(vertexEndpointBase(), properties.projectId(), properties.location(), model);
 
         String token = getVertexAccessToken();
         Map<String, Object> parameters = Map.of(
@@ -271,6 +271,13 @@ public class GeminiClient {
                 throw exRaw;
             }
         }
+    }
+
+    private String vertexEndpointBase() {
+        if ("global".equalsIgnoreCase(properties.location())) {
+            return "https://aiplatform.googleapis.com";
+        }
+        return "https://%s-aiplatform.googleapis.com".formatted(properties.location());
     }
 
     // [EN] Posts a JSON body to Vertex Imagen predict endpoint.
