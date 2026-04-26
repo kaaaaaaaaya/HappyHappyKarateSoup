@@ -1,4 +1,4 @@
-name: Cloud Run Deploy
+name: cloud run deploy
 
 on:
   workflow_dispatch:
@@ -19,6 +19,9 @@ on:
       - "infra/cloudrun/**"
       - ".github/workflows/cloudrun-deploy.yml"
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 permissions:
   contents: read
   id-token: write
@@ -30,6 +33,7 @@ concurrency:
 jobs:
   deploy:
     name: deploy to cloud run
+    if: ${{ github.ref == 'refs/heads/main' && github.actor != 'dependabot[bot]' }}
     runs-on: ubuntu-latest
     environment: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment || 'staging' }}
 
@@ -42,6 +46,46 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Validate required secrets
+        shell: bash
+        env:
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          GCP_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+          CLOUDSQL_INSTANCE_CONNECTION_NAME: ${{ secrets.CLOUDSQL_INSTANCE_CONNECTION_NAME }}
+          SPRING_DATASOURCE_URL: ${{ secrets.SPRING_DATASOURCE_URL }}
+          SPRING_DATASOURCE_USERNAME: ${{ secrets.SPRING_DATASOURCE_USERNAME }}
+          SPRING_DATASOURCE_PASSWORD: ${{ secrets.SPRING_DATASOURCE_PASSWORD }}
+          APP_GCS_BUCKET_NAME: ${{ secrets.APP_GCS_BUCKET_NAME }}
+          APP_GCS_OBJECT_PREFIX: ${{ secrets.APP_GCS_OBJECT_PREFIX }}
+          APP_CORS_ALLOWED_ORIGINS: ${{ secrets.APP_CORS_ALLOWED_ORIGINS }}
+          VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for k in \
+            GCP_PROJECT_ID \
+            GCP_WORKLOAD_IDENTITY_PROVIDER \
+            GCP_SERVICE_ACCOUNT_EMAIL \
+            CLOUDSQL_INSTANCE_CONNECTION_NAME \
+            SPRING_DATASOURCE_URL \
+            SPRING_DATASOURCE_USERNAME \
+            SPRING_DATASOURCE_PASSWORD \
+            APP_GCS_BUCKET_NAME \
+            APP_GCS_OBJECT_PREFIX \
+            APP_CORS_ALLOWED_ORIGINS \
+            VITE_GOOGLE_CLIENT_ID
+          do
+            if [ -z "${!k:-}" ]; then
+              echo "[ERROR] Missing secret: $k" >&2
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "[HINT] Secrets are not available for workflows triggered from forks/Dependabot. Run from the default branch (main) and configure repo/environment secrets." >&2
+            exit 1
+          fi
 
       - name: Authenticate to Google Cloud (Workload Identity Federation)
         uses: google-github-actions/auth@v2
@@ -105,6 +149,11 @@ jobs:
           fi
           echo "url=$url" >> "$GITHUB_OUTPUT"
           echo "[INFO] backend_url=$url"
+          {
+            echo "## Deploy Outputs"
+            echo ""
+            echo "- Backend: $url"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Build & push web image
         uses: docker/build-push-action@v6
@@ -127,3 +176,15 @@ jobs:
             --allow-unauthenticated \
             --image "${{ steps.vars.outputs.web_image }}:${{ github.sha }}" \
             --port 80
+
+      - name: Resolve web URL
+        id: web-url
+        run: |
+          url="$(gcloud run services describe "${{ env.WEB_SERVICE }}" --project "${{ secrets.GCP_PROJECT_ID }}" --region "${{ env.REGION }}" --format='value(status.url)')"
+          if [ -z "$url" ]; then
+            echo "[ERROR] Failed to resolve web URL" >&2
+            exit 1
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "[INFO] web_url=$url"
+          echo "- Web: $url" >> "$GITHUB_STEP_SUMMARY"
