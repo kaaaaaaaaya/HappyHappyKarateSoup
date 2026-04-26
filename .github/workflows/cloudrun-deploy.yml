@@ -24,13 +24,14 @@ permissions:
   id-token: write
 
 concurrency:
-  group: cloudrun-deploy-${{ github.ref }}-${{ inputs.environment || 'staging' }}
+  group: cloudrun-deploy-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment || 'staging' }}
   cancel-in-progress: false
 
 jobs:
   deploy:
+    name: deploy to cloud run
     runs-on: ubuntu-latest
-    environment: ${{ inputs.environment || 'staging' }}
+    environment: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment || 'staging' }}
 
     env:
       REGION: us-central1
@@ -42,14 +43,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Authenticate to Google Cloud (Service Account JSON)
-        if: ${{ secrets.GCP_CREDENTIALS_JSON != '' }}
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_CREDENTIALS_JSON }}
-
       - name: Authenticate to Google Cloud (Workload Identity Federation)
-        if: ${{ secrets.GCP_CREDENTIALS_JSON == '' }}
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
