@@ -11,10 +11,7 @@ HappyHappyKarateSoup の Web バックエンド（Java / Spring Boot）です。
 
 
 ## Gemini 接続モード
-- APIキー方式（デフォルト）
-  - `GEMINI_USE_VERTEX_AI=false`
-  - `GEMINI_API_KEY` を設定
-- Vertex AI方式
+- Vertex AI方式（推奨/本リポジトリの前提）
   - `GEMINI_USE_VERTEX_AI=true`
   - `GEMINI_PROJECT_ID`, `GEMINI_LOCATION` を設定
   - Application Default Credentials を利用するため `GOOGLE_APPLICATION_CREDENTIALS` を設定
@@ -46,7 +43,7 @@ HappyHappyKarateSoup の Web バックエンド（Java / Spring Boot）です。
   - `DB_NAME`
   - `DB_USERNAME`
   - `DB_PASSWORD`
-- 例は `.env.local.example` を参照してください。
+- 例は `.env.local.example`（任意）を参照してください。
 
 ## Google ログイン設定
 - バックエンドで Google IDトークンを検証するため、以下を設定します。
@@ -221,13 +218,12 @@ apps/web/backend-java/
   - 依存解決や設定不備の初期検知に利用。
 
 ## セットアップ
-1. `.env.local.example` を `.env.local` にコピーして値を設定
-2. ルート: `apps/web/backend-java`
-3. 起動:
+1. ルート: `apps/web/backend-java`
+2. 起動:
    - `bash scripts/run_dev_backend.sh`
 
 ### 起動時の注意
-- `bash scripts/run_dev_backend.sh` は `.env` と `.env.local` を自動読込します。
+- `bash scripts/run_dev_backend.sh` は `.env`（存在する場合）を自動読込します。
 - `GEMINI_USE_VERTEX_AI=true` の場合、以下が未設定だと起動時にエラーで停止します。
   - `GEMINI_PROJECT_ID`
   - `GEMINI_LOCATION`

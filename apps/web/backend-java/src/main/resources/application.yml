@@ -26,6 +26,10 @@ gemini:
   text-model: ${GEMINI_TEXT_MODEL:gemini-2.5-flash}
   image-model: ${GEMINI_IMAGE_MODEL:gemini-2.5-flash-image}
 
+soup:
+  local-fallback:
+    enabled: ${SOUP_LOCAL_FALLBACK_ENABLED:false}
+
 auth:
   google:
     client-id: ${GOOGLE_OAUTH_CLIENT_ID:}
