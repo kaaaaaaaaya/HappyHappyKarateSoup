@@ -149,6 +149,11 @@ jobs:
           fi
           echo "url=$url" >> "$GITHUB_OUTPUT"
           echo "[INFO] backend_url=$url"
+          {
+            echo "## Deploy Outputs"
+            echo ""
+            echo "- Backend: $url"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Build & push web image
         uses: docker/build-push-action@v6
@@ -171,3 +176,15 @@ jobs:
             --allow-unauthenticated \
             --image "${{ steps.vars.outputs.web_image }}:${{ github.sha }}" \
             --port 80
+
+      - name: Resolve web URL
+        id: web-url
+        run: |
+          url="$(gcloud run services describe "${{ env.WEB_SERVICE }}" --project "${{ secrets.GCP_PROJECT_ID }}" --region "${{ env.REGION }}" --format='value(status.url)')"
+          if [ -z "$url" ]; then
+            echo "[ERROR] Failed to resolve web URL" >&2
+            exit 1
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "[INFO] web_url=$url"
+          echo "- Web: $url" >> "$GITHUB_STEP_SUMMARY"
