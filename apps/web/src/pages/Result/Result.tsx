@@ -49,7 +49,7 @@ export default function Result() {
   const hasSavedCollectionRef = useRef(false);
   const [isSavingCollection, setIsSavingCollection] = useState(false);
   const [collectionSavedError, setCollectionSavedError] = useState<string | null>(null);
-  const [collectionSaved, setCollectionSaved] = useState(false);
+  const [focusedResultAction, setFocusedResultAction] = useState<'retry' | 'home'>('retry');
 
   const isLoggedIn = !!sessionStorage.getItem('authToken');
   const homePath = isLoggedIn ? '/home-logged-in' : '/';
@@ -95,7 +95,18 @@ export default function Result() {
         }
         if (currentSequence > lastCommandSequenceRef.current) {
           lastCommandSequenceRef.current = currentSequence;
-          if (latestCommand === 'confirm') {
+          const normalizedCommand = latestCommand.toLowerCase().trim();
+          if (normalizedCommand === 'left' || normalizedCommand === 'up') {
+            setFocusedResultAction('retry');
+          } else if (normalizedCommand === 'right' || normalizedCommand === 'down') {
+            setFocusedResultAction('home');
+          } else if (normalizedCommand === 'confirm' || normalizedCommand === 'punch' || normalizedCommand === 'chop') {
+            if (focusedResultAction === 'retry') {
+              navigate('/difficulty');
+            } else {
+              navigate(homePath);
+            }
+          } else if (latestCommand === 'confirm') {
             navigate(isLoggedIn ? '/home-logged-in' : '/');
           }
         }
@@ -104,7 +115,7 @@ export default function Result() {
       }
     }, 250);
     return () => { window.clearInterval(timerId); };
-  }, [connectedRoomId, isLoggedIn, navigate]);
+  }, [connectedRoomId, focusedResultAction, homePath, isLoggedIn, navigate]);
 
   useEffect(() => {
     if (!isLoggedIn || hasSavedCollectionRef.current || !result || !imageDataUrl) return;
@@ -128,10 +139,8 @@ export default function Result() {
     void (async () => {
       setIsSavingCollection(true);
       setCollectionSavedError(null);
-      setCollectionSaved(false);
       try {
         await postSaveCollection(payload);
-        setCollectionSaved(true);
       } catch (e) {
         const message = e instanceof Error ? e.message : 'Failed to save collection';
         setCollectionSavedError(message);
@@ -440,11 +449,6 @@ export default function Result() {
                       保存失敗: {collectionSavedError}
                     </p>
                   )}
-                  {isLoggedIn && collectionSaved && (
-                    <p style={{ color: '#2e7d32', fontSize: '0.9vw', marginTop: '0.4dvh', ...pf }}>
-                      保存しました。
-                    </p>
-                  )}
                   {!result && !state?.error && (
                     <p style={{ color: '#888', fontSize: '1vw', ...pf }}>
                       生成結果がまだありません。
@@ -465,9 +469,9 @@ export default function Result() {
           marginTop: '2dvh',
         }}>
           {[
-            { label: 'もう1度プレイ', onClick: () => navigate('/difficulty') },
-            { label: 'ホームに戻る', onClick: () => navigate(homePath) },
-          ].map(({ label, onClick }) => (
+            { key: 'retry', label: 'もう1度プレイ', onClick: () => navigate('/difficulty') },
+            { key: 'home', label: 'ホームに戻る', onClick: () => navigate(homePath) },
+          ].map(({ key, label, onClick }) => (
             <button
               key={label}
               onClick={onClick}
@@ -477,11 +481,11 @@ export default function Result() {
                 fontWeight: 'bold',
                 ...pf,
                 color: '#111',
-                backgroundColor: '#fff',
+                backgroundColor: focusedResultAction === key ? '#ffde00' : '#fff',
                 border: '3px solid #555',
                 borderRadius: '0.5vw',
                 cursor: 'pointer',
-                boxShadow: '3px 3px 0 #555',
+                boxShadow: focusedResultAction === key ? '5px 5px 0 #555' : '3px 3px 0 #555',
               }}
               onMouseDown={e => {
                 (e.currentTarget as HTMLButtonElement).style.transform = 'translate(3px,3px)';

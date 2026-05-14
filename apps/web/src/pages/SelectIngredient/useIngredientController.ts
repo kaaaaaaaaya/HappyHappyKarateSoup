@@ -10,6 +10,8 @@ export function useIngredientController(
   const [cursorIndex, setCursorIndex] = useState(0);
   const cursorIndexRef = useRef(0);
   const lastSequenceRef = useRef<number>(0);
+  const isSequenceInitializedRef = useRef(false);
+  const pageEnteredAtRef = useRef(Date.now());
   const onConfirmRef = useRef(onConfirm);
   const onTabChangeRef = useRef(onTabChange);
 
@@ -27,6 +29,10 @@ export function useIngredientController(
   }, [onTabChange]);
 
   useEffect(() => {
+    pageEnteredAtRef.current = Date.now();
+  }, []);
+
+  useEffect(() => {
     if (!connectedRoomId) return;
 
     let cancelled = false;
@@ -40,6 +46,12 @@ export function useIngredientController(
 
         const currentSequence = status.commandSequence ?? 0;
         const incrementalCommands = status.commands ?? [];
+
+        if (!isSequenceInitializedRef.current) {
+          lastSequenceRef.current = currentSequence;
+          isSequenceInitializedRef.current = true;
+          return;
+        }
 
         if (currentSequence > lastSequenceRef.current) {
           lastSequenceRef.current = currentSequence;
@@ -80,6 +92,9 @@ export function useIngredientController(
             } else if (cmd === 'confirm' || cmd === 'punch' || cmd === 'chop' || cmd.startsWith('aim@')) {
               // Note: aim@ might trigger on Confirm depending on controller setup, but we only use 'confirm'/'punch'/'chop'.
               if (cmd === 'confirm' || cmd === 'punch' || cmd === 'chop') {
+                if (Date.now() - pageEnteredAtRef.current < 700) {
+                  continue;
+                }
                 onConfirmRef.current(cursorIndexRef.current);
               }
             }

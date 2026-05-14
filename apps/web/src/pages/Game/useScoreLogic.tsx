@@ -104,6 +104,8 @@ export const useScoreLogic = (noteCount: number) => {
     good: judgments.good,
     ok: judgments.ok,
     miss: judgments.miss,
+    punchCount: actionCounts.punch,
+    chopCount: actionCounts.chop,
     usedEnergyKcal,
   };
 

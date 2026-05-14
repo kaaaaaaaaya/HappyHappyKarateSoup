@@ -8,12 +8,27 @@ const API_BASE_URL = resolveApiBaseUrl();
 export const fetchPlayChart = async (
   difficulty: Difficulty,
 ): Promise<ChartItem[]> => {
-  const response = await fetch(`${API_BASE_URL}/api/charts/play?difficulty=${difficulty}`);
+  const query = `difficulty=${encodeURIComponent(difficulty)}`;
+  const candidates = [
+    `${API_BASE_URL}/api/charts/play?${query}`,
+    `/api/charts/play?${query}`,
+  ];
 
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || `Failed to fetch play chart (status: ${response.status})`);
+  let lastErrorMessage = 'Failed to fetch play chart';
+
+  for (const url of candidates) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        const message = await response.text();
+        lastErrorMessage = message || `Failed to fetch play chart (status: ${response.status})`;
+        continue;
+      }
+      return (await response.json()) as ChartItem[];
+    } catch (error) {
+      lastErrorMessage = error instanceof Error ? error.message : 'Network error while loading chart';
+    }
   }
 
-  return (await response.json()) as ChartItem[];
+  throw new Error(lastErrorMessage);
 };

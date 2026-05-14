@@ -134,22 +134,16 @@ cd HappyHappyKarateSoup
 docker compose up --build -d
 ```
 
-`apps/web/backend-java/.env.local` を使う場合（推奨）:
-```bash
-# 1) 初回だけ雛形をコピー
-cp apps/web/backend-java/.env.local.example apps/web/backend-java/.env.local
-
-# 2) apps/web/backend-java/.env.local を編集
-#    GEMINI_USE_VERTEX_AI, GEMINI_PROJECT_ID, GEMINI_LOCATION, GOOGLE_APPLICATION_CREDENTIALS など
-
-# 3) --env-file を明示して起動
-docker compose --env-file apps/web/backend-java/.env.local up -d --build backend web
-```
+Vertex AI をローカルから呼ぶ場合（推奨）:
+- 1回だけ `gcloud auth application-default login` を実行して ADC を作成します（`~/.config/gcloud` はコンテナにマウント済み）。
 
 補足:
-- `bash scripts/run_dev_backend.sh` は `.env` / `.env.local` を自動読込しますが、これは「Dockerを使わないローカルJava起動」向けです。
-- `docker compose` は `apps/web/backend-java/.env.local` を自動読込しないため、`--env-file` を使うか、ルート `.env` に集約してください。
-- Docker起動時の `GOOGLE_APPLICATION_CREDENTIALS` はコンテナ内パス `/run/secrets/vertex-ai-key.json` を使います（`.env.local` のホスト絶対パスは使いません）。
+- `bash scripts/local.sh up` で `docker compose` 起動と疎通確認（Vertex AI）までまとめて実行できます（推奨）。
+- AIなし（ローカル生成）で起動したい場合は `bash scripts/local.sh up --no-ai` を使います。
+- `docker compose` はルートの `.env` を自動読込します（必要なら `.env` に `GEMINI_PROJECT_ID` などを置けます。`.env` は Git 管理されません）。
+- Vertex AI 認証（ローカルDocker）はどちらかでOK:
+  - (推奨) `gcloud auth application-default login` を実行して ADC を作る（`~/.config/gcloud` はコンテナにマウント済み）
+  - サービスアカウント鍵を `apps/web/backend-java/.secrets/vertex-ai-key.json` に置き、`GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/vertex-ai-key.json` を渡す
 
 起動後:
 - Web: http://localhost:8081
@@ -160,25 +154,43 @@ docker compose --env-file apps/web/backend-java/.env.local up -d --build backend
 docker compose down
 ```
 
+#### ローカル起動＆疎通確認（スクリプト）
+
+```bash
+bash scripts/local.sh up
+```
+
+すでに起動している前提で疎通確認だけ行う場合:
+
+```bash
+bash scripts/local.sh smoke
+```
+
+AIなし（ローカル生成）で起動する場合:
+```bash
+bash scripts/local.sh up --no-ai
+```
+
 ### 3. AI生成設定（通常運用）
 `LOCAL MODE` を使わず、通常のAI生成を使う設定です。
-
-Gemini API Key 方式:
-```bash
-export GEMINI_USE_VERTEX_AI=false
-export GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
-export APP_GCS_BUCKET_NAME="happy-soup"
-export SOUP_LOCAL_FALLBACK_ENABLED=false
-docker compose up -d --build --force-recreate backend
-```
 
 Vertex AI 方式:
 ```bash
 export GEMINI_USE_VERTEX_AI=true
 export GEMINI_PROJECT_ID="happy-happy-karate-soup"
 export GEMINI_LOCATION="us-central1"
+export GEMINI_TEXT_MODEL="gemini-2.5-flash"
 export APP_GCS_BUCKET_NAME="happy-soup"
 export SOUP_LOCAL_FALLBACK_ENABLED=false
+docker compose up -d --build --force-recreate backend
+```
+
+Gemini 3 系を試す場合（Vertex AI 側で Preview / Global の場合があります）:
+```bash
+export GEMINI_USE_VERTEX_AI=true
+export GEMINI_PROJECT_ID="happy-happy-karate-soup"
+export GEMINI_LOCATION="global"
+export GEMINI_TEXT_MODEL="gemini-3-flash-preview"
 docker compose up -d --build --force-recreate backend
 ```
 
@@ -207,6 +219,9 @@ docker compose up -d --build --force-recreate backend
 
 ### 4. Googleログイン有効化（任意）
 Googleログインを有効にするには、Webビルド時に `VITE_GOOGLE_CLIENT_ID` を設定します。
+
+補足:
+- 未設定でもアプリは動作します（ゲストプレイ/ローカルログインで進行）。
 
 ```bash
 docker build \
@@ -275,135 +290,22 @@ Docker Desktop を起動してから再実行
 	- iPhone から http://PCのLANアドレス:8080/actuator/health が開けるか確認してください。
 
 ### 7. Cloud Run デプロイ手順（Artifact Registry あり）
-この手順で、Web と Backend を Cloud Run にデプロイできます。
-このプロジェクトは、バックエンド（Spring Boot + MySQL）とフロントエンド（React/Vite）を Google Cloud Run にデプロイして動作させます。
+このプロジェクトのデプロイは「コマンド貼り付け」ではなく、スクリプト/CI で再現できることを優先します。
 
-最短フロー（Dockerでローカル動作確認できた後）:
-1. `docker buildx build` で backend / web イメージを build & push
-2. `gcloud run deploy` で `karate-soup-api` と `karate-soup-web` を更新
-3. Cloud Run 側の環境変数（`GEMINI_*`, `APP_GCS_BUCKET_NAME`, DB接続）を設定
-4. `actuator/health` と Web URL で疎通確認
+#### GitHub Actions（推奨）
 
-重要:
-- 本番は `.env.local` ではなく、Cloud Run の環境変数設定（または Secret Manager）を正としてください。
-- ローカルでDockerが動くことと、本番での秘密情報管理は別です。本番値はGitへコミットしないでください。
+- `main` にマージすると `Cloud Run Deploy` が自動実行されます
+- 手動で走らせたい場合: GitHub Actions の `Cloud Run Deploy` を `workflow_dispatch` で実行します
+- 必要な Secrets / Environments の設定は `infra/README.md` を参照してください
 
-#### 0. 前提条件 (Prerequisites)
-- Google Cloud CLI (`gcloud`) がインストール・ログイン済みであること
-- Docker がインストールされ、起動していること
-- 以下の GCP リソースが作成済みであること
-  - プロジェクト: `happy-happy-karate-soup`
-  - Cloud SQL インスタンス (MySQL): `karate-soup-instance`
-  - Cloud Storage バケット: `happy-soup`
+#### 手動デプロイ（スクリプト）
 
-#### 1. データベースの初回セットアップ (1回のみ)
-Cloud SQL インスタンスの中に、アプリケーション用のデータベースを作成します。
+CI を使えない状況や検証用途では、スクリプトでデプロイできます（パスワード等は `.env` に置くため、基本は GitHub Secrets を推奨）。
 
 ```bash
-# 'happysoup' という名前のデータベースを作成
-gcloud sql databases create happysoup --instance=karate-soup-instance
-```
-
-**ルートディレクトリの.envにこれを記述**
-```bash
-PROJECT_ID=happy-happy-karate-soup
-REGION=us-central1
-REPO=happy-soup
-
-GEMINI_USE_VERTEX_AI=true
-GEMINI_PROJECT_ID=happy-happy-karate-soup
-GEMINI_LOCATION=us-central1
-SOUP_LOCAL_FALLBACK_ENABLED=true
-
-APP_GCS_BUCKET_NAME=happy-soup
-APP_GCS_OBJECT_PREFIX=collections
-
-VITE_API_BASE_URL=http://localhost:8080
-
-DB_NAME=mysql
-INSTANCE_NAME=karate-soup-instance
-SPRING_JPA_DATABASE_PLATFORM=org.hibernate.dialect.MySQLDialect
-INSTANCE_CONNECTION_NAME=happy-happy-karate-soup:us-central1:karate-soup-instance
-SPRING_DATASOURCE_URL=jdbc:mysql:///happysoup?cloudSqlInstance=happy-happy-karate-soup:us-central1:karate-soup-instance&socketFactory=com.google.cloud.sql.mysql.SocketFactory
-
-SPRING_DATASOURCE_PASSWORD="ここにパスワードを入力"
-```
-**.envの設定を反映**
-```bash
-export $(grep -v '^#' .env | xargs)
-```
-
-```bash
-# 1) gcloud 設定
-gcloud config set project "$PROJECT_ID"
-gcloud auth configure-docker "$REGION-docker.pkg.dev"
-
-# 2) Artifact Registry 作成（初回のみ）
-gcloud artifacts repositories create "$REPO" \
-	--repository-format=docker \
-	--location="$REGION" \
-	--description="HappyHappyKarateSoup containers"
-```
-
-Backend イメージ build/push:
-```bash
-docker buildx build \
-	--platform linux/amd64 \
-	-t "$REGION-docker.pkg.dev/$PROJECT_ID/$REPO/backend:latest" \
-	--push \
-	apps/web/backend-java
-```
-
-Web イメージ build/push:
-```bash
-docker buildx build \
-	--platform linux/amd64 \
-	--build-arg VITE_API_BASE_URL="https://karate-soup-api-486336410817.us-central1.run.app" \
-	--build-arg VITE_GOOGLE_CLIENT_ID="YOUR_GOOGLE_CLIENT_ID" \
-	-t "$REGION-docker.pkg.dev/$PROJECT_ID/$REPO/web:latest" \
-	--push \
-	apps/web
-```
-
-Cloud Run deploy:
-```bash
-gcloud run deploy karate-soup-api \
-    --image "us-central1-docker.pkg.dev/happy-happy-karate-soup/happy-soup/backend:latest" \
-    --platform managed \
-    --region us-central1 \
-    --allow-unauthenticated \
-    --add-cloudsql-instances happy-happy-karate-soup:us-central1:karate-soup-instance \
-    --set-env-vars SPRING_DATASOURCE_URL=$SPRING_DATASOURCE_URL \
-    --set-env-vars SPRING_DATASOURCE_USERNAME=$SPRING_DATASOURCE_USERNAME \
-    --set-env-vars SPRING_DATASOURCE_PASSWORD=$SPRING_DATASOURCE_PASSWORD
-
-gcloud run deploy karate-soup-web \
-  --image "us-central1-docker.pkg.dev/happy-happy-karate-soup/happy-soup/web:latest" \
-  --platform managed \
-  --region us-central1 \
-  --allow-unauthenticated \
-  --port 80
-```
-
-本番WebからAPIにアクセスできるよう CORS を設定:
-```bash
-gcloud run deploy karate-soup-api \
-  --image "us-central1-docker.pkg.dev/happy-happy-karate-soup/happy-soup/backend:latest" \
-  --region "us-central1" \
-  --platform managed \
-  --allow-unauthenticated \
-  --add-cloudsql-instances "happy-happy-karate-soup:us-central1:karate-soup-instance" \
-  --set-env-vars='^~^SPRING_DATASOURCE_URL=jdbc:mysql:///happysoup?cloudSqlInstance=happy-happy-karate-soup:us-central1:karate-soup-instance&socketFactory=com.google.cloud.sql.mysql.SocketFactory~SPRING_DATASOURCE_USERNAME=root~SPRING_DATASOURCE_PASSWORD=ここにデータベースのパスワードを入力~GEMINI_USE_VERTEX_AI=true~GEMINI_PROJECT_ID=happy-happy-karate-soup~GEMINI_LOCATION=us-central1~APP_CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:8081,https://karate-soup-web-486336410817.us-central1.run.app~APP_GCS_BUCKET_NAME=happy-soup'
-```
-
-補足:
-- 2026-03-20 時点の本番復旧では、`GEMINI_USE_VERTEX_AI=true` で Cloud Run backend を運用。
-- `GEMINI_API_KEY` 未設定でも、サービスアカウント権限で Vertex AI 呼び出しが可能。
-
-デプロイ確認:
-```bash
-curl -s https://karate-soup-web-486336410817.us-central1.run.app | head -20
-curl -s https://karate-soup-api-486336410817.us-central1.run.app/actuator/health
+cp .env.example .env
+# .env を編集してから実行
+bash scripts/deploy_cloudrun.sh
 ```
 
 ### 8. GKE

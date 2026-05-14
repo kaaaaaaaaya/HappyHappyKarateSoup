@@ -1,6 +1,8 @@
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BrandedConnectionBackground from '../components/BrandedConnectionBackground';
 import type { Difficulty } from '../api/chartApi';
+import { fetchControllerRoomStatus } from '../api/controllerRoomApi';
 
 type DifficultyOption = {
   key: Difficulty;
@@ -40,12 +42,78 @@ const OPTIONS: DifficultyOption[] = [
 
 export default function SelectDifficulty() {
   const navigate = useNavigate();
+  const [focusedIndex, setFocusedIndex] = useState(0);
+  const focusedIndexRef = useRef(0);
+  const connectedRoomId = sessionStorage.getItem('connectedRoomId');
+  const lastSequenceRef = useRef(0);
+  const isSequenceInitializedRef = useRef(false);
+  const pageEnteredAtRef = useRef(Date.now());
 
   const handleSelect = (difficulty: Difficulty) => {
     sessionStorage.setItem('selectedDifficulty', difficulty);
     sessionStorage.removeItem('referenceImageDataUrl');
     navigate('/select');
   };
+
+  useEffect(() => {
+    focusedIndexRef.current = focusedIndex;
+  }, [focusedIndex]);
+
+  useEffect(() => {
+    pageEnteredAtRef.current = Date.now();
+  }, []);
+
+  useEffect(() => {
+    if (!connectedRoomId) {
+      return;
+    }
+
+    const maxIndex = OPTIONS.length - 1;
+    const timerId = window.setInterval(async () => {
+      try {
+        const status = await fetchControllerRoomStatus(connectedRoomId, {
+          since: lastSequenceRef.current,
+        });
+        const currentSequence = status.commandSequence ?? 0;
+        const incrementalCommands = status.commands ?? [];
+
+        if (!isSequenceInitializedRef.current) {
+          lastSequenceRef.current = currentSequence;
+          isSequenceInitializedRef.current = true;
+          return;
+        }
+
+        const commandEntries = incrementalCommands.length > 0
+          ? incrementalCommands
+          : [];
+
+        for (const entry of commandEntries) {
+          const cmd = (entry.command ?? '').toLowerCase().trim();
+          if (cmd === 'left' || cmd === 'up') {
+            setFocusedIndex((prev) => Math.max(0, prev - 1));
+          } else if (cmd === 'right' || cmd === 'down') {
+            setFocusedIndex((prev) => Math.min(maxIndex, prev + 1));
+          } else if (cmd === 'confirm' || cmd === 'punch' || cmd === 'chop') {
+            // 画面遷移直後の押しっぱなし/残留コマンドによる誤選択を防止
+            if (Date.now() - pageEnteredAtRef.current < 700) {
+              continue;
+            }
+            handleSelect(OPTIONS[Math.max(0, Math.min(maxIndex, focusedIndexRef.current))].key);
+          }
+        }
+
+        if (currentSequence > lastSequenceRef.current) {
+          lastSequenceRef.current = currentSequence;
+        }
+      } catch (error) {
+        console.error('Failed to poll controller command on difficulty page:', error);
+      }
+    }, 120);
+
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, [connectedRoomId]);
 
   return (
     <BrandedConnectionBackground>
@@ -100,7 +168,7 @@ export default function SelectDifficulty() {
             alignItems: 'stretch',
           }}
         >
-          {OPTIONS.map((option) => (
+          {OPTIONS.map((option, index) => (
             <div
               key={option.key}
               style={{
@@ -109,7 +177,7 @@ export default function SelectDifficulty() {
                 minHeight: 'clamp(320px, 25vw, 500px)',
                 marginTop: 'clamp(5px, 1.0vw, 20px)',
                 backgroundColor: option.cardColor,
-                border: '3px solid #141414',
+                border: focusedIndex === index ? '4px solid #ffffff' : '3px solid #141414',
                 borderRadius: 'clamp(14px, 1.6vw, 20px)',
                 boxSizing: 'border-box',
                 padding: 'clamp(12px, 1.2vw, 20px) clamp(10px, 1.0vw, 16px) 0',
@@ -118,7 +186,7 @@ export default function SelectDifficulty() {
                 alignItems: 'center',
                 justifyContent: 'flex-start',
                 overflow: 'visible',
-                boxShadow: '2px 2px 0 0 #000',
+                boxShadow: focusedIndex === index ? '0 0 0 3px #111, 2px 2px 0 0 #000' : '2px 2px 0 0 #000',
               }}
             >
               <div style={{ width: '100%' }}>
@@ -199,7 +267,7 @@ export default function SelectDifficulty() {
                     width: '92%',
                     borderRadius: 'clamp(12px, 1.4vw, 18px)',
                     border: '3px solid #202020',
-                    backgroundColor: '#efefef',
+                    backgroundColor: focusedIndex === index ? '#ffde00' : '#efefef',
                     color: '#101010',
                     fontFamily: 'VT323',
                     fontSize: 'clamp(16px, 3vw, 40px)',

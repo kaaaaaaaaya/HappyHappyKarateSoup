@@ -3,6 +3,9 @@ import SwiftUI
 import UIKit
 
 struct ControllerView: View {
+    // MARK: - 列挙型
+    
+    /// レトロリモコンモード用の方向入力
     enum Direction {
         case up
         case down
@@ -10,11 +13,13 @@ struct ControllerView: View {
         case right
     }
 
+    /// ユーザーがメニュー（リモート）にいるか、ゲーム中（アクション）かを判定する
     private enum ControllerMode {
         case remote
         case action
     }
 
+    /// 物理的な攻撃時の視覚的フィードバックの種類を定義
     private enum ActionFlash: Equatable {
         case punch
         case chop
@@ -29,6 +34,9 @@ struct ControllerView: View {
         }
     }
 
+    // MARK: - ネットワークモデル
+    
+    /// ゲームの状態をポーリングする際にサーバーから返されるデータ構造
     private struct RoomStatusResponse: Decodable {
         struct CommandEntry: Decodable {
             let sequence: Int
@@ -42,21 +50,28 @@ struct ControllerView: View {
         let commands: [CommandEntry]?
     }
 
-    let scannedCode: String
-    let debugMessage: String
-    var onDirection: (String) -> Void
-    var onConfirm: () -> Void
-    var onClose: () -> Void
+    // MARK: - プロパティ
+    
+    let scannedCode: String           // QRコードから取得した接続文字列
+    var onDirection: (String) -> Void // ゲームにコマンドを送信するためのコールバック
+    var onConfirm: () -> Void         // 「OK」ボタン用のコールバック
+    var onClose: () -> Void           // コントローラーを終了するためのコールバック
 
+    // MARK: - 状態管理
+    
     @State private var mode: ControllerMode = .remote
     @State private var pollTask: Task<Void, Never>? = nil
-    @State private var lastSeenSequence: Int = -1
+    @State private var lastSeenSequence: Int = -1 // 古いコマンドを再処理しないよう履歴を追跡
 
     @State private var aimX: CGFloat = 0.5
     @State private var aimY: CGFloat = 0.55
     @State private var currentActionFlash: ActionFlash? = nil
     @State private var hideFlashTask: Task<Void, Never>? = nil
+    
+    // 加速度計とジャイロスコープのデータを監視
     @StateObject private var motionDetector = ControllerMotionDetector()
+    
+    // Xcodeシミュレータで実行している時のみ、デバッグ用ボタンを表示
     private let showsSimulatorTestButtons: Bool = {
 #if targetEnvironment(simulator)
         true
@@ -73,17 +88,20 @@ struct ControllerView: View {
         .ignoresSafeArea()
         .onAppear {
             setOrientation(.landscapeRight) //rotate screen
+            // ネットワークポーリングとモーションセンサーを開始
             startPollingRoomStatus()
             motionDetector.start()
         }
         .onDisappear {
             setOrientation(.portrait) //return to original direction
+            // メモリリークやバックグラウンドでのバッテリー消費を防ぐためにリソースをクリーンアップ
             pollTask?.cancel()
             pollTask = nil
             hideFlashTask?.cancel()
             hideFlashTask = nil
             motionDetector.stop()
         }
+        // motionDetectorによって検知されたモーションイベントに反応
         .onChange(of: motionDetector.punchEventId) { _, _ in
             if mode == .action {
                 showActionFlash(.punch)
@@ -98,6 +116,9 @@ struct ControllerView: View {
         }
     }
 
+    // MARK: - ビューコンポーネント
+    
+    /// レトロ（メニュー）とモダン（ゲームプレイ）のUIを切り替える
     @ViewBuilder
     private var controllerContent: some View {
         ZStack {
@@ -110,18 +131,21 @@ struct ControllerView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    /// 十字キー形式のレイアウトを使用してメニューを操作するためのUI
     private var retroRemoteView: some View {
         ZStack {
             Color(hex: "#F5EDD8").ignoresSafeArea()
             DecorativeBackground()
 
             VStack(spacing: 0) {
+                // 上部のマーキー（流れる文字）バー
                 ZStack {
                     Color(hex: "#8A9BAD").opacity(0.88)
                     MarqueeView(text: "Now Playing Happy Happy Karate Soup!")
                 }
                 .frame(maxWidth: .infinity, minHeight: 40, maxHeight: 40)
 
+                // 閉じるボタン
                 HStack {
                     Spacer()
                     Button("CLOSE") { onClose() }
@@ -135,16 +159,18 @@ struct ControllerView: View {
 
                 Spacer()
 
+                // メインコントローラーのボタン
                 HStack(alignment: .center, spacing: 100) {
+                    // 決定/OKボタン
                     CardButton(action: { onConfirm() }) {
                         OKLabel(fontSize: 70)
                     }
                     .frame(width: 160, height: 160)
 
+                    // 方向キー（D-Pad）
                     HStack(spacing: 20) {
                         CardButton(action: { onDirection("left") }) {
                             ArrowLabel(symbol: "<", fontSize: 60)
-                            
                         }.frame(width: 80, height: 130)
 
                         VStack(spacing: 20) {
@@ -167,6 +193,7 @@ struct ControllerView: View {
 
                 Spacer()
 
+                // 下部の装飾バー
                 Color(hex: "#8A9BAD").opacity(0.88).frame(height: 20)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -174,8 +201,10 @@ struct ControllerView: View {
         .ignoresSafeArea()
     }
 
+    /// アクティブなゲームプレイモード（モーション操作）用のUI
     private var modernActionView: some View {
         ZStack {
+            // ネオン・サイバーパンク風のグラデーション背景
             LinearGradient(
                 colors: [
                     Color(red: 0.05, green: 0.07, blue: 0.14),
@@ -200,19 +229,9 @@ struct ControllerView: View {
                     .tint(.pink)
                 }
 
-                if !scannedCode.isEmpty {
-                    Text("接続コード")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.8))
-                    Text(scannedCode)
-                        .font(.caption2.monospaced())
-                        .foregroundStyle(.white.opacity(0.9))
-                        .lineLimit(2)
-                        .truncationMode(.middle)
-                }
-
                 Spacer()
 
+                // 操作説明パネル
                 VStack(spacing: 16) {
                     Text("ゲームモード")
                         .font(.headline)
@@ -241,6 +260,7 @@ struct ControllerView: View {
                 }
                 .padding(.horizontal, 40)
 
+                // モーション操作が利用できないシミュレータでのテスト用デバッグボタン
                 if showsSimulatorTestButtons {
                     HStack(spacing: 12) {
                         Button("TEST PUNCH") {
@@ -266,6 +286,7 @@ struct ControllerView: View {
             .padding(20)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
 
+            // 攻撃時の視覚フィードバック（パンチ/チョップの画像）
             if let flash = currentActionFlash {
                 actionFlashOverlay(for: flash)
                     .transition(
@@ -282,6 +303,7 @@ struct ControllerView: View {
         )
     }
 
+    /// 攻撃アニメーションのオーバーレイを描画
     @ViewBuilder
     private func actionFlashOverlay(for flash: ActionFlash) -> some View {
         VStack {
@@ -297,27 +319,35 @@ struct ControllerView: View {
         .background(
             Color.white.ignoresSafeArea()
         )
-        .allowsHitTesting(false)
+        .allowsHitTesting(false) // オーバーレイがタッチをブロックしないように設定
     }
 
+    // MARK: - ロジック & ヘルパー関数
+    
+    /// コマンド文字列を作成し、ゲームのインスタンスに送信する
     private func sendActionCommand(_ action: String, acceleration: Double?) {
         let x = String(format: "%.3f", max(0, min(1, aimX)))
         let y = String(format: "%.3f", max(0, min(1, aimY)))
+        
+        // 攻撃の威力を判定するため、利用可能な場合は加速度を追加
         if let acceleration {
             let a = String(format: "%.3f", max(0, acceleration))
             onDirection("\(action)@\(x),\(y),\(a)")
         } else {
             onDirection("\(action)@\(x),\(y)")
         }
+        
+        // 技を繰り出したユーザーへの触覚フィードバック
         let impact = UIImpactFeedbackGenerator(style: .medium)
         impact.impactOccurred()
     }
 
+    /// 攻撃時の画像を画面上に短時間表示する
     private func showActionFlash(_ flash: ActionFlash) {
         hideFlashTask?.cancel()
         currentActionFlash = flash
         hideFlashTask = Task {
-            try? await Task.sleep(nanoseconds: 650_000_000)
+            try? await Task.sleep(nanoseconds: 650_000_000) // 650ms間表示
             guard !Task.isCancelled else { return }
             await MainActor.run {
                 currentActionFlash = nil
@@ -325,16 +355,18 @@ struct ControllerView: View {
         }
     }
 
+    /// ルームステータスの更新を確認するバックグラウンドループを開始
     private func startPollingRoomStatus() {
         guard let info = parseRoomInfo(from: scannedCode) else { return }
         pollTask = Task {
             while !Task.isCancelled {
                 await fetchRoomStatus(baseURL: info.baseURL, roomId: info.roomId)
-                try? await Task.sleep(nanoseconds: 500_000_000)
+                try? await Task.sleep(nanoseconds: 500_000_000) // 500msごとにポーリング
             }
         }
     }
 
+    /// スキャンされたURLから接続情報を抽出する
     private func parseRoomInfo(from val: String) -> (baseURL: String, roomId: String)? {
         guard let comp = URLComponents(string: val),
             let rid = comp.queryItems?.first(where: { $0.name == "roomId" })?.value
@@ -345,9 +377,12 @@ struct ControllerView: View {
         return (base.trimmingCharacters(in: CharacterSet(charactersIn: "/")), rid)
     }
 
+    /// サーバーから現在の状態を取得し、ゲーム側のイベントに反応する
     @MainActor
     private func fetchRoomStatus(baseURL: String, roomId: String) async {
         var components = URLComponents(string: "\(baseURL)/api/controller/rooms/\(roomId)/status")
+        
+        // まだ受信していないコマンドのみを取得するため 'since' パラメータを使用
         if lastSeenSequence >= 0 {
             components?.queryItems = [URLQueryItem(name: "since", value: String(lastSeenSequence))]
         }
@@ -355,11 +390,13 @@ struct ControllerView: View {
         guard let url = components?.url else {
             return
         }
+        
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
             let res = try JSONDecoder().decode(RoomStatusResponse.self, from: data)
             let seq = res.commandSequence ?? 0
 
+            // コマンドのリストがあるか、最新のものだけかを確認
             let commandEntries: [RoomStatusResponse.CommandEntry]
             if let incremental = res.commands, !incremental.isEmpty {
                 commandEntries = incremental
@@ -369,6 +406,7 @@ struct ControllerView: View {
                 commandEntries = []
             }
 
+            // ゲームコマンドの処理（状態変化と触覚フィードバック）
             for entry in commandEntries {
                 let cmd = entry.command
                 if cmd == "start_game" {
@@ -376,25 +414,30 @@ struct ControllerView: View {
                 } else if ["end_game", "return_remote"].contains(cmd) {
                     mode = .remote
                 } else if cmd == "hit" && mode == .action {
+                    // ゲーム内でプレイヤーが被弾したときにバイブレーションを作動させる
                     print("[ControllerView] hit received (sequence: \(entry.sequence))")
                     notifyHitHaptic()
                 }
             }
 
+            // シーケンス番号を更新
             if seq > lastSeenSequence {
                 lastSeenSequence = seq
             }
         } catch {}
     }
 
+    /// ダメージを受けたことをシミュレートするために物理的な振動（ハプティクス）を作動させる
     private func notifyHitHaptic() {
-        // ゲームの打撃（ヒット）に最適な、重くて短い振動
         let impactGenerator = UIImpactFeedbackGenerator(style: .heavy)
-        impactGenerator.prepare() // 事前に準備しておくと遅延なく振動
+        impactGenerator.prepare() // レイテンシを最小化
         impactGenerator.impactOccurred()
     }
 }
 
+// MARK: - サブビュー
+
+/// レトロスタイルのドット絵風矢印ラベル
 private struct ArrowLabel: View {
     let symbol: String
     var fontSize: CGFloat = 64
@@ -404,6 +447,7 @@ private struct ArrowLabel: View {
     }
 }
 
+/// レトロスタイルのドット絵風OKラベル
 private struct OKLabel: View {
     var fontSize: CGFloat = 80
     var body: some View {
@@ -413,6 +457,7 @@ private struct OKLabel: View {
     }
 }
 
+/// 「3D」の押し込み効果（影の移動とスケール変更）を持つカスタムボタン
 private struct CardButton<Content: View>: View {
     let action: () -> Void
     @ViewBuilder let content: () -> Content
@@ -427,8 +472,10 @@ private struct CardButton<Content: View>: View {
             action()
         }) {
             ZStack {
+                // 背景の影
                 RoundedRectangle(cornerRadius: 10).fill(Color(hex: "#9b9b9b").opacity(0.5)).offset(
                     x: isPressed ? 2 : 6, y: isPressed ? 2 : 6)
+                // ボタンのメイン表面
                 RoundedRectangle(cornerRadius: 10).fill(Color(hex: "#D4896A"))
                     .overlay(
                         RoundedRectangle(cornerRadius: 10).strokeBorder(
@@ -442,6 +489,7 @@ private struct CardButton<Content: View>: View {
     }
 }
 
+/// リモートモードの上部ステータスバーで使用されるスクロールテキストビュー（マーキー）
 private struct MarqueeView: View {
     let text: String
     @State private var offset: CGFloat = 0
@@ -456,6 +504,7 @@ private struct MarqueeView: View {
                         GeometryReader { tGeo in
                             Color.clear.onAppear { textWidth = tGeo.size.width }
                         })
+                // シームレスなループのための2つ目のテキスト
                 Text(fullText).font(.custom("DotGothic16-Regular", size: 18)).fixedSize()
             }
             .foregroundColor(Color(hex: "#1a1a1a"))
@@ -469,6 +518,7 @@ private struct MarqueeView: View {
     }
 }
 
+/// レトロな背景を埋めるための装飾要素（線、円、三角形）
 private struct DecorativeBackground: View {
     var body: some View {
         ZStack {
@@ -488,10 +538,11 @@ private struct DecorativeBackground: View {
     }
 }
 
+// MARK: - プレビュー
+
 #Preview(traits: .landscapeRight) {
     ControllerView(
         scannedCode: "happykaratesoup://connect?roomId=room-preview&apiBase=http://localhost:8080",
-        debugMessage: "Now Playing Happy Happy Karate Soup!",
         onDirection: { _ in },
         onConfirm: {},
         onClose: {}

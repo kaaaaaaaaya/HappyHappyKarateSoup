@@ -10,52 +10,70 @@ import Foundation
 import SwiftUI
 import UIKit
 
+/// カメラのアクセス権限状態を管理する列挙型
 private enum CameraAuthorizationState {
-    case notDetermined
-    case authorized
-    case denied
+    case notDetermined // 未決定
+    case authorized    // 許可済み
+    case denied        // 拒否
 }
 
 struct ContentView: View {
+    // MARK: - 状態管理
+    
     @State private var cameraAuthorization: CameraAuthorizationState = .notDetermined
-    @State private var isScanning = false
-    @State private var scannedCode: String = ""
-    @State private var isControllerPresented = false
-    @State private var controllerDebugMessage: String = ""
+    @State private var isScanning = false          // スキャンの実行中フラグ
+    @State private var scannedCode: String = ""    // 読み取ったQRコードの内容
+    @State private var isControllerPresented = false // コントローラー画面の表示フラグ
 
     var body: some View {
         VStack(spacing: 16) {
             Text("QRコードリーダー")
                 .font(.title2.bold())
 
+            // メインコンテンツ（カメラビュー または 状態メッセージ）
             content
                 .frame(maxWidth: .infinity, minHeight: 320)
                 .background(Color.black.opacity(0.1))
                 .clipShape(RoundedRectangle(cornerRadius: 16))
 
+            // 読み取り結果表示エリア
             resultSection
         }
         .padding()
+        .onAppear(perform: requestCameraAccessIfNeeded) // 起動時に権限確認
         .onAppear {
-            // 1. カメラの許可を確認
-            requestCameraAccessIfNeeded()
-            // 2. 画面を「縦」に強制する
-            setOrientation(.portrait)
+            // コントローラーが表示されていない時は画面を縦向き(Portrait)に固定
+            if !isControllerPresented {
+                AppDelegate.lockOrientation(.portrait)
+            }
         }
+        .onDisappear {
+            // 画面が閉じる際に画面回転の制限を解除
+            AppDelegate.lockOrientation(.allButUpsideDown)
+        }
+        .onChange(of: isControllerPresented) { _, presented in
+            // コントローラーの表示状態に合わせて画面の向きを制御
+            if presented {
+                AppDelegate.lockOrientation(.allButUpsideDown) // ゲーム中は回転を許可
+            } else {
+                AppDelegate.lockOrientation(.portrait) // リーダー画面では縦向き固定
+            }
+        }
+        // QRコード読み取り後に表示されるゲーム操作画面
         .fullScreenCover(isPresented: $isControllerPresented) {
             ControllerView(
                 scannedCode: scannedCode,
-                debugMessage: controllerDebugMessage,
                 onDirection: { direction in
+                    // 十字キーなどの方向コマンドを送信
                     sendControlCommand(direction, from: scannedCode)
                 },
                 onConfirm: {
+                    // 決定ボタンのコマンドを送信
                     sendControlCommand("confirm", from: scannedCode)
                 },
                 onClose: {
                     setOrientation(.portrait) //縦に回転
                     scannedCode = ""
-                    controllerDebugMessage = ""
                     isScanning = true
                     isControllerPresented = false
                 }
@@ -63,19 +81,24 @@ struct ContentView: View {
         }
     }
 
+    // MARK: - ビューコンポーネント
+    
+    /// カメラの権限状態に応じたメインビューの切り替え
     @ViewBuilder
     private var content: some View {
         switch cameraAuthorization {
         case .authorized:
             ZStack {
+                // カメラのスキャンビュー本体
                 QRScannerView(isScanning: $isScanning) { code in
                     scannedCode = code
                     isScanning = false
-                    notifyRoomJoinedIfPossible(from: code)
-                    isControllerPresented = true
+                    notifyRoomJoinedIfPossible(from: code) // サーバーにルーム参加を通知
+                    isControllerPresented = true          // コントローラーへ遷移
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 16))
 
+                // 読み取り範囲を示す枠線
                 RoundedRectangle(cornerRadius: 12)
                     .stroke(Color.white, lineWidth: 3)
                     .frame(width: 220, height: 220)
@@ -93,12 +116,14 @@ struct ContentView: View {
                 }
             }
             .onAppear {
+                // まだ読み取っていない場合のみスキャンを開始
                 if scannedCode.isEmpty {
                     isScanning = true
                 }
             }
 
         case .denied:
+            // 権限拒否時のメッセージ
             VStack(spacing: 12) {
                 Image(systemName: "camera.fill")
                     .font(.system(size: 28))
@@ -112,6 +137,7 @@ struct ContentView: View {
             .padding()
 
         case .notDetermined:
+            // 権限確認中のローディング表示
             VStack(spacing: 12) {
                 ProgressView()
                 Text("カメラの許可を確認中...")
@@ -121,6 +147,7 @@ struct ContentView: View {
         }
     }
 
+    /// 読み取り結果と再スキャンボタンのセクション
     @ViewBuilder
     private var resultSection: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -132,7 +159,7 @@ struct ContentView: View {
                     .foregroundStyle(.secondary)
             } else {
                 Text(scannedCode)
-                    .textSelection(.enabled)
+                    .textSelection(.enabled) // 長押しでコピー可能
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
 
@@ -146,6 +173,9 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    // MARK: - ヘルパー関数
+    
+    /// カメラアクセスの許可を要求
     private func requestCameraAccessIfNeeded() {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
@@ -167,7 +197,9 @@ struct ContentView: View {
         }
     }
 
+    /// スキャンしたURL情報を元に、サーバーのルーム参加APIを叩く
     private func notifyRoomJoinedIfPossible(from scannedValue: String) {
+        // URLからroomIdを取得
         guard let components = URLComponents(string: scannedValue),
             let roomId = components.queryItems?.first(where: { $0.name == "roomId" })?.value,
             !roomId.isEmpty
@@ -175,6 +207,7 @@ struct ContentView: View {
             return
         }
 
+        // apiBaseが指定されていない場合はデフォルト(localhost)を使用
         let apiBase = components.queryItems?
             .first(where: { $0.name == "apiBase" })?
             .value?
@@ -183,6 +216,7 @@ struct ContentView: View {
         let resolvedBaseUrl = (apiBase?.isEmpty == false ? apiBase! : "http://localhost:8080")
             .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
 
+        // エンドポイントURLの構築
         guard
             let encodedRoomId = roomId.addingPercentEncoding(
                 withAllowedCharacters: .urlPathAllowed),
@@ -195,25 +229,17 @@ struct ContentView: View {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
+        // 通信実行（ルーム参加通知）
         URLSession.shared.dataTask(with: request) { _, response, error in
-            if let error {
-                DispatchQueue.main.async {
-                    controllerDebugMessage = "join failed: \(error.localizedDescription)"
-                }
-                return
-            }
-
+            if error != nil { return }
             let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
-            DispatchQueue.main.async {
-                if statusCode == 200 {
-                    controllerDebugMessage = "Now Playing Happy Happy Karate Soup!"
-                } else {
-                    controllerDebugMessage = "join status: \(statusCode) (URL: \(url.absoluteString))"
-                }
+            if statusCode != 200 {
+                print("join status: \(statusCode) (URL: \(url.absoluteString))")
             }
         }.resume()
     }
 
+    /// 指定されたコマンド（方向、決定など）をサーバーに送信
     private func sendControlCommand(_ command: String, from scannedValue: String) {
         guard let components = URLComponents(string: scannedValue),
             let roomId = components.queryItems?.first(where: { $0.name == "roomId" })?.value,
@@ -230,6 +256,7 @@ struct ContentView: View {
         let resolvedBaseUrl = (apiBase?.isEmpty == false ? apiBase! : "http://localhost:8080")
             .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
 
+        // エンドポイント構築: /rooms/{roomId}/commands/{command}
         guard
             let encodedRoomId = roomId.addingPercentEncoding(
                 withAllowedCharacters: .urlPathAllowed),
@@ -247,19 +274,15 @@ struct ContentView: View {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
+        // 通信実行（コマンド送信）
         URLSession.shared.dataTask(with: request) { _, response, error in
             if let error {
-                DispatchQueue.main.async {
-                    controllerDebugMessage =
-                        "cmd \(command): failed (\(error.localizedDescription))"
-                }
+                print("cmd \(command): failed (\(error.localizedDescription))")
                 return
             }
 
             let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
-            DispatchQueue.main.async {
-                controllerDebugMessage = "cmd \(command): status \(statusCode)"
-            }
+            print("cmd \(command): status \(statusCode)")
         }.resume()
     }
 }

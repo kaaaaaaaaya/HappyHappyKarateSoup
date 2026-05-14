@@ -7,6 +7,7 @@ import { postSoupGenerate } from '../../api/soupApi';
 import type { SoupGenerateResponse } from '../../api/soupApi';
 import type { Difficulty } from '../../api/chartApi';
 import { fetchControllerRoomStatus, postControllerRoomCommand } from '../../api/controllerRoomApi';
+import { postMartialSession } from '../../api/profileApi';
 import { NOTE_ANIMATION_MS } from './timing';
 
 
@@ -173,6 +174,8 @@ const parseCommandAcceleration = (normalizedCommand: string): number | undefined
   return Math.max(0, acceleration);
 };
 
+const CONTROLLER_MIN_ACTION_ACCELERATION = 1.9;
+
 const parseControllerCommand = (command: string): ParsedControllerCommand | null => {
   const normalized = command.trim().toLowerCase();
   if (normalized.startsWith('aim')) {
@@ -181,20 +184,28 @@ const parseControllerCommand = (command: string): ParsedControllerCommand | null
   }
 
   if (normalized.startsWith('punch')) {
+    const acceleration = parseCommandAcceleration(normalized);
+    if (acceleration !== undefined && acceleration < CONTROLLER_MIN_ACTION_ACCELERATION) {
+      return null;
+    }
     return {
       kind: 'action',
       action: 'punch',
       xNorm: parseCommandXNorm(normalized),
-      acceleration: parseCommandAcceleration(normalized),
+      acceleration,
     };
   }
 
   if (normalized.startsWith('chop')) {
+    const acceleration = parseCommandAcceleration(normalized);
+    if (acceleration !== undefined && acceleration < CONTROLLER_MIN_ACTION_ACCELERATION) {
+      return null;
+    }
     return {
       kind: 'action',
       action: 'chop',
       xNorm: parseCommandXNorm(normalized),
-      acceleration: parseCommandAcceleration(normalized),
+      acceleration,
     };
   }
 
@@ -246,6 +257,7 @@ export default function Game() {
   const soupGenerationPromiseRef = useRef<Promise<SoupGenerateResponse | null> | null>(null);
   const soupGenerationResultRef = useRef<SoupGenerateResponse | null>(null);
   const lastSentHitJudgmentKeyRef = useRef<number | null>(null);
+  const hasPostedMartialSessionRef = useRef(false);
   // Ingredient 型に位置情報を追加
   // フックから必要な状態を受け取る
   // useGameLogic の戻り値に burstingIds, setBurstingIds を追加して受け取る
@@ -253,8 +265,32 @@ export default function Game() {
     combo, lastJudgment, submitScore, totalScore, rank,
     battleStats,
     isChartFlowFinished,
+    progress,
     burstingIds, setBurstingIds  // ← 追加
   } = useGameLogic({ selectedIngredientEmojis, selectedDifficulty });
+
+  const progressPercent = Math.round(Math.min(1, Math.max(0, progress)) * 100);
+  const assetBase = import.meta.env.BASE_URL ?? '/';
+  const kitchenImageUrl = `${assetBase}images/kitchen.png`;
+  const potImageUrl = `${assetBase}images/cooking_pot.png`;
+  const railTopY = 40;
+  const railBottomY = 100;
+  const railTopInset = 10;
+  const judgeZoneTop = 60; // smaller -> farther (奥) に見える
+  const judgeZoneHeight = 10;
+  const judgeZoneBottom = judgeZoneTop + judgeZoneHeight;
+  const judgeZoneCenter = (judgeZoneTop + judgeZoneBottom) / 2;
+  const getLaneEdgeX = (yPercent: number, side: 'left' | 'right') => {
+    const clampedY = Math.min(railBottomY, Math.max(railTopY, yPercent));
+    const t = (clampedY - railTopY) / (railBottomY - railTopY);
+    const xTop = side === 'left' ? 50 - railTopInset : 50 + railTopInset;
+    const xBottom = side === 'left' ? 0 : 100;
+    return xTop + (xBottom - xTop) * t;
+  };
+  const judgeLeftTop = getLaneEdgeX(judgeZoneTop, 'left');
+  const judgeRightTop = getLaneEdgeX(judgeZoneTop, 'right');
+  const judgeLeftBottom = getLaneEdgeX(judgeZoneBottom, 'left');
+  const judgeRightBottom = getLaneEdgeX(judgeZoneBottom, 'right');
 
   useEffect(() => {
     handleActionRef.current = handleAction;
@@ -319,19 +355,25 @@ export default function Game() {
           return;
         }
 
-        const hasIncrementalCommands = incrementalCommands.length > 0;
         const isSequenceAdvanced = currentSequence > lastControllerCommandSequenceRef.current;
-        const isRawCommandChanged = latestCommand !== '' && latestCommand !== lastControllerRawCommandRef.current;
-
-        if (!hasIncrementalCommands && !isSequenceAdvanced && !isRawCommandChanged) {
+        if (!isSequenceAdvanced) {
           return;
         }
 
-        const commandEntries = hasIncrementalCommands
+        const commandEntries = incrementalCommands.length > 0
           ? incrementalCommands
-          : [{ sequence: currentSequence, command: latestCommand }];
+          : latestCommand !== ''
+            ? [{ sequence: currentSequence, command: latestCommand }]
+            : [];
+
+        let maxProcessedSequence = lastControllerCommandSequenceRef.current;
 
         for (const entry of commandEntries) {
+          if (entry.sequence <= lastControllerCommandSequenceRef.current) {
+            continue;
+          }
+
+          maxProcessedSequence = Math.max(maxProcessedSequence, entry.sequence);
           const parsedCommand = parseControllerCommand(entry.command ?? '');
           if (!parsedCommand) {
             continue;
@@ -345,9 +387,7 @@ export default function Game() {
           }
         }
 
-        if (isSequenceAdvanced) {
-          lastControllerCommandSequenceRef.current = currentSequence;
-        }
+        lastControllerCommandSequenceRef.current = Math.max(maxProcessedSequence, currentSequence);
         if (latestCommand !== '') {
           lastControllerRawCommandRef.current = latestCommand;
         }
@@ -457,6 +497,28 @@ export default function Game() {
       // [JA] リザルト遷移には生成AI画像を必須とします。
       const generatedSoup = soupGenerationResultRef.current;
 
+      if (!hasPostedMartialSessionRef.current) {
+        const authUserRaw = sessionStorage.getItem('authUser');
+        if (authUserRaw) {
+          try {
+            const authUser = JSON.parse(authUserRaw) as { userId?: number };
+            if (authUser.userId) {
+              const playedAt = new Date().toISOString().slice(0, 19);
+              await postMartialSession({
+                userId: authUser.userId,
+                playedAt,
+                punchCount: battleStats.punchCount,
+                chopCount: battleStats.chopCount,
+                usedEnergyKcal: battleStats.usedEnergyKcal,
+              });
+              hasPostedMartialSessionRef.current = true;
+            }
+          } catch (error) {
+            console.error('Failed to save martial session:', error);
+          }
+        }
+      }
+
       const resultData = generatedSoup
         ? {
           ingredients: generatedSoup.ingredients,
@@ -537,12 +599,47 @@ export default function Game() {
   }, [lastJudgment]);
 
   return (
-    <div style={{ textAlign: 'center', padding: '50px' }}>
+    <div
+      style={{
+        textAlign: 'center',
+        padding: '50px',
+        minHeight: '100vh',
+        color: '#fff',
+        backgroundColor: '#f5e6d6', // 明るいベージュ系
+        position: 'relative',
+        overflow: 'hidden',
+      }}
+    >
       <style>{animationStyles}</style>
 
+      <img
+        src={kitchenImageUrl}
+        alt=""
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          zIndex: 0,
+          opacity: 0.9,
+        }}
+      />
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          backgroundColor: 'rgba(255, 220, 180, 0.18)', // 明るいベージュの半透明
+          zIndex: 1,
+        }}
+      />
+
+      <div style={{ position: 'relative', zIndex: 2 }}>
       {phase === 'countdown' ? (
         <div>
-          <h2>ゲーム準備</h2>
+          <h2 style={{ color: '#fff' }}>ゲーム準備</h2>
           <p>スマホをこっち向き（反時計回りに90度）に回して、こうやって持ってね！</p>
           <div style={{ fontSize: '80px', fontWeight: 'bold', margin: '50px 0', color: '#ff5722' }}>
             {count > 0 ? count : 'START!'}
@@ -550,18 +647,57 @@ export default function Game() {
         </div>
       ) : (
         <div>
-          <h2>ゲームプレイ（パンチ画面）</h2>
+          <h2 style={{ color: '#fff' }}>ゲームプレイ（パンチ画面）</h2>
           {totalScore !== null && <p>最新スコア: {totalScore}</p>}
+
+          <div
+            style={{
+              margin: '12px auto 18px',
+              width: '90%',
+              maxWidth: '720px',
+              textAlign: 'left',
+              fontFamily: "'DotGothic16', sans-serif",
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', color: '#fff' }}>
+              <span>進行度</span>
+              <span>{progressPercent}%</span>
+            </div>
+            <div
+              role="progressbar"
+              aria-valuenow={progressPercent}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              style={{
+                width: '100%',
+                height: '12px',
+                backgroundColor: 'rgba(255, 255, 255, 0.35)',
+                borderRadius: '999px',
+                overflow: 'hidden',
+                boxShadow: '0 0 6px rgba(0, 0, 0, 0.25) inset',
+              }}
+            >
+              <div
+                style={{
+                  width: `${progressPercent}%`,
+                  height: '100%',
+                  background: 'linear-gradient(90deg, #ffe082 0%, #ffb74d 50%, #ff7043 100%)',
+                  transition: 'width 80ms linear',
+                }}
+              />
+            </div>
+          </div>
 
           {/*ゲーム画面内の設定*/}
           <div style={{
             margin: '30px auto',
             width: "100%",
             aspectRatio: '16 / 9',
-            backgroundImage: 'url("/images/kitchen.png")', // 画像ファイルへのパス
-            backgroundSize: 'auto auto',   // 画像をコンテナいっぱいに拡大縮小
-            backgroundPosition: 'center', // 画像を中央に配置
-            backgroundRepeat: 'no-repeat', // 画像をタイル状に繰り返さない
+            backgroundImage: `url("${kitchenImageUrl}")`,
+            backgroundColor: 'transparent', // 透明に変更
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
             position: 'relative',
             overflow: 'hidden',
             perspective: '500px'
@@ -637,9 +773,9 @@ export default function Game() {
 
               // lane(-100〜100) をコンテナ幅の割合に変換
               // lane=0 → 中央(50%), lane=-100 → 左端, lane=100 → 右端
-              // 判定ゾーンは y=80% 付近（70%〜85%の中間）
+              // 判定ゾーンの中心に合わせる
               const burstLeftPercent = 50 + (item.startX / 100) * 25; // 5%〜95% の範囲にマップ
-              const burstTopPercent = 75;
+              const burstTopPercent = judgeZoneCenter;
 
               return (
                 <div
@@ -746,18 +882,20 @@ export default function Game() {
               left: '0',
               width: '103.5%',
               height: '12%', /* 画像がしっかり見えるように高さを広げました */
-              display: 'flex-start',
-              scale: '4', /* 画像を大きくして存在感アップ！ */
-              alignItems: 'flex-start', /* 画像が下にベタ付けになるように変更 */
+              display: 'flex',
+              alignItems: 'flex-start',
               justifyContent: 'center',
-              zIndex: 10
+              transform: 'scale(4)', /* 画像を大きくして存在感アップ！ */
+              transformOrigin: 'center bottom',
+              zIndex: 10,
+              pointerEvents: 'none',
             }}>
 
               <img
-                src="/images/cooking_pot.png"
+                src={potImageUrl}
                 style={{
-                  height: '100%', /* 親のdivの高さ(120px)に合わせる */
-                  objectFit: 'contain' /* 画像の縦横比を崩さずに綺麗に収める */
+                  height: '100%', /* 親のdivの高さに合わせる */
+                  objectFit: 'contain', /* 画像の縦横比を崩さずに綺麗に収める */
                 }}
               />
             </div>
@@ -780,19 +918,17 @@ export default function Game() {
               clipPath: 'polygon(calc(50% - 10%) 40%, calc(50% + 10%) 40%, 100% 100%, 0% 100%)'
             }}></div>
 
-            {/* 判定ゾーン（台形：高さ80%〜90%の位置に配置） */}
+            {/* 判定ゾーン（鍋の上面に合わせて横幅調整） */}
             <div style={{
               position: 'absolute',
               top: '0',
               left: '0',
               width: '100%',
               height: '100%',
-              // 判定ゾーンの色
               backgroundColor: 'rgba(255, 180, 45, 0.3)',
-              zIndex: 55, // 道(50)より上で、線(60)より下
-
-              // レーンの広がりに合わせて、80%と90%の高さの横幅を計算して切り抜いています
-              clipPath: 'polygon(13.5% 80%, 86.5% 80%, 93.75% 90%, 6.25% 90%)'
+              zIndex: 55,
+              // レールの左右線に合わせて幅を補正
+              clipPath: `polygon(${judgeLeftTop}% ${judgeZoneTop}%, ${judgeRightTop}% ${judgeZoneTop}%, ${judgeRightBottom}% ${judgeZoneBottom}%, ${judgeLeftBottom}% ${judgeZoneBottom}%)`
             }}></div>
 
             {/* 2. レーンの線（SVGで描画） */}
@@ -829,8 +965,8 @@ export default function Game() {
 
               {/* 上側のライン (y=80% の位置) */}
               <line
-                x1="13.5%" y1="80%"
-                x2="86.5%" y2="80%"
+                x1={`${judgeLeftTop}%`} y1={`${judgeZoneTop}%`}
+                x2={`${judgeRightTop}%`} y2={`${judgeZoneTop}%`}
                 stroke="rgba(255, 220, 180, 0.8)"
                 strokeWidth="3"
                 style={{ filter: 'drop-shadow(0 0 10px rgba(255, 220, 180, 1))' }}
@@ -838,8 +974,8 @@ export default function Game() {
 
               {/* 下側のライン (y=90% の位置) */}
               <line
-                x1="6.75%" y1="90%"
-                x2="93.25%" y2="90%"
+                x1={`${judgeLeftBottom}%`} y1={`${judgeZoneBottom}%`}
+                x2={`${judgeRightBottom}%`} y2={`${judgeZoneBottom}%`}
                 stroke="rgba(255, 220, 180, 1)"
                 strokeWidth="6"
                 style={{ filter: 'drop-shadow(0 0 10px rgba(255, 220, 180, 1))' }}
@@ -849,6 +985,7 @@ export default function Game() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
