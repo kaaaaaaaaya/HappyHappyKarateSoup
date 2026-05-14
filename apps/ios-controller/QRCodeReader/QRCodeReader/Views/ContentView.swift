@@ -8,6 +8,7 @@
 import AVFoundation
 import Foundation
 import SwiftUI
+import UIKit
 
 /// カメラのアクセス権限状態を管理する列挙型
 private enum CameraAuthorizationState {
@@ -71,7 +72,7 @@ struct ContentView: View {
                     sendControlCommand("confirm", from: scannedCode)
                 },
                 onClose: {
-                    // 閉じる処理：状態をリセットしてスキャンを再開
+                    setOrientation(.portrait) //縦に回転
                     scannedCode = ""
                     isScanning = true
                     isControllerPresented = false
@@ -288,4 +289,26 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
+}
+
+
+//画面向きを切り替える関数
+// import UIKit
+
+func setOrientation(_ orientation: UIInterfaceOrientationMask) {
+    // 1. まず AppDelegate のロックを更新する
+    AppDelegate.lockOrientation(orientation)
+    
+    // 2. 現在の ViewController を探して「設定が変わったよ！」と伝える
+    guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+          let rootVC = windowScene.windows.first?.rootViewController else { return }
+    
+    // これを呼ぶと AppDelegate の supportedInterfaceOrientationsFor が再読み込みされる
+    rootVC.setNeedsUpdateOfSupportedInterfaceOrientations()
+    
+    // 3. iOS 16以上の場合は、強制回転のリクエストも送る
+    if #available(iOS 16.0, *) {
+        let geometryUpdate = UIWindowScene.GeometryUpdate.iOS(interfaceOrientations: orientation)
+        windowScene.requestGeometryUpdate(geometryUpdate)
+    }
 }

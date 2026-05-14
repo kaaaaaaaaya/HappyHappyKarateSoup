@@ -87,11 +87,13 @@ struct ControllerView: View {
         }
         .ignoresSafeArea()
         .onAppear {
+            setOrientation(.landscapeRight) //rotate screen
             // ネットワークポーリングとモーションセンサーを開始
             startPollingRoomStatus()
             motionDetector.start()
         }
         .onDisappear {
+            setOrientation(.portrait) //return to original direction
             // メモリリークやバックグラウンドでのバッテリー消費を防ぐためにリソースをクリーンアップ
             pollTask?.cancel()
             pollTask = nil
