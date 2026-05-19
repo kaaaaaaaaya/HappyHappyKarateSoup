@@ -19,6 +19,10 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * チャート関連のデータを提供するRESTコントローラー。
+ * メトリクス計測（Micrometer）とHTTPキャッシュ（ETag）をサポートしています。
+ */
 @RestController
 @RequestMapping("/api/charts")
 public class ChartController {
@@ -31,13 +35,22 @@ public class ChartController {
         this.meterRegistry = meterRegistry;
     }
 
+    /**
+     * チャートのサマリー一覧を取得します。
+     * ETagによる条件付きリクエストをサポートし、変更がない場合は 304 Not Modified を返します。
+     */
     @GetMapping
     public ResponseEntity<List<ChartSummary>> getCharts(ServletWebRequest webRequest) {
+        // メトリクスの開始：リクエスト処理時間を計測
         Timer.Sample sample = Timer.start(meterRegistry);
+        // カウンタアップ：総リクエスト数
         Counter.builder("charts.requests.total").tag("endpoint", "list").register(meterRegistry).increment();
 
         try {
+            // 現在の状態に基づくETagを計算（クライアント側のキャッシュと比較するため）
             String etag = Objects.requireNonNull(chartService.computeChartsEtag());
+            
+            // If-None-Match ヘッダーを確認し、変更がなければ即座に復帰
             if (webRequest.checkNotModified(etag)) {
                 sample.stop(Timer.builder("charts.requests.duration").tag("endpoint", "list").tag("status", "not_modified").register(meterRegistry));
                 return ResponseEntity.status(HttpStatus.NOT_MODIFIED)
@@ -46,19 +59,28 @@ public class ChartController {
                         .build();
             }
 
+            // 実データの取得
             List<ChartSummary> charts = chartService.getChartSummaries();
+            
+            // 処理成功のメトリクスを記録して終了
             sample.stop(Timer.builder("charts.requests.duration").tag("endpoint", "list").tag("status", "success").register(meterRegistry));
+            
             return ResponseEntity.ok()
                     .eTag(etag)
                     .cacheControl(CacheControl.maxAge(60, TimeUnit.SECONDS).cachePublic().mustRevalidate())
                     .body(charts);
         } catch (RuntimeException ex) {
+            // エラー時のメトリクス記録
             Counter.builder("charts.requests.failed").tag("endpoint", "list").register(meterRegistry).increment();
             sample.stop(Timer.builder("charts.requests.duration").tag("endpoint", "list").tag("status", "error").register(meterRegistry));
             throw ex;
         }
     }
 
+    /**
+     * 指定されたIDのチャート詳細を取得します。
+     * getChartsと同様に、ETagとメトリクス計測をサポート。
+     */
     @GetMapping("/{chartId}")
     public ResponseEntity<Chart> getChart(@PathVariable String chartId, ServletWebRequest webRequest) {
         Timer.Sample sample = Timer.start(meterRegistry);
@@ -66,6 +88,8 @@ public class ChartController {
 
         try {
             String etag = Objects.requireNonNull(chartService.computeChartEtag(chartId));
+            
+            // キャッシュ有効期限は300秒（5分）に設定
             if (webRequest.checkNotModified(etag)) {
                 sample.stop(Timer.builder("charts.requests.duration").tag("endpoint", "detail").tag("status", "not_modified").register(meterRegistry));
                 return ResponseEntity.status(HttpStatus.NOT_MODIFIED)
@@ -76,6 +100,7 @@ public class ChartController {
 
             Chart chart = chartService.getChart(chartId);
             sample.stop(Timer.builder("charts.requests.duration").tag("endpoint", "detail").tag("status", "success").register(meterRegistry));
+            
             return ResponseEntity.ok()
                     .eTag(etag)
                     .cacheControl(CacheControl.maxAge(300, TimeUnit.SECONDS).cachePublic().mustRevalidate())
@@ -87,14 +112,20 @@ public class ChartController {
         }
     }
 
+    /**
+     * プレイ用のチャートデータを取得します。
+     * ゲームプレイに直結するため、キャッシュは無効化（noCache）されています。
+     */
     @GetMapping("/play")
     public ResponseEntity<List<List<Object>>> getPlayChart(
             @RequestParam String difficulty
     ) {
         Counter.builder("charts.requests.total").tag("endpoint", "play").register(meterRegistry).increment();
+        
         List<List<Object>> chart = chartService.getPlayChart(difficulty);
+        
         return ResponseEntity.ok()
-                .cacheControl(CacheControl.noCache())
+                .cacheControl(CacheControl.noCache()) // プレイデータは常に最新を要求
                 .body(chart);
     }
 }
