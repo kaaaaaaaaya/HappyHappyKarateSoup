@@ -19,6 +19,7 @@ export type SaveCollectionRequest = {
   comment: string;
   totalScore: number;
   rank: string;
+  difficulty?: 'easy' | 'normal' | 'hard';
 };
 
 export type CollectionItem = {

@@ -12,6 +12,7 @@ public record CollectionSaveRequest(
         FlavorProfileDto flavor,
         String comment,
         Integer totalScore,
-        String rank
+        String rank,
+        String difficulty
 ) {
 }

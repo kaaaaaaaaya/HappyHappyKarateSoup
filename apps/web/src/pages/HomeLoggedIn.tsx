@@ -11,7 +11,7 @@ export default function HomeLoggedIn() {
   const [userId, setUserId] = useState<number | null>(null);
   const [collections, setCollections] = useState<CollectionItem[]>([]);
   const [isLoadingCollections, setIsLoadingCollections] = useState(false);
-  const [focusedButton, setFocusedButton] = useState<'profile' | 'start' | 'qr' | 'logout'>('qr');
+  const [focusedButton, setFocusedButton] = useState<'profile' | 'start' | 'ranking' | 'qr' | 'logout'>('qr');
 
   const connectedRoomId = sessionStorage.getItem('connectedRoomId') ?? '';
   const lastCommandSequenceRef = useRef(0);
@@ -156,8 +156,12 @@ export default function HomeLoggedIn() {
     profileButtonArea: {
       position: 'absolute' as const,
       right: '5%',
+      top: '50%',
       display: 'flex',
-      alignItems: 'center',
+      flexDirection: 'column' as const,
+      alignItems: 'flex-start',
+      gap: '0.5rem',
+      transform: 'translateY(-68%)',
     },
     profileButton: {
       padding: '0.5rem 1rem',
@@ -175,23 +179,30 @@ export default function HomeLoggedIn() {
   // 🌟 フォーカス状態に合わせた動的スタイル
   const isControllerConnected = connectedRoomId !== '';
 
-  const getButtonStyle = (btnName: 'start' | 'qr' | 'logout') => ({
+  const getButtonStyle = (btnName: 'start' | 'ranking' | 'qr' | 'logout') => ({
     ...styles.buttonBase,
     backgroundColor:
       (isControllerConnected && focusedButton === btnName)
-      || (!isControllerConnected && btnName === 'qr')
+        || (!isControllerConnected && btnName === 'qr')
         ? '#ffde00'
         : '#fff', // 未連携時は QR を初期強調
     boxShadow:
       (isControllerConnected && focusedButton === btnName)
-      || (!isControllerConnected && btnName === 'qr')
+        || (!isControllerConnected && btnName === 'qr')
         ? '6px 6px 0px 0px #000'
         : '2px 2px 0px 0px #000',
     transform:
       (isControllerConnected && focusedButton === btnName)
-      || (!isControllerConnected && btnName === 'qr')
+        || (!isControllerConnected && btnName === 'qr')
         ? 'translate(-2px, -2px)'
         : 'none',
+  });
+
+  const getProfileAreaButtonStyle = (btnName: 'profile' | 'ranking') => ({
+    ...styles.profileButton,
+    backgroundColor: isControllerConnected && focusedButton === btnName ? '#ffde00' : '#fff',
+    boxShadow: isControllerConnected && focusedButton === btnName ? '4px 4px 0px 0px #000' : '2px 2px 0px 0px #000',
+    transform: isControllerConnected && focusedButton === btnName ? 'translate(-2px, -2px)' : 'none',
   });
 
   // --- アニメーション用データ複製 ---
@@ -207,6 +218,7 @@ export default function HomeLoggedIn() {
   };
 
   const handleStartGame = () => navigate('/difficulty');
+  const handleOpenRanking = () => navigate('/ranking');
   const handleOpenQr = () => navigate('/connect');
   const handleOpenProfile = () => navigate('/profile');
 
@@ -252,18 +264,21 @@ export default function HomeLoggedIn() {
               prev === 'logout' ? 'qr'
                 : prev === 'qr' ? 'start'
                   : prev === 'start' ? 'profile'
-                    : 'profile',
+                    : prev === 'profile' ? 'ranking'
+                      : 'ranking',
             );
           } else if (latestCommand === 'down') {
             setFocusedButton((prev) =>
-              prev === 'profile' ? 'start'
-                : prev === 'start' ? 'qr'
-                  : prev === 'qr' ? 'logout'
-                    : 'logout',
+              prev === 'ranking' ? 'profile'
+                : prev === 'profile' ? 'start'
+                  : prev === 'start' ? 'qr'
+                    : prev === 'qr' ? 'logout'
+                      : 'logout',
             );
           } else if (latestCommand === 'confirm') {
             if (focusedButton === 'profile') handleOpenProfile();
             else if (focusedButton === 'start') handleStartGame();
+            else if (focusedButton === 'ranking') handleOpenRanking();
             else if (focusedButton === 'qr') handleOpenQr();
             else handleLogout();
           }
@@ -299,13 +314,14 @@ export default function HomeLoggedIn() {
         <p style={styles.subtitle}>ようこそ、修行者の{username}さん！</p>
         <div style={styles.profileButtonArea}>
           <button
+            onClick={handleOpenRanking}
+            style={getProfileAreaButtonStyle('ranking')}
+          >
+            → ランキング
+          </button>
+          <button
             onClick={handleOpenProfile}
-            style={{
-              ...styles.profileButton,
-              backgroundColor: isControllerConnected && focusedButton === 'profile' ? '#ffde00' : '#fff',
-              boxShadow: isControllerConnected && focusedButton === 'profile' ? '4px 4px 0px 0px #000' : '2px 2px 0px 0px #000',
-              transform: isControllerConnected && focusedButton === 'profile' ? 'translate(-2px, -2px)' : 'none',
-            }}
+            style={getProfileAreaButtonStyle('profile')}
           >
             → プロフィールを見る
           </button>

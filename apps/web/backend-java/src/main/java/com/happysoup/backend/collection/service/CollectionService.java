@@ -56,6 +56,7 @@ public class CollectionService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "user not found"));
 
         String rank = request.rank() != null ? request.rank().trim() : "C";
+        String difficulty = normalizeDifficulty(request.difficulty());
         Integer totalScore = request.totalScore() != null ? request.totalScore() : 0;
         List<String> ingredients = request.ingredients() != null ? request.ingredients() : List.of();
         FlavorProfileDto flavor = request.flavor() != null
@@ -89,6 +90,7 @@ public class CollectionService {
         entity.setCommentText(request.comment());
         entity.setTotalScore(totalScore);
         entity.setRankValue(rank);
+        entity.setDifficultyValue(difficulty);
 
         SoupCollection saved = soupCollectionRepository.save(entity);
         return toResponse(saved);
@@ -178,6 +180,17 @@ public class CollectionService {
         payload.put("rank", rank);
         payload.put("savedAt", LocalDateTime.now().toString());
         return writeJson(payload);
+    }
+
+    private String normalizeDifficulty(String raw) {
+        if (raw == null) {
+            return "normal";
+        }
+        String trimmed = raw.trim().toLowerCase();
+        return switch (trimmed) {
+            case "easy", "normal", "hard" -> trimmed;
+            default -> "normal";
+        };
     }
 
     private String writeJson(Object value) {

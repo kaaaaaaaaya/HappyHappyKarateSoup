@@ -49,7 +49,7 @@ export default function Result() {
   const hasSavedCollectionRef = useRef(false);
   const [isSavingCollection, setIsSavingCollection] = useState(false);
   const [collectionSavedError, setCollectionSavedError] = useState<string | null>(null);
-  const [focusedResultAction, setFocusedResultAction] = useState<'retry' | 'home'>('retry');
+  const [focusedResultAction, setFocusedResultAction] = useState<'retry' | 'ranking' | 'home'>('retry');
 
   const isLoggedIn = !!sessionStorage.getItem('authToken');
   const homePath = isLoggedIn ? '/home-logged-in' : '/';
@@ -72,6 +72,19 @@ export default function Result() {
   const imageDataUrl = result?.imageDataUrl ?? '';
   const connectedRoomId = sessionStorage.getItem('connectedRoomId') ?? '';
   const battleStats: BattleStats | null = state?.battleStats ?? result?.battleStats ?? null;
+
+  // [EN] Move focus across result actions for controller navigation.
+  // [JA] コントローラー操作に合わせて結果ボタンのフォーカスを移動します。
+  const moveResultFocus = (direction: 'prev' | 'next') => {
+    const order: Array<'retry' | 'ranking' | 'home'> = ['retry', 'ranking', 'home'];
+    setFocusedResultAction((prev) => {
+      const index = order.indexOf(prev);
+      const nextIndex = direction === 'prev'
+        ? (index - 1 + order.length) % order.length
+        : (index + 1) % order.length;
+      return order[nextIndex];
+    });
+  };
 
   useEffect(() => {
     if (!connectedRoomId || hasNotifiedEndGameRef.current) return;
@@ -97,12 +110,14 @@ export default function Result() {
           lastCommandSequenceRef.current = currentSequence;
           const normalizedCommand = latestCommand.toLowerCase().trim();
           if (normalizedCommand === 'left' || normalizedCommand === 'up') {
-            setFocusedResultAction('retry');
+            moveResultFocus('prev');
           } else if (normalizedCommand === 'right' || normalizedCommand === 'down') {
-            setFocusedResultAction('home');
+            moveResultFocus('next');
           } else if (normalizedCommand === 'confirm' || normalizedCommand === 'punch' || normalizedCommand === 'chop') {
             if (focusedResultAction === 'retry') {
               navigate('/difficulty');
+            } else if (focusedResultAction === 'ranking') {
+              navigate('/ranking');
             } else {
               navigate(homePath);
             }
@@ -135,6 +150,7 @@ export default function Result() {
       comment,
       totalScore: scoreValue,
       rank: rankValue,
+      difficulty: (sessionStorage.getItem('selectedDifficulty') as 'easy' | 'normal' | 'hard' | null) ?? undefined,
     };
     void (async () => {
       setIsSavingCollection(true);
@@ -471,6 +487,7 @@ export default function Result() {
           {[
             { key: 'retry', label: 'もう1度プレイ', onClick: () => navigate('/difficulty') },
             { key: 'home', label: 'ホームに戻る', onClick: () => navigate(homePath) },
+            { key: 'ranking', label: 'ランキング', onClick: () => navigate('/ranking') },
           ].map(({ key, label, onClick }) => (
             <button
               key={label}
@@ -480,12 +497,12 @@ export default function Result() {
                 fontSize: '1.2vw',
                 fontWeight: 'bold',
                 ...pf,
-                color: '#111',
+                color: '#000000',
                 backgroundColor: focusedResultAction === key ? '#ffde00' : '#fff',
-                border: '3px solid #555',
+                border: '3px solid #000000',
                 borderRadius: '0.5vw',
                 cursor: 'pointer',
-                boxShadow: focusedResultAction === key ? '5px 5px 0 #555' : '3px 3px 0 #555',
+                boxShadow: focusedResultAction === key ? '5px 5px 0 #000000' : '3px 3px 0 #000000',
               }}
               onMouseDown={e => {
                 (e.currentTarget as HTMLButtonElement).style.transform = 'translate(3px,3px)';
