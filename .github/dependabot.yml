@@ -1,0 +1,31 @@
+version: 2
+updates:
+  # Frontend (React/Vite) dependencies
+  - package-ecosystem: "npm"
+    directory: "/apps/web"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "deps(web)"
+    groups:
+      web-deps:
+        patterns:
+          - "*"
+
+  # Backend (Spring Boot) dependencies
+  - package-ecosystem: "maven"
+    directory: "/apps/web/backend-java"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "deps(backend)"
+    groups:
+      backend-deps:
+        patterns:
+          - "*"
