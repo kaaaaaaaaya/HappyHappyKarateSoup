@@ -9,6 +9,7 @@ import Game from './pages/Game/Game';
 import Result from './pages/Result/Result';
 import Profile from './pages/Profile';
 import SoupHistory from './pages/SoupHistory';
+import Ranking from './pages/Ranking';
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
         <Route path="/result" element={<Result />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/soup-history" element={<SoupHistory />} />
+        <Route path="/ranking" element={<Ranking />} />
       </Routes>
     </BrowserRouter>
   );

@@ -41,7 +41,7 @@ export const useScoreLogic = (noteCount: number) => {
     ingredientId?: number,
     actionAcceleration?: number,
   ) => {
-    let result = '';
+    let result: string;
     let resultKey: 'perfect' | 'good' | 'ok' | 'miss' = 'miss'; // デフォルトは'miss'とする
 
     if (actionType === 'none') {

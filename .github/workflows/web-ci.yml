@@ -1,0 +1,46 @@
+name: Web CI
+
+on:
+  push:
+    paths:
+      - "apps/web/**"
+      - ".github/workflows/web-ci.yml"
+  pull_request:
+    paths:
+      - "apps/web/**"
+      - ".github/workflows/web-ci.yml"
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  web-ci:
+    name: build & lint (web)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: apps/web
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
