@@ -136,11 +136,11 @@ export default function Result() {
     if (!isLoggedIn || hasSavedCollectionRef.current || !result || !imageDataUrl) return;
     const authUserRaw = sessionStorage.getItem('authUser');
     if (!authUserRaw) return;
-    let userId: number | null = null;
+    let authUser: { userId?: number };
     try {
-      const authUser = JSON.parse(authUserRaw) as { userId?: number };
-      userId = authUser.userId ?? null;
+      authUser = JSON.parse(authUserRaw) as { userId?: number };
     } catch { return; }
+    const userId = authUser.userId ?? null;
     if (!userId) return;
     hasSavedCollectionRef.current = true;
     const payload = {
