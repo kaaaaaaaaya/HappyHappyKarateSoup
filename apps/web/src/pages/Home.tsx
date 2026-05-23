@@ -28,8 +28,17 @@ export default function Home() {
           className="h-10 w-10 rounded-md bg-black/35 p-1 shadow-lg sm:h-12 sm:w-12"
         />
         <span
-          className="font-[var(--f-pixel)] text-[10px] uppercase tracking-wide text-[#f8f1de] drop-shadow sm:text-xs"
-          style={{ textShadow: '2px 2px 0 #1f0e0a' }}
+          style={{
+            color: '#FFF',
+            fontFamily: "'Press Start 2P', monospace",
+            fontSize: '1.2vw',
+            fontWeight: 400,
+            lineHeight: 1.4,
+            letterSpacing: '-0.35px',
+            textTransform: 'uppercase',
+            WebkitTextStrokeWidth: '1.2px',
+            WebkitTextStrokeColor: '#000',
+          }}
         >
           Happy Happy Karate Soup
         </span>
