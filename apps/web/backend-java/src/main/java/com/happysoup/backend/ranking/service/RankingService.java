@@ -43,7 +43,7 @@ public class RankingService {
     public List<WeeklyScoreRankingEntry> getWeeklyBestScoreRanking(Long viewerUserId, String difficulty, int days) {
         requireViewer(viewerUserId);
 
-        int safeDays = Math.max(7, Math.min(days, 180));
+        int safeDays = 7;
         LocalDate today = LocalDate.now();
         LocalDate fromDate = today.minusDays(safeDays - 1L);
         LocalDateTime from = fromDate.atStartOfDay();
@@ -68,6 +68,7 @@ public class RankingService {
 
         List<AppUser> users = appUserRepository.findAll();
         List<WeeklyScoreRankingEntry> sorted = users.stream()
+                .filter(user -> bestScoreByUserId.containsKey(user.getId()))
                 .map(user -> new WeeklyScoreRankingEntry(
                         user.getId(),
                         user.getUsername(),
@@ -75,7 +76,7 @@ public class RankingService {
                         beltColorByUserId.get(user.getId()),
                         0,
                         normalizedDifficulty,
-                        bestScoreByUserId.getOrDefault(user.getId(), 0)
+                        bestScoreByUserId.get(user.getId())
                 ))
                 .sorted(Comparator.comparingInt(WeeklyScoreRankingEntry::weeklyBestScore).reversed()
                         .thenComparing(WeeklyScoreRankingEntry::username))
@@ -89,7 +90,7 @@ public class RankingService {
     public List<WeeklyCaloriesRankingEntry> getWeeklyCaloriesRanking(Long viewerUserId, int days) {
         requireViewer(viewerUserId);
 
-        int safeDays = Math.max(7, Math.min(days, 180));
+        int safeDays = 7;
         LocalDate today = LocalDate.now();
         LocalDate fromDate = today.minusDays(safeDays - 1L);
         LocalDateTime from = fromDate.atStartOfDay();
@@ -108,13 +109,14 @@ public class RankingService {
 
         List<AppUser> users = appUserRepository.findAll();
         List<WeeklyCaloriesRankingEntry> sorted = users.stream()
+                .filter(user -> energyByUserId.containsKey(user.getId()))
                 .map(user -> new WeeklyCaloriesRankingEntry(
                         user.getId(),
                         user.getUsername(),
                         iconUrlByUserId.get(user.getId()),
                         beltColorByUserId.get(user.getId()),
                         0,
-                        round1(energyByUserId.getOrDefault(user.getId(), 0.0))
+                        round1(energyByUserId.get(user.getId()))
                 ))
                 .sorted(Comparator.comparingDouble(WeeklyCaloriesRankingEntry::weeklyUsedEnergyKcal).reversed()
                         .thenComparing(WeeklyCaloriesRankingEntry::username))
