@@ -18,7 +18,6 @@ const DIFFICULTIES: Array<{ key: Difficulty; label: string }> = [
 ];
 
 const DEFAULT_ICON = '/images/logo_small.png';
-const PAGE_SIZE = 100;
 const DEBUG_VIEWER_USER_ID = 1;
 
 const isMockModeEnabled = (): { enabled: boolean; count: number } => {
@@ -173,7 +172,6 @@ export default function Ranking() {
   const [calorieEntries, setCalorieEntries] = useState<WeeklyCaloriesRankingEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pageIndex, setPageIndex] = useState(0);
 
   useEffect(() => {
     const authUserRaw = sessionStorage.getItem('authUser');
@@ -194,7 +192,6 @@ export default function Ranking() {
     let cancelled = false;
     setIsLoading(true);
     setError(null);
-    setPageIndex(0);
 
     void (async () => {
       try {
@@ -241,20 +238,6 @@ export default function Ranking() {
     const entries = tab === 'score' ? scoreEntries : calorieEntries;
     return entries.filter((e) => e.userId !== userId);
   }, [tab, scoreEntries, calorieEntries, userId]);
-
-  const totalPages = useMemo(() => Math.max(1, Math.ceil(listEntries.length / PAGE_SIZE)), [listEntries.length]);
-  const pageSafeIndex = Math.min(Math.max(0, pageIndex), Math.max(0, totalPages - 1));
-  const pagedEntries = useMemo(() => {
-    const start = pageSafeIndex * PAGE_SIZE;
-    return listEntries.slice(start, start + PAGE_SIZE);
-  }, [listEntries, pageSafeIndex]);
-
-  useEffect(() => {
-    if (pageIndex !== pageSafeIndex) {
-      setPageIndex(pageSafeIndex);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageSafeIndex]);
 
   const styles = {
     container: {
@@ -354,23 +337,6 @@ export default function Ranking() {
     helper: { margin: '8px 0 0', color: '#333' },
     empty: { padding: '18px 0', textAlign: 'center' as const, color: '#555' },
     error: { color: '#b00020', fontWeight: 800, marginBottom: '10px' },
-    pager: {
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: '10px',
-      marginTop: '12px',
-    },
-    pagerButton: (disabled: boolean) => ({
-      border: '2px solid #111',
-      borderRadius: '12px',
-      padding: '10px 12px',
-      background: disabled ? '#eee' : '#fff',
-      cursor: disabled ? 'not-allowed' : 'pointer',
-      fontWeight: 900,
-      opacity: disabled ? 0.6 : 1,
-    }),
-    pagerInfo: { fontWeight: 900 },
   };
 
   const renderValue = (entry: WeeklyScoreRankingEntry | WeeklyCaloriesRankingEntry) => {
@@ -448,34 +414,9 @@ export default function Ranking() {
           ) : (
             <>
               <div style={{ ...styles.helper, margin: 0, marginBottom: '6px', fontWeight: 900 }}>
-                {listEntries.length > 0 ? `${pageSafeIndex * PAGE_SIZE + 1}-${Math.min((pageSafeIndex + 1) * PAGE_SIZE, listEntries.length)} / ${listEntries.length}` : ''}
+                {listEntries.length > 0 ? `全員表示: ${listEntries.length}人` : ''}
               </div>
-              {pagedEntries.map(renderRow)}
-              <div style={styles.pager}>
-                <button
-                  style={styles.pagerButton(pageSafeIndex === 0)}
-                  disabled={pageSafeIndex === 0}
-                  onClick={() => {
-                    setPageIndex((p) => Math.max(0, p - 1));
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                >
-                  PREV 100
-                </button>
-                <div style={styles.pagerInfo}>
-                  Page {pageSafeIndex + 1} / {totalPages}
-                </div>
-                <button
-                  style={styles.pagerButton(pageSafeIndex >= totalPages - 1)}
-                  disabled={pageSafeIndex >= totalPages - 1}
-                  onClick={() => {
-                    setPageIndex((p) => Math.min(totalPages - 1, p + 1));
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                >
-                  NEXT 100
-                </button>
-              </div>
+              {listEntries.map(renderRow)}
             </>
           )}
         </div>

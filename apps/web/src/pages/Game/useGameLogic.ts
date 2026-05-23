@@ -19,6 +19,7 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
   const [phase, setPhase] = useState<Phase>('countdown');
   const [count, setCount] = useState(3);
   const [activeIngredients, setActiveIngredients] = useState<Ingredient[]>([]);
+  const [isChartFlowFinished, setIsChartFlowFinished] = useState(false);
 
   // 譜面データを保持
   // chart : variable, 処理中の譜面データを保持
@@ -32,6 +33,7 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
   const elapsedRef = useRef<number>(0);
   // 処理済みの譜面インデックス
   const chartIndexRef = useRef<number>(0);
+  const chartFinishTimerRef = useRef<number | null>(null);
 
   // スコアと判定のロジックを呼び出す
 
@@ -176,6 +178,35 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
     }
   }, [phase, count, selectedDifficulty]);
 
+  useEffect(() => {
+    if (chartFinishTimerRef.current !== null) {
+      window.clearTimeout(chartFinishTimerRef.current);
+      chartFinishTimerRef.current = null;
+    }
+
+    setIsChartFlowFinished(false);
+
+    if (phase !== 'playing' || chart.length === 0) {
+      return;
+    }
+
+    const lastNoteTime = chart[chart.length - 1][0];
+    const chartFinishBufferMs = 3000;
+    const finishTimeMs = lastNoteTime + chartFinishBufferMs;
+    const remainingMs = Math.max(0, finishTimeMs - elapsedRef.current);
+
+    chartFinishTimerRef.current = window.setTimeout(() => {
+      setIsChartFlowFinished(true);
+    }, remainingMs);
+
+    return () => {
+      if (chartFinishTimerRef.current !== null) {
+        window.clearTimeout(chartFinishTimerRef.current);
+        chartFinishTimerRef.current = null;
+      }
+    };
+  }, [phase, chart]);
+
   // --- 2. ゲームループ (譜面に従って材料を出現させる) ---
   useEffect(() => {
 
@@ -264,10 +295,6 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
     phase === 'playing' && totalDurationMs > 0
       ? Math.min(elapsedRef.current / totalDurationMs, 1)
       : 0;
-  const isChartFlowFinished =
-    phase === 'playing' &&
-    chart.length > 0 &&
-    elapsedRef.current >= lastNoteTime + chartFinishBufferMs;
 
   return {
     phase,
