@@ -45,7 +45,7 @@ app:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173}
   gcs:
     bucket-name: ${APP_GCS_BUCKET_NAME:happy-soup}
-    chart-prefix-play: ${APP_GCS_CHART_PREFIX_PLAY:${APP_GCS_CHART_PREFIX_PLAY90S:charts/play}}
+    chart-prefix-play: ${APP_GCS_CHART_PREFIX_PLAY:${APP_GCS_CHART_PREFIX_PLAY90S:charts/play_20s}}
 
 management:
   endpoints:

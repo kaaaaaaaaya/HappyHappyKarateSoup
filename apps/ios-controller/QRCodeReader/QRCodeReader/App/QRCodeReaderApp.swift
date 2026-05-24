@@ -13,7 +13,6 @@ struct QRCodeReaderApp: App {
     init() {
             setOrientation(.portrait)
         }
-    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
         WindowGroup {

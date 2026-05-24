@@ -13,7 +13,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     // 回転する時に呼び出す
     func application(
-        _ application: UIApplication  // 実行中のアプリを”application”として定義
+        _ application: UIApplication,  // 実行中のアプリを”application”として定義
         supportedInterfaceOrientationsFor window: UIWindow? // UIWindow(オプショナル型)を引数に取る
     ) -> UIInterfaceOrientationMask { // UIInterfaceOrientationMask型（ビットマスク（フラグの集合））で返す
         return AppDelegate.orientationLock
