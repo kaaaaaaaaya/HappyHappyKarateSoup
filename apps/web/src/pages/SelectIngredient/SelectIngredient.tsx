@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelectIngredient } from './useSelectIngredient';
 import { useIngredientController } from './useIngredientController';
@@ -17,9 +17,14 @@ const CATEGORIES = {
 export default function SelectIngredient() {
   const navigate = useNavigate();
   const selectedDifficulty = sessionStorage.getItem('selectedDifficulty') ?? 'normal';
-  
+
   const [activeTab, setActiveTab] = useState<'VEGETABLE' | 'MEAT_FISH' | 'OTHERS'>('VEGETABLE');
   const [showCart, setShowCart] = useState(false);
+  const [gridColumns, setGridColumns] = useState(0);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  const itemRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const selectedCountRef = useRef(0);
 
   const {
     selectedChar,
@@ -39,7 +44,7 @@ export default function SelectIngredient() {
       });
     }
   }, [navigate, selectedChar, connectedRoomId]);
-  
+
   const currentItems = CATEGORIES[activeTab];
 
   const handleControllerConfirm = useCallback((idx: number) => {
@@ -60,7 +65,7 @@ export default function SelectIngredient() {
   const maxIdx = isReady ? currentItems.length + 1 : currentItems.length;
 
   const TABS = ['VEGETABLE', 'MEAT_FISH', 'OTHERS'] as const;
-  
+
   const handleTabChange = (direction: 'left' | 'right') => {
     setActiveTab(prev => {
       const idx = TABS.indexOf(prev);
@@ -76,7 +81,8 @@ export default function SelectIngredient() {
     connectedRoomId,
     maxIdx,
     handleControllerConfirm,
-    handleTabChange
+    handleTabChange,
+    gridColumns
   );
 
   // Ensure cursor index is bound correctly when maxIdx changes
@@ -85,6 +91,63 @@ export default function SelectIngredient() {
       setCursorIndex(maxIdx);
     }
   }, [maxIdx, cursorIndex, setCursorIndex]);
+
+  // [EN] Track the current grid columns so controller navigation follows the layout.
+  // [JA] レイアウトに合わせてコントローラーの移動量を更新します。
+  useLayoutEffect(() => {
+    if (!gridRef.current) return;
+    const grid = gridRef.current;
+    const minColumnWidth = 120;
+    const gap = 16;
+
+    const computeColumns = () => {
+      const gridWidth = grid.clientWidth;
+      const columns = Math.max(1, Math.floor((gridWidth + gap) / (minColumnWidth + gap)));
+      setGridColumns(columns);
+    };
+
+    computeColumns();
+    const observer = new ResizeObserver(() => computeColumns());
+    observer.observe(grid);
+    return () => observer.disconnect();
+  }, []);
+
+  // [EN] Scroll just enough to keep the focused card within a safe viewport margin.
+  // [JA] 選択中カードが画面端に近づいたら、最小限+αだけスクロールします。
+  useEffect(() => {
+    if (cursorIndex < 0 || cursorIndex >= currentItems.length) return;
+    const container = scrollContainerRef.current;
+    const target = itemRefs.current[cursorIndex];
+    if (!container || !target) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const margin = 24;
+    const extra = 16;
+    const minScroll = containerRect.height / 3;
+    const topThreshold = containerRect.top + margin;
+    const bottomThreshold = containerRect.bottom - margin;
+
+    if (targetRect.top < topThreshold) {
+      const delta = topThreshold - targetRect.top + extra;
+      const scrollAmount = Math.max(delta, minScroll);
+      container.scrollBy({ top: -scrollAmount, behavior: 'smooth' });
+    } else if (targetRect.bottom > bottomThreshold) {
+      const delta = targetRect.bottom - bottomThreshold + extra;
+      const scrollAmount = Math.max(delta, minScroll);
+      container.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+    }
+  }, [cursorIndex, currentItems.length, activeTab]);
+
+  // [EN] When three items are selected, move focus to the cook button.
+  // [JA] 3つ選択したタイミングで「調理する」にフォーカスを移動します。
+  useEffect(() => {
+    const previousCount = selectedCountRef.current;
+    selectedCountRef.current = selectedChar.length;
+    if (previousCount < 3 && selectedChar.length === 3) {
+      setCursorIndex(currentItems.length + 1);
+    }
+  }, [selectedChar.length, currentItems.length, setCursorIndex]);
 
   useEffect(() => {
     if (!sessionStorage.getItem('selectedDifficulty')) {
@@ -116,8 +179,8 @@ export default function SelectIngredient() {
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {/* Main Content Area */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '20px', overflowY: 'auto' }}>
-          
+        <div ref={scrollContainerRef} style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '20px', overflowY: 'auto' }}>
+
           {/* Tabs */}
           <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
             {(['VEGETABLE', 'MEAT_FISH', 'OTHERS'] as const).map((tab) => (
@@ -128,8 +191,8 @@ export default function SelectIngredient() {
                   setActiveTab(tab);
                   setCursorIndex(-1); // Automatically focus tab area when clicked
                 }}
-                style={{ 
-                  padding: '10px 20px', 
+                style={{
+                  padding: '10px 20px',
                   fontSize: '18px',
                   boxShadow: (cursorIndex === -1 && activeTab === tab) ? '0 0 0 6px #E65100' : 'none'
                 }}
@@ -140,9 +203,9 @@ export default function SelectIngredient() {
           </div>
 
           {/* Item Grid */}
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', 
+          <div ref={gridRef} style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
             gap: '16px',
             paddingBottom: '100px'
           }}>
@@ -152,6 +215,9 @@ export default function SelectIngredient() {
               return (
                 <div
                   key={item.id}
+                  ref={(node) => {
+                    itemRefs.current[index] = node;
+                  }}
                   onClick={() => {
                     if (!isSelected && selectedChar.length >= 3) return;
                     toggleSelection(item.emoji);
@@ -182,21 +248,21 @@ export default function SelectIngredient() {
       </div>
 
       {/* Cart Icon & Checkout */}
-      <div style={{ 
-        position: 'fixed', 
-        bottom: '32px', 
-        right: '32px', 
-        display: 'flex', 
-        flexDirection: 'column', 
-        alignItems: 'flex-end', 
+      <div style={{
+        position: 'fixed',
+        bottom: '32px',
+        right: '32px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'flex-end',
         gap: '16px',
         zIndex: 100
       }}>
         {showCart && (
-          <div style={{ 
-            backgroundColor: 'var(--c-white)', 
-            padding: '24px', 
-            borderRadius: 'var(--radius-lg)', 
+          <div style={{
+            backgroundColor: 'var(--c-white)',
+            padding: '24px',
+            borderRadius: 'var(--radius-lg)',
             border: '4px solid var(--c-slate-900)',
             boxShadow: '8px 8px 0 rgba(0,0,0,0.2)',
             width: '300px'
@@ -217,14 +283,14 @@ export default function SelectIngredient() {
         )}
 
         <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-end' }}>
-          <Button 
+          <Button
             variant="secondary"
             onClick={() => setShowCart(!showCart)}
-            style={{ 
-              width: '80px', 
-              height: '80px', 
-              borderRadius: '50%', 
-              fontSize: '32px', 
+            style={{
+              width: '80px',
+              height: '80px',
+              borderRadius: '50%',
+              fontSize: '32px',
               padding: 0,
               display: 'flex',
               justifyContent: 'center',
@@ -243,8 +309,8 @@ export default function SelectIngredient() {
           </Button>
 
           {isReady && (
-            <Button 
-              variant="primary" 
+            <Button
+              variant="primary"
               onClick={handleComplete}
               style={{
                 padding: '24px 32px',
@@ -259,7 +325,7 @@ export default function SelectIngredient() {
           )}
         </div>
       </div>
-      
+
       <style>{`
         @keyframes bounce {
           0%, 100% { transform: translateY(0); }
