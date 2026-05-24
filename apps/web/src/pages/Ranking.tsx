@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BrandedConnectionBackground from '../components/BrandedConnectionBackground';
 import {
@@ -7,6 +7,7 @@ import {
   type WeeklyCaloriesRankingEntry,
   type WeeklyScoreRankingEntry,
 } from '../api/rankingApi';
+import { fetchControllerRoomStatus } from '../api/controllerRoomApi';
 
 type Tab = 'score' | 'calories';
 type Difficulty = 'easy' | 'normal' | 'hard';
@@ -167,6 +168,12 @@ export default function Ranking() {
   const [tab, setTab] = useState<Tab>('score');
   const [difficulty, setDifficulty] = useState<Difficulty>('normal');
   const [userId, setUserId] = useState<number | null>(null);
+  const [focusedSection, setFocusedSection] = useState<'back' | 'tabs' | 'difficulty'>('tabs');
+  const [focusedTabIndex, setFocusedTabIndex] = useState(0);
+  const [focusedDiffIndex, setFocusedDiffIndex] = useState(1);
+  const connectedRoomId = sessionStorage.getItem('connectedRoomId') ?? '';
+  const lastCommandSequenceRef = useRef(0);
+  const isSequenceInitializedRef = useRef(false);
 
   const [scoreEntries, setScoreEntries] = useState<WeeklyScoreRankingEntry[]>([]);
   const [calorieEntries, setCalorieEntries] = useState<WeeklyCaloriesRankingEntry[]>([]);
@@ -186,6 +193,20 @@ export default function Ranking() {
       setUserId(DEBUG_VIEWER_USER_ID);
     }
   }, []);
+
+  useEffect(() => {
+    setFocusedTabIndex(tab === 'score' ? 0 : 1);
+    if (tab !== 'score' && focusedSection === 'difficulty') {
+      setFocusedSection('tabs');
+    }
+  }, [tab]);
+
+  useEffect(() => {
+    const index = DIFFICULTIES.findIndex((d) => d.key === difficulty);
+    if (index >= 0) {
+      setFocusedDiffIndex(index);
+    }
+  }, [difficulty]);
 
   useEffect(() => {
     if (!userId) return;
@@ -227,6 +248,85 @@ export default function Ranking() {
     };
   }, [userId, tab, difficulty]);
 
+  useEffect(() => {
+    if (!connectedRoomId) return;
+    const timerId = window.setInterval(async () => {
+      try {
+        const status = await fetchControllerRoomStatus(connectedRoomId, {
+          since: lastCommandSequenceRef.current,
+        });
+        const currentSequence = status.commandSequence ?? 0;
+        const incrementalCommands = status.commands ?? [];
+        const commandEntries = incrementalCommands.length > 0
+          ? incrementalCommands
+          : currentSequence > lastCommandSequenceRef.current && status.latestCommand
+            ? [{ sequence: currentSequence, command: status.latestCommand }]
+            : [];
+
+        if (!isSequenceInitializedRef.current) {
+          lastCommandSequenceRef.current = currentSequence;
+          isSequenceInitializedRef.current = true;
+          return;
+        }
+
+        if (currentSequence > lastCommandSequenceRef.current) {
+          lastCommandSequenceRef.current = currentSequence;
+
+          for (const entry of commandEntries) {
+            const cmd = (entry.command ?? '').toLowerCase().trim();
+
+            if (cmd === 'up') {
+              if (focusedSection === 'difficulty') {
+                setFocusedSection('tabs');
+              } else if (focusedSection === 'tabs') {
+                setFocusedSection('back');
+              }
+            } else if (cmd === 'down') {
+              if (focusedSection === 'back') {
+                setFocusedSection('tabs');
+              } else if (focusedSection === 'tabs' && tab === 'score') {
+                setFocusedSection('difficulty');
+              }
+            } else if (cmd === 'left') {
+              if (focusedSection === 'back') {
+                setFocusedSection('tabs');
+                setTab('calories');
+              } else if (focusedSection === 'tabs') {
+                setTab('score');
+              } else if (focusedSection === 'difficulty') {
+                const nextIndex = Math.max(0, focusedDiffIndex - 1);
+                setDifficulty(DIFFICULTIES[nextIndex].key);
+              }
+            } else if (cmd === 'right') {
+              if (focusedSection === 'tabs') {
+                if (tab === 'calories') {
+                  setFocusedSection('back');
+                } else {
+                  setTab('calories');
+                }
+              } else if (focusedSection === 'difficulty') {
+                if (focusedDiffIndex >= DIFFICULTIES.length - 1) {
+                  setFocusedSection('back');
+                } else {
+                  const nextIndex = Math.min(DIFFICULTIES.length - 1, focusedDiffIndex + 1);
+                  setDifficulty(DIFFICULTIES[nextIndex].key);
+                }
+              }
+            } else if (cmd === 'confirm') {
+              if (focusedSection === 'back') {
+                navigate('/home-logged-in');
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to poll controller command on ranking page:', error);
+      }
+    }, 250);
+
+    return () => window.clearInterval(timerId);
+  }, [connectedRoomId, focusedSection, focusedDiffIndex, navigate, tab]);
+
   const pinnedEntry = useMemo(() => {
     if (!userId) return null;
     const entries = tab === 'score' ? scoreEntries : calorieEntries;
@@ -262,30 +362,35 @@ export default function Ranking() {
       WebkitTextStroke: '1px #111',
       textShadow: '1px 1px 0 #111',
     },
-    backButton: {
+    backButton: (focused: boolean) => ({
       border: '3px solid #111',
       borderRadius: '12px',
       padding: '10px 14px',
-      background: '#fff',
+      background: focused ? '#ffde00' : '#fff',
       cursor: 'pointer',
       fontWeight: 800,
-    },
+      boxShadow: focused ? '4px 4px 0 #000' : '2px 2px 0 #000',
+    }),
     tabs: { display: 'flex', gap: '10px', marginBottom: '12px' },
-    tab: (active: boolean) => ({
+    tab: (active: boolean, focused: boolean) => ({
       border: '3px solid #111',
       borderRadius: '14px',
       padding: '10px 14px',
-      background: active ? '#ffde00' : '#fff',
+      background: active ? '#fff2a6' : '#fff',
+      outline: focused ? '3px solid #111' : 'none',
+      boxShadow: focused ? '3px 3px 0 #000' : 'none',
       cursor: 'pointer',
       fontWeight: 900,
     }),
     difficultyRow: { display: 'flex', gap: '8px', marginBottom: '14px' },
-    diff: (active: boolean) => ({
+    diff: (active: boolean, focused: boolean) => ({
       border: '2px solid #111',
       borderRadius: '999px',
       padding: '8px 12px',
       background: active ? '#111' : '#fff',
       color: active ? '#fff' : '#111',
+      outline: focused ? '3px solid #111' : 'none',
+      boxShadow: focused ? '3px 3px 0 #000' : 'none',
       cursor: 'pointer',
       fontWeight: 800,
     }),
@@ -374,16 +479,28 @@ export default function Ranking() {
       <div style={styles.container}>
         <div style={styles.headerRow}>
           <h1 style={styles.title}>Ranking</h1>
-          <button style={styles.backButton} onClick={() => navigate('/home-logged-in')}>
+          <button
+            style={styles.backButton(focusedSection === 'back')}
+            onClick={() => navigate('/home-logged-in')}
+            onFocus={() => setFocusedSection('back')}
+          >
             ホーム画面へ
           </button>
         </div>
 
         <div style={styles.tabs}>
-          <button style={styles.tab(tab === 'score')} onClick={() => setTab('score')}>
+          <button
+            style={styles.tab(tab === 'score', focusedSection === 'tabs' && focusedTabIndex === 0)}
+            onClick={() => setTab('score')}
+            onFocus={() => setFocusedSection('tabs')}
+          >
             Weekly Best Score
           </button>
-          <button style={styles.tab(tab === 'calories')} onClick={() => setTab('calories')}>
+          <button
+            style={styles.tab(tab === 'calories', focusedSection === 'tabs' && focusedTabIndex === 1)}
+            onClick={() => setTab('calories')}
+            onFocus={() => setFocusedSection('tabs')}
+          >
             Weekly Calories
           </button>
         </div>
@@ -391,7 +508,12 @@ export default function Ranking() {
         {tab === 'score' && (
           <div style={styles.difficultyRow}>
             {DIFFICULTIES.map((d) => (
-              <button key={d.key} style={styles.diff(difficulty === d.key)} onClick={() => setDifficulty(d.key)}>
+              <button
+                key={d.key}
+                style={styles.diff(difficulty === d.key, focusedSection === 'difficulty' && focusedDiffIndex === DIFFICULTIES.indexOf(d))}
+                onClick={() => setDifficulty(d.key)}
+                onFocus={() => setFocusedSection('difficulty')}
+              >
                 {d.label}
               </button>
             ))}

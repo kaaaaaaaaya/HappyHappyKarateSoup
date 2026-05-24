@@ -109,9 +109,9 @@ export default function Result() {
         if (currentSequence > lastCommandSequenceRef.current) {
           lastCommandSequenceRef.current = currentSequence;
           const normalizedCommand = latestCommand.toLowerCase().trim();
-          if (normalizedCommand === 'left' || normalizedCommand === 'up') {
+          if (normalizedCommand === 'left') {
             moveResultFocus('prev');
-          } else if (normalizedCommand === 'right' || normalizedCommand === 'down') {
+          } else if (normalizedCommand === 'right') {
             moveResultFocus('next');
           } else if (normalizedCommand === 'confirm' || normalizedCommand === 'punch' || normalizedCommand === 'chop') {
             if (focusedResultAction === 'retry') {
