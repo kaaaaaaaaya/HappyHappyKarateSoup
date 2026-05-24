@@ -1,5 +1,6 @@
 import SwiftUI
 
+
 /// 十字キー形式のレイアウトを使用してメニューを操作するためのUI
 struct RemoteControllerView: View {
     var onDirection: (String) -> Void

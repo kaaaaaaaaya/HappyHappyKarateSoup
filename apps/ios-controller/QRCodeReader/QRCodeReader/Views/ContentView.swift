@@ -292,9 +292,8 @@ struct ContentView: View {
 }
 
 
-//画面向きを切り替える関数
-// import UIKit
 
+// 画面の向きを制御する関数。コントローラー画面の表示状態に応じて呼び出される。
 func setOrientation(_ orientation: UIInterfaceOrientationMask) {
     // 1. まず AppDelegate のロックを更新する
     AppDelegate.lockOrientation(orientation)
@@ -308,7 +307,11 @@ func setOrientation(_ orientation: UIInterfaceOrientationMask) {
     
     // 3. iOS 16以上の場合は、強制回転のリクエストも送る
     if #available(iOS 16.0, *) {
-        let geometryUpdate = UIWindowScene.GeometryUpdate.iOS(interfaceOrientations: orientation)
-        windowScene.requestGeometryUpdate(geometryUpdate)
+        let geometryPreferences = UIWindowScene.GeometryPreferences.iOS(interfaceOrientations: orientation)
+        
+        // requestGeometryUpdateに渡す
+        windowScene.requestGeometryUpdate(geometryPreferences) { error in
+            print("回転リクエストでエラー発生: \(error.localizedDescription)")
+        }
     }
 }
