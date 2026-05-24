@@ -9,8 +9,9 @@ struct RemoteControllerView: View {
 
     var body: some View {
         ZStack {
-            Color(hex: "#F5EDD8").ignoresSafeArea()
-            DecorativeBackground()
+            Image("RemoteControllerBackground")
+                .resizable()
+                .ignoresSafeArea()
 
             VStack(spacing: 0) {
                 // 上部のマーキー（流れる文字）バー
