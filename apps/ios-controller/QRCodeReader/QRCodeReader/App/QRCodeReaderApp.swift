@@ -13,7 +13,7 @@ struct QRCodeReaderApp: App {
     init() {
             setOrientation(.portrait)
         }
-    
+
     var body: some Scene {
         WindowGroup {
             ContentView()
