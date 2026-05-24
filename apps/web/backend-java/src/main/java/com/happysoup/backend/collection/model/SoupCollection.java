@@ -51,6 +51,9 @@ public class SoupCollection {
     @Column(name = "rank_value", length = 12)
     private String rankValue;
 
+    @Column(name = "difficulty_value", length = 16)
+    private String difficultyValue;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
@@ -143,6 +146,14 @@ public class SoupCollection {
 
     public void setRankValue(String rankValue) {
         this.rankValue = rankValue;
+    }
+
+    public String getDifficultyValue() {
+        return difficultyValue;
+    }
+
+    public void setDifficultyValue(String difficultyValue) {
+        this.difficultyValue = difficultyValue;
     }
 
     public LocalDateTime getCreatedAt() {

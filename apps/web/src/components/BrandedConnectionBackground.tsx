@@ -11,11 +11,12 @@ export default function BrandedConnectionBackground({ children }: BrandedConnect
     <div
       style={{
         minHeight: '100dvh',
+        minWidth: '100vw',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         backgroundImage: `url(${bgConnection})`,
-        backgroundSize: 'contain',
+        backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
         backgroundColor: '#1a1a1f',

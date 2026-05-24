@@ -17,11 +17,13 @@ export default function BrandedBackground({
     <div
       style={{
         minHeight: '100dvh',
+        minWidth: '100vw',
         position: 'relative',
         backgroundImage: `url(${bgTitle})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
+        backgroundColor: '#1a1a1f',
         ...contentStyle,
       }}
     >

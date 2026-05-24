@@ -13,7 +13,6 @@ export function Button({
   variant = 'primary', 
   size = 'md', 
   pill = false, 
-  className = '', 
   children, 
   style,
   ...props 

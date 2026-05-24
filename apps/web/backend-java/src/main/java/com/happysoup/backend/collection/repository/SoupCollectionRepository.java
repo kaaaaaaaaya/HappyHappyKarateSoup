@@ -10,6 +10,10 @@ import java.util.Optional;
 public interface SoupCollectionRepository extends JpaRepository<SoupCollection, Long> {
     List<SoupCollection> findByUser_IdOrderByCreatedAtDesc(Long userId);
 
+    List<SoupCollection> findByCreatedAtBetween(LocalDateTime from, LocalDateTime to);
+
+    List<SoupCollection> findTop1ByUser_IdOrderByCreatedAtDesc(Long userId);
+
     long countByUser_Id(Long userId);
 
     long countByUser_IdAndCreatedAtBetween(Long userId, LocalDateTime from, LocalDateTime to);

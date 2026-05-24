@@ -570,11 +570,20 @@ export default function Game() {
   }, [isChartFlowFinished]);
 
   useEffect(() => {
-    if (!isGameFinished || (!isImageReady && !generationError) || isGenerating || hasNavigatedRef.current) {
+    if (!isGameFinished || isGenerating || hasNavigatedRef.current) {
       return;
     }
 
-    void handleFinishGame();
+    if (isImageReady || generationError) {
+      void handleFinishGame();
+      return;
+    }
+
+    const fallbackTimerId = window.setTimeout(() => {
+      void handleFinishGame();
+    }, 4000);
+
+    return () => window.clearTimeout(fallbackTimerId);
   }, [isGameFinished, isImageReady, generationError, isGenerating]);
 
   useEffect(() => {
