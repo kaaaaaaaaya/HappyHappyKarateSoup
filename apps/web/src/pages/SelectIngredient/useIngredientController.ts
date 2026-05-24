@@ -5,7 +5,8 @@ export function useIngredientController(
   connectedRoomId: string | null,
   maxIndex: number,
   onConfirm: (index: number) => void,
-  onTabChange?: (direction: 'left' | 'right') => void
+  onTabChange?: (direction: 'left' | 'right') => void,
+  gridColumns = 0
 ) {
   const [cursorIndex, setCursorIndex] = useState(0);
   const cursorIndexRef = useRef(0);
@@ -58,7 +59,7 @@ export function useIngredientController(
 
           for (const cmdObj of incrementalCommands) {
             const cmd = cmdObj.command.toLowerCase().trim();
-            const cols = 5; // Assumed grid columns lengths
+            const cols = gridColumns > 0 ? gridColumns : 0;
 
             if (cmd === 'left') {
               setCursorIndex((prev) => {
@@ -78,6 +79,7 @@ export function useIngredientController(
               });
             } else if (cmd === 'up') {
               setCursorIndex((prev) => {
+                if (cols <= 0) return prev;
                 if (prev === -1) return -1;
                 if (prev < cols) {
                   return -1; // Go up to tabs area
@@ -86,6 +88,7 @@ export function useIngredientController(
               });
             } else if (cmd === 'down') {
               setCursorIndex((prev) => {
+                if (cols <= 0) return prev;
                 if (prev === -1) return 0; // Go down to grid
                 return Math.min(maxIndex, prev + cols);
               });
@@ -109,7 +112,7 @@ export function useIngredientController(
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [connectedRoomId, maxIndex]);
+  }, [connectedRoomId, maxIndex, gridColumns]);
 
   return { cursorIndex, setCursorIndex };
 }
