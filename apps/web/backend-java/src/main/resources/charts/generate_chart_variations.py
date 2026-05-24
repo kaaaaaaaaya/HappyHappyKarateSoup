@@ -10,9 +10,16 @@ Output format:
 
 Targets:
 
+PLAY TIME:
 - play/easy:   45s chart x 10
 - play/normal: 45s chart x 10
 - play/hard:   45s chart x 10
+
+DEMO TIME:
+- play/easy:   20s chart x 10
+- play/normal: 20s chart x 10
+- play/hard:   20s chart x 10
+
 """
 
 from __future__ import annotations
@@ -25,6 +32,7 @@ ACTIONS = ["punch", "chop"]
 INGREDIENT_INDEXES = [0, 1, 2]
 LANE_MIN = -100
 LANE_MAX = 100
+PLAY_TIME = 20
 
 # Game-side spawn timing:
 # note appears when elapsed >= (targetTime - animationDuration)
@@ -38,30 +46,30 @@ CHART_PROFILES = [
     {
         "name": "play-easy",
         "output_dir": "play/easy",
-        "file_prefix": "charData-play-easy-45s",
+        "file_prefix": f"charData-play-easy-{PLAY_TIME}s",
         "count": 10,
-        "note_count": 35,
-        "final_time_ms": 45_000,
+        "note_count": 15,
+        "final_time_ms": 20_000,
         "min_gap_ms": 800,
         "first_note_exact_ms": 3_000,
     },
     {
         "name": "play-normal",
         "output_dir": "play/normal",
-        "file_prefix": "charData-play-normal-45s",
+        "file_prefix": f"charData-play-normal-{PLAY_TIME}s",
         "count": 10,
-        "note_count": 45,
-        "final_time_ms": 45_000,
+        "note_count": 20,
+        "final_time_ms": 20_000,
         "min_gap_ms": 700,
         "first_note_exact_ms": 3_000,
     },
     {
         "name": "play-hard",
         "output_dir": "play/hard",
-        "file_prefix": "charData-play-hard-45s",
+        "file_prefix": f"charData-play-hard-{PLAY_TIME}s",
         "count": 10,
-        "note_count": 60,
-        "final_time_ms": 45_000,
+        "note_count": 28,
+        "final_time_ms": 20_000,
         "min_gap_ms": 600,
         "first_note_exact_ms": 3_000,
     },
