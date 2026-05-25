@@ -258,13 +258,14 @@ struct ControllerView: View {
     private func sendActionCommand(_ action: String, acceleration: Double?) {
         let x = String(format: "%.3f", max(0, min(1, aimX)))
         let y = String(format: "%.3f", max(0, min(1, aimY)))
+        let sentAtMs = Int(Date().timeIntervalSince1970 * 1000)
         
         // 攻撃の威力を判定するため、利用可能な場合は加速度を追加
         if let acceleration {
             let a = String(format: "%.3f", max(0, acceleration))
-            onDirection("\(action)@\(x),\(y),\(a)")
+            onDirection("\(action)@\(x),\(y),\(a),\(sentAtMs)")
         } else {
-            onDirection("\(action)@\(x),\(y)")
+            onDirection("\(action)@\(x),\(y),\(sentAtMs)")
         }
         
         // 技を繰り出したユーザーへの触覚フィードバック
