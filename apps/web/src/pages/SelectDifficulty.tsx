@@ -6,6 +6,7 @@ import { fetchControllerRoomStatus } from '../api/controllerRoomApi';
 
 type DifficultyOption = {
   key: Difficulty;
+  difficultyLabel: string;
   soupName: string;
   buttonLabel: string;
   imagePath: string;
@@ -16,6 +17,7 @@ type DifficultyOption = {
 const OPTIONS: DifficultyOption[] = [
   {
     key: 'easy',
+    difficultyLabel: 'EASY',
     soupName: 'Miso',
     buttonLabel: 'use Miso',
     imagePath: '/images/miso.png',
@@ -24,6 +26,7 @@ const OPTIONS: DifficultyOption[] = [
   },
   {
     key: 'normal',
+    difficultyLabel: 'NORMAL',
     soupName: 'Tomato',
     buttonLabel: 'use Tomato',
     imagePath: '/images/tomato.png',
@@ -32,6 +35,7 @@ const OPTIONS: DifficultyOption[] = [
   },
   {
     key: 'hard',
+    difficultyLabel: 'HARD',
     soupName: 'Mala',
     buttonLabel: 'use Mala',
     imagePath: '/images/malatang.png',
@@ -171,7 +175,7 @@ export default function SelectDifficulty() {
               color: '#111',
             }}
           >
-            Select Soup-base!
+            Select Level!
           </h1>
           <button
             type="button"
@@ -236,6 +240,23 @@ export default function SelectDifficulty() {
               }}
             >
               <div style={{ width: '100%' }}>
+                <div
+                  style={{
+                    width: 'fit-content',
+                    margin: '0 auto clamp(4px, 0.5vw, 8px)',
+                    padding: 'clamp(3px, 0.4vw, 6px) clamp(10px, 1vw, 16px)',
+                    borderRadius: '999px',
+                    border: '2px solid #111',
+                    backgroundColor: '#ffde00',
+                    color: '#111',
+                    fontFamily: 'VT323',
+                    fontSize: 'clamp(18px, 2.4vw, 42px)',
+                    lineHeight: 1,
+                    boxShadow: '2px 2px 0 #000',
+                  }}
+                >
+                  {option.difficultyLabel}
+                </div>
                 <h3
                   style={{
                     margin: 0,
