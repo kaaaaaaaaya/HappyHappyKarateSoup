@@ -19,7 +19,8 @@ final class ControllerMotionDetector: ObservableObject { // ObservableObject型�
     private let cooldownSeconds: TimeInterval = 0.4
     // 振りの強さの閾値（マイナス方向）。数値が小さい(絶対値が大きい)ほど強く振る必要がある
     private let punchThreshold: Double = -1.5
-    private let chopThreshold: Double = -1.8
+    private let chopThreshold: Double = -1.5
+    
 
     func start() {
         guard manager.isDeviceMotionAvailable else {
@@ -46,6 +47,14 @@ final class ControllerMotionDetector: ObservableObject { // ObservableObject型�
 
         let ua = motion.userAcceleration
 
+                // X/Y軸の複合 (スマホの持ち方によるブレを吸収して縦振りをチョップとする)
+        if ua.y < chopThreshold || ua.x < chopThreshold {
+            lastActionAcceleration = sqrt((ua.x * ua.x) + (ua.y * ua.y) + (ua.z * ua.z))
+            chopEventId += 1
+            lastActionAt = now
+            return
+        }
+
         // Z軸 (画面奥への突き出し) をパンチとする
         if ua.z < punchThreshold {
             // 加速度の大きさを計算してlastActionAccelerationに保存する。
@@ -56,12 +65,5 @@ final class ControllerMotionDetector: ObservableObject { // ObservableObject型�
             return
         }
 
-        // X/Y軸の複合 (スマホの持ち方によるブレを吸収して縦振りをチョップとする)
-        if ua.y < chopThreshold || ua.x < chopThreshold {
-            lastActionAcceleration = sqrt((ua.x * ua.x) + (ua.y * ua.y) + (ua.z * ua.z))
-            chopEventId += 1
-            lastActionAt = now
-            return
-        }
     }
 }
