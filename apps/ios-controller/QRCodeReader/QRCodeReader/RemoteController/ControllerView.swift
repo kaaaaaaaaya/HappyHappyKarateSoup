@@ -147,20 +147,6 @@ struct ControllerView: View {
             .ignoresSafeArea()
 
             VStack(spacing: 20) {
-                HStack {
-                    Text("Controller")
-                        .font(.system(size: 26, weight: .heavy, design: .rounded))
-                        .foregroundStyle(.white)
-                    Spacer()
-                    Button("終了") {
-                        onClose()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.pink)
-                }
-
-                Spacer()
-
                 // 操作説明パネル
                 VStack(spacing: 16) {
                     Text("ゲームモード")
@@ -171,7 +157,7 @@ struct ControllerView: View {
                         Image(systemName: "iphone.radiowaves.left.and.right")
                             .font(.system(size: 64, weight: .bold))
                             .foregroundStyle(.white)
-                        
+
                         Text("パンチ: 突き出し")
                             .font(.title3.weight(.bold))
                             .foregroundStyle(.red.opacity(0.95))
@@ -183,6 +169,8 @@ struct ControllerView: View {
                             .foregroundStyle(.white.opacity(0.9))
                             .padding(.top, 6)
                     }
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 18)
                     .background(Color.white.opacity(0.12))
@@ -206,15 +194,9 @@ struct ControllerView: View {
                         .tint(.cyan)
                     }
                 }
-
-                Spacer()
-
-                Text("オートエイム中。モーションだけで攻撃できます")
-                    .font(.footnote)
-                    .foregroundStyle(.white.opacity(0.8))
             }
             .padding(20)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
 
             // 攻撃時の視覚フィードバック（パンチ/チョップの画像）
             if let flash = currentActionFlash {
