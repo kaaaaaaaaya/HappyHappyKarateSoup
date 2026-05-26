@@ -63,6 +63,7 @@ export default function SelectIngredient() {
   }, [currentItems, isReady, handleComplete, selectedChar, toggleSelection]);
 
   const maxIdx = isReady ? currentItems.length + 1 : currentItems.length;
+  const remainingCount = Math.max(0, 3 - selectedChar.length);
 
   const TABS = ['VEGETABLE', 'MEAT_FISH', 'OTHERS'] as const;
 
@@ -167,10 +168,22 @@ export default function SelectIngredient() {
       color: 'var(--c-slate-900)'
     }}>
       {/* Header */}
-      <div style={{ padding: '20px', backgroundColor: 'rgba(255,255,255,0.9)', borderBottom: '4px solid var(--c-slate-200)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ padding: '20px', backgroundColor: 'rgba(255,255,255,0.9)', borderBottom: '4px solid var(--c-slate-200)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
         <h2 style={{ margin: 0, fontFamily: 'var(--f-pixel)', fontSize: '24px' }}>SELECT INGREDIENTS</h2>
-        <div style={{ fontSize: '18px', fontWeight: 'bold' }}>
-          あと {3 - selectedChar.length} 個選んでね
+        <div style={{
+          padding: '12px 18px',
+          backgroundColor: '#ffde00',
+          border: '3px solid var(--c-slate-900)',
+          borderRadius: 'var(--radius-md)',
+          boxShadow: '4px 4px 0 rgba(0,0,0,0.25)',
+          textAlign: 'center',
+          fontWeight: 'bold',
+          lineHeight: 1.15,
+        }}>
+          <div style={{ fontSize: '22px', fontFamily: 'var(--f-pixel)' }}>具材を3つ選んでね！</div>
+          <div style={{ marginTop: '6px', fontSize: '16px' }}>
+            {remainingCount > 0 ? `あと ${remainingCount} 個` : '3つそろったよ！'}
+          </div>
         </div>
         <div style={{ fontSize: '16px', fontWeight: 'bold' }}>
           難易度: {selectedDifficulty.toUpperCase()}
@@ -283,30 +296,56 @@ export default function SelectIngredient() {
         )}
 
         <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-end' }}>
-          <Button
-            variant="secondary"
-            onClick={() => setShowCart(!showCart)}
-            style={{
-              width: '80px',
-              height: '80px',
-              borderRadius: '50%',
-              fontSize: '32px',
-              padding: 0,
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+            <div style={{
               position: 'relative',
-              boxShadow: cursorIndex === currentItems.length ? '0 0 0 6px #E65100' : 'none',
-              transform: cursorIndex === currentItems.length ? 'scale(1.05)' : 'none'
-            }}
-          >
-            🛒
-            {selectedChar.length > 0 && (
-              <div style={{ position: 'absolute', top: '-5px', right: '-5px', backgroundColor: 'var(--c-red)', color: 'white', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '18px', fontWeight: 'bold' }}>
-                {selectedChar.length}
-              </div>
-            )}
-          </Button>
+              padding: '10px 14px',
+              backgroundColor: 'var(--c-white)',
+              border: '3px solid var(--c-slate-900)',
+              borderRadius: 'var(--radius-md)',
+              boxShadow: '4px 4px 0 rgba(0,0,0,0.18)',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              whiteSpace: 'nowrap',
+            }}>
+              選択した具材を見る
+              <span style={{
+                position: 'absolute',
+                left: '50%',
+                bottom: '-10px',
+                width: '16px',
+                height: '16px',
+                backgroundColor: 'var(--c-white)',
+                borderRight: '3px solid var(--c-slate-900)',
+                borderBottom: '3px solid var(--c-slate-900)',
+                transform: 'translateX(-50%) rotate(45deg)',
+              }} />
+            </div>
+            <Button
+              variant="secondary"
+              onClick={() => setShowCart(!showCart)}
+              style={{
+                width: '80px',
+                height: '80px',
+                borderRadius: '50%',
+                fontSize: '32px',
+                padding: 0,
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                position: 'relative',
+                boxShadow: cursorIndex === currentItems.length ? '0 0 0 6px #E65100' : 'none',
+                transform: cursorIndex === currentItems.length ? 'scale(1.05)' : 'none'
+              }}
+            >
+              🛒
+              {selectedChar.length > 0 && (
+                <div style={{ position: 'absolute', top: '-5px', right: '-5px', backgroundColor: 'var(--c-red)', color: 'white', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '18px', fontWeight: 'bold' }}>
+                  {selectedChar.length}
+                </div>
+              )}
+            </Button>
+          </div>
 
           {isReady && (
             <Button
@@ -316,11 +355,15 @@ export default function SelectIngredient() {
                 padding: '24px 32px',
                 fontSize: '24px',
                 animation: 'bounce 1s infinite',
+                minWidth: '188px',
                 boxShadow: cursorIndex === currentItems.length + 1 ? '0 0 0 6px #E65100' : undefined,
                 transform: cursorIndex === currentItems.length + 1 ? 'scale(1.05)' : undefined
               }}
             >
-              調理する！
+              <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1.1 }}>
+                <span>調理開始！</span>
+                <span style={{ marginTop: '4px', fontSize: '15px' }}>(GAME START!)</span>
+              </span>
             </Button>
           )}
         </div>
