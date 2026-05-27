@@ -25,7 +25,7 @@ export default function HomeLoggedIn() {
       display: 'flex',
       flexDirection: 'column' as const,
       alignItems: 'center',
-      backgroundColor: '#fff',
+      backgroundImage: 'url(./assets/backgrounds/bg_login.png)',
       fontFamily: "'DotGothic16', sans-serif",
       color: '#000',
       overflowX: 'hidden' as const,
@@ -351,7 +351,7 @@ export default function HomeLoggedIn() {
             ))}
           </div>
         ) : (
-          <p style={{ textAlign: 'center', backgroundColor: '#fff', padding: '1rem', border: '2px solid #000', borderRadius: '12px' }}>
+          <p style={{ textAlign: 'center', backgroundImage: 'url(./assets/backgrounds/bg_login.png)', padding: '1rem', border: '2px solid #000', borderRadius: '12px' }}>
             まだ記録がありません。最初のスープを練りましょう！
           </p>
         )}
