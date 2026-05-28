@@ -36,6 +36,16 @@ services:
       # - ADC via ~/.config/gcloud/application_default_credentials.json (recommended for local dev), or
       # - a service account key mounted at /run/secrets/vertex-ai-key.json (set GOOGLE_APPLICATION_CREDENTIALS accordingly).
       - GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/vertex-ai-key.json
+      - GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID:-${VITE_GOOGLE_CLIENT_ID:-}}
+      - APP_WEB_BASE_URL=${APP_WEB_BASE_URL:-http://localhost:8081}
+      - APP_MAIL_FROM=${APP_MAIL_FROM:-noreply@happy-happy-karate-soup.local}
+      - APP_AUTH_EXPOSE_VERIFICATION_LINK=${APP_AUTH_EXPOSE_VERIFICATION_LINK:-true}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USERNAME=${SMTP_USERNAME:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_STARTTLS=${SMTP_STARTTLS:-true}
+      - SMTP_SSL=${SMTP_SSL:-false}
       - GEMINI_USE_VERTEX_AI=${GEMINI_USE_VERTEX_AI:-true}
       - GEMINI_PROJECT_ID=${GEMINI_PROJECT_ID:-happy-happy-karate-soup}
       - GEMINI_LOCATION=${GEMINI_LOCATION:-us-central1}

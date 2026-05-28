@@ -35,6 +35,20 @@ auth:
     client-id: ${GOOGLE_OAUTH_CLIENT_ID:}
 
 app:
+  web:
+    base-url: ${APP_WEB_BASE_URL:http://localhost:8081}
+  mail:
+    from: ${APP_MAIL_FROM:noreply@happy-happy-karate-soup.local}
+    smtp:
+      host: ${SMTP_HOST:}
+      port: ${SMTP_PORT:587}
+      username: ${SMTP_USERNAME:}
+      password: ${SMTP_PASSWORD:}
+      starttls: ${SMTP_STARTTLS:true}
+      ssl: ${SMTP_SSL:false}
+  auth:
+    email-verification-token-hours: ${APP_AUTH_EMAIL_VERIFICATION_TOKEN_HOURS:24}
+    expose-verification-link: ${APP_AUTH_EXPOSE_VERIFICATION_LINK:false}
   charts:
     cache-seconds:
       list: 60
