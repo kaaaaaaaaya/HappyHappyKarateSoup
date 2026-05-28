@@ -3,7 +3,10 @@ package com.happysoup.backend.controller;
 import com.happysoup.backend.auth.dto.AuthResponse;
 import com.happysoup.backend.auth.dto.GoogleLoginRequest;
 import com.happysoup.backend.auth.dto.LoginRequest;
+import com.happysoup.backend.auth.dto.RegisterResponse;
 import com.happysoup.backend.auth.dto.RegisterRequest;
+import com.happysoup.backend.auth.dto.ResendVerificationRequest;
+import com.happysoup.backend.auth.dto.VerifyEmailRequest;
 import com.happysoup.backend.auth.service.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -22,7 +25,7 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public AuthResponse register(@Valid @RequestBody RegisterRequest request) {
+    public RegisterResponse register(@Valid @RequestBody RegisterRequest request) {
         return authService.register(request.username(), request.email(), request.password());
     }
 
@@ -34,5 +37,15 @@ public class AuthController {
     @PostMapping("/google")
     public AuthResponse googleLogin(@Valid @RequestBody GoogleLoginRequest request) {
         return authService.loginWithGoogle(request.idToken());
+    }
+
+    @PostMapping("/verify-email")
+    public AuthResponse verifyEmail(@Valid @RequestBody VerifyEmailRequest request) {
+        return authService.verifyEmail(request.token());
+    }
+
+    @PostMapping("/resend-verification")
+    public RegisterResponse resendVerification(@Valid @RequestBody ResendVerificationRequest request) {
+        return authService.resendEmailVerification(request.email());
     }
 }

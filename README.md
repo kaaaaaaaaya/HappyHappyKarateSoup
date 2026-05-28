@@ -218,10 +218,33 @@ docker compose up -d --build --force-recreate backend
 ```
 
 ### 4. Googleログイン有効化（任意）
-Googleログインを有効にするには、Webビルド時に `VITE_GOOGLE_CLIENT_ID` を設定します。
+Googleログインを有効にするには、フロントエンド用の `VITE_GOOGLE_CLIENT_ID` と、バックエンドの ID トークン検証用の `GOOGLE_OAUTH_CLIENT_ID` を設定します。通常は同じ OAuth 2.0 Web Client ID を入れます。
 
 補足:
 - 未設定でもアプリは動作します（ゲストプレイ/ローカルログインで進行）。
+- `VITE_GOOGLE_CLIENT_ID` だけを設定すると Google ボタンは表示されますが、バックエンド検証に `GOOGLE_OAUTH_CLIENT_ID` が必要です。
+
+Docker Compose でローカル起動する場合は、ルートの `.env` に以下を置けます。
+
+```bash
+GOOGLE_OAUTH_CLIENT_ID="YOUR_GOOGLE_CLIENT_ID"
+VITE_GOOGLE_CLIENT_ID="YOUR_GOOGLE_CLIENT_ID"
+```
+
+通常メールアドレス登録では確認リンクを送ります。SMTP を使う場合は `.env` に以下も設定してください。未設定のローカル環境では backend ログに確認リンクが出ます。
+
+```bash
+APP_WEB_BASE_URL="http://localhost:8081"
+APP_MAIL_FROM="noreply@example.com"
+SMTP_HOST="smtp.example.com"
+SMTP_PORT=587
+SMTP_USERNAME="smtp-user"
+SMTP_PASSWORD="smtp-password"
+SMTP_STARTTLS=true
+SMTP_SSL=false
+```
+
+Docker Compose のローカル環境では、SMTP 未設定でも確認リンクが画面に表示されます。本番や共有環境で画面表示を止める場合は `APP_AUTH_EXPOSE_VERIFICATION_LINK=false` を設定します。
 
 ```bash
 docker build \

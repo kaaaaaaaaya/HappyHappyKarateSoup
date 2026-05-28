@@ -5,6 +5,7 @@ public record AuthResponse(
         Long userId,
         String username,
         String email,
-        String provider
+        String provider,
+        boolean emailVerified
 ) {
 }

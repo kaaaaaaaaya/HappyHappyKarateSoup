@@ -37,6 +37,18 @@ public class AppUser {
     @Column(name = "google_subject", unique = true, length = 255)
     private String googleSubject;
 
+    @Column(name = "email_verified", nullable = false, columnDefinition = "boolean default true")
+    private Boolean emailVerified = false;
+
+    @Column(name = "email_verification_token_hash", unique = true, length = 64)
+    private String emailVerificationTokenHash;
+
+    @Column(name = "email_verification_token_expires_at")
+    private LocalDateTime emailVerificationTokenExpiresAt;
+
+    @Column(name = "email_verified_at")
+    private LocalDateTime emailVerifiedAt;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
@@ -97,5 +109,37 @@ public class AppUser {
 
     public void setGoogleSubject(String googleSubject) {
         this.googleSubject = googleSubject;
+    }
+
+    public boolean isEmailVerified() {
+        return Boolean.TRUE.equals(emailVerified);
+    }
+
+    public void setEmailVerified(boolean emailVerified) {
+        this.emailVerified = emailVerified;
+    }
+
+    public String getEmailVerificationTokenHash() {
+        return emailVerificationTokenHash;
+    }
+
+    public void setEmailVerificationTokenHash(String emailVerificationTokenHash) {
+        this.emailVerificationTokenHash = emailVerificationTokenHash;
+    }
+
+    public LocalDateTime getEmailVerificationTokenExpiresAt() {
+        return emailVerificationTokenExpiresAt;
+    }
+
+    public void setEmailVerificationTokenExpiresAt(LocalDateTime emailVerificationTokenExpiresAt) {
+        this.emailVerificationTokenExpiresAt = emailVerificationTokenExpiresAt;
+    }
+
+    public LocalDateTime getEmailVerifiedAt() {
+        return emailVerifiedAt;
+    }
+
+    public void setEmailVerifiedAt(LocalDateTime emailVerifiedAt) {
+        this.emailVerifiedAt = emailVerifiedAt;
     }
 }
