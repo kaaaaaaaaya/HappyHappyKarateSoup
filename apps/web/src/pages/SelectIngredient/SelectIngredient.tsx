@@ -96,7 +96,7 @@ export default function SelectIngredient() {
   );
 
   // [JA] スクロール制御のために、表示されている各具材要素の参照を保持します。
-  const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
+  //const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   // [JA] タブ切り替えなどで maxIdx が変わった際、カーソル位置が範囲外にならないよう補正します。
   useEffect(() => {
