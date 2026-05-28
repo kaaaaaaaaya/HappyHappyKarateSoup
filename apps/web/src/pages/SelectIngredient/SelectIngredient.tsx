@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelectIngredient } from './useSelectIngredient';
 import { useIngredientController } from './useIngredientController';
@@ -79,12 +79,27 @@ export default function SelectIngredient() {
     handleTabChange
   );
 
+  const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
+
   // Ensure cursor index is bound correctly when maxIdx changes
   useEffect(() => {
     if (cursorIndex > maxIdx) {
       setCursorIndex(maxIdx);
     }
   }, [maxIdx, cursorIndex, setCursorIndex]);
+
+  useEffect(() => {
+    if (cursorIndex < 0 || cursorIndex >= currentItems.length) {
+      return;
+    }
+
+    const target = itemRefs.current[cursorIndex];
+    if (!target) {
+      return;
+    }
+
+    target.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+  }, [cursorIndex, currentItems]);
 
   useEffect(() => {
     if (!sessionStorage.getItem('selectedDifficulty')) {
@@ -152,6 +167,7 @@ export default function SelectIngredient() {
               return (
                 <div
                   key={item.id}
+                  ref={(el) => { itemRefs.current[index] = el; }}
                   onClick={() => {
                     if (!isSelected && selectedChar.length >= 3) return;
                     toggleSelection(item.emoji);
