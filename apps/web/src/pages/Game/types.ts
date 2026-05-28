@@ -1,6 +1,6 @@
 // 型の定義
 
-export type Phase = 'countdown' | 'playing';
+export type Phase = 'ready' | 'playing';
 
 export type ActionType = 'punch' | 'chop';
 

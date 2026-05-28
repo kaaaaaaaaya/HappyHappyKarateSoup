@@ -341,26 +341,34 @@ export default function Ranking() {
 
   const styles = {
     container: {
-      width: 'min(980px, 94vw)',
+      width: 'min(1100px, 96vw)',
       margin: '0 auto',
-      padding: '0px 14px 28px',
+      padding: '0px 18px 32px',
       fontFamily: "'DotGothic16', sans-serif",
+      boxSizing: 'border-box' as const,
+    },
+    panel: {
+      borderRadius: 26,
+      background: 'rgba(239, 239, 239, 0.78)',
+      border: '4px solid #181818',
+      boxShadow: '0 14px 28px rgba(0, 0, 0, 0.3)',
+      padding: '2rem 2rem 3rem',
+      boxSizing: 'border-box' as const,
     },
     headerRow: {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
       gap: '10px',
-      marginBottom: '10px',
+      marginBottom: '30px',
     },
     title: {
       margin: 0,
-      fontSize: '50px',
+      fontSize: '60px',
       fontWeight: 900,
       lineHeight: 1.0,
-      color: '#fff',
-      WebkitTextStroke: '1px #111',
-      textShadow: '1px 1px 0 #111',
+      color: '#000000',
+      textShadow: '1px 1px 0 #d5a703',
     },
     backButton: (focused: boolean) => ({
       border: '3px solid #111',
@@ -373,12 +381,12 @@ export default function Ranking() {
     }),
     tabs: { display: 'flex', gap: '10px', marginBottom: '12px' },
     tab: (active: boolean, focused: boolean) => ({
-      border: '3px solid #111',
+      border: '2px solid #111',
       borderRadius: '14px',
       padding: '10px 14px',
       background: active ? '#fff2a6' : '#fff',
-      outline: focused ? '3px solid #111' : 'none',
-      boxShadow: focused ? '3px 3px 0 #000' : 'none',
+      outline: focused ? '1px solid #111' : 'none',
+      boxShadow: focused ? '2px 2px 0 #000' : 'none',
       cursor: 'pointer',
       fontWeight: 900,
     }),
@@ -399,29 +407,29 @@ export default function Ranking() {
       border: '4px solid #111',
       borderRadius: '18px',
       boxShadow: '4px 4px 0 #000',
-      padding: '14px',
+      padding: '18px',
     },
     pinned: {
       marginBottom: '12px',
       background: '#fff9c4',
-      border: '4px solid #111',
+      border: '2px solid #111',
       borderRadius: '18px',
-      boxShadow: '4px 4px 0 #000',
-      padding: '14px',
+      boxShadow: '2px 2px 0 #000',
+      padding: '18px',
     },
     row: {
       display: 'grid',
-      gridTemplateColumns: '60px 1fr 140px',
+      gridTemplateColumns: '80px 1fr 160px',
       alignItems: 'center',
-      gap: '12px',
-      padding: '10px 0',
+      gap: '14px',
+      padding: '12px 0',
       borderBottom: '1px dashed #999',
     },
-    rank: { fontSize: '28px', fontWeight: 900, textAlign: 'center' as const },
+    rank: { fontSize: '34px', fontWeight: 900, textAlign: 'center' as const },
     userCol: { display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 },
     icon: {
-      width: '52px',
-      height: '52px',
+      width: '64px',
+      height: '64px',
       borderRadius: '12px',
       border: '2px solid #111',
       objectFit: 'cover' as const,
@@ -430,7 +438,7 @@ export default function Ranking() {
     },
     nameRow: { display: 'flex', alignItems: 'center', minWidth: 0 },
     name: {
-      fontSize: '25px',
+      fontSize: '30px',
       fontWeight: 950,
       overflow: 'hidden',
       textOverflow: 'ellipsis',
@@ -438,7 +446,7 @@ export default function Ranking() {
       minWidth: 0,
       flex: '1 1 auto',
     },
-    value: { fontSize: '18px', fontWeight: 900, textAlign: 'right' as const },
+    value: { fontSize: '20px', fontWeight: 900, textAlign: 'right' as const },
     helper: { margin: '8px 0 0', color: '#333' },
     empty: { padding: '18px 0', textAlign: 'center' as const, color: '#555' },
     error: { color: '#b00020', fontWeight: 800, marginBottom: '10px' },
@@ -477,70 +485,72 @@ export default function Ranking() {
   return (
     <BrandedConnectionBackground>
       <div style={styles.container}>
-        <div style={styles.headerRow}>
-          <h1 style={styles.title}>Ranking</h1>
-          <button
-            style={styles.backButton(focusedSection === 'back')}
-            onClick={() => navigate('/home-logged-in')}
-            onFocus={() => setFocusedSection('back')}
-          >
-            ホーム画面へ
-          </button>
-        </div>
-
-        <div style={styles.tabs}>
-          <button
-            style={styles.tab(tab === 'score', focusedSection === 'tabs' && focusedTabIndex === 0)}
-            onClick={() => setTab('score')}
-            onFocus={() => setFocusedSection('tabs')}
-          >
-            Weekly Best Score
-          </button>
-          <button
-            style={styles.tab(tab === 'calories', focusedSection === 'tabs' && focusedTabIndex === 1)}
-            onClick={() => setTab('calories')}
-            onFocus={() => setFocusedSection('tabs')}
-          >
-            Weekly Calories
-          </button>
-        </div>
-
-        {tab === 'score' && (
-          <div style={styles.difficultyRow}>
-            {DIFFICULTIES.map((d) => (
-              <button
-                key={d.key}
-                style={styles.diff(difficulty === d.key, focusedSection === 'difficulty' && focusedDiffIndex === DIFFICULTIES.indexOf(d))}
-                onClick={() => setDifficulty(d.key)}
-                onFocus={() => setFocusedSection('difficulty')}
-              >
-                {d.label}
-              </button>
-            ))}
+        <div style={styles.panel}>
+          <div style={styles.headerRow}>
+            <h1 style={styles.title}>Ranking</h1>
+            <button
+              style={styles.backButton(focusedSection === 'back')}
+              onClick={() => navigate('/home-logged-in')}
+              onFocus={() => setFocusedSection('back')}
+            >
+              ホーム画面へ
+            </button>
           </div>
-        )}
 
-        {error && <div style={styles.error}>{error}</div>}
-        {isLoading && <div style={styles.helper}>Loading...</div>}
-
-        {pinnedEntry && (
-          <div style={styles.pinned}>
-            <div style={{ fontWeight: 900, marginBottom: '6px' }}>You</div>
-            {renderRow(pinnedEntry)}
+          <div style={styles.tabs}>
+            <button
+              style={styles.tab(tab === 'score', focusedSection === 'tabs' && focusedTabIndex === 0)}
+              onClick={() => setTab('score')}
+              onFocus={() => setFocusedSection('tabs')}
+            >
+              Weekly Best Score
+            </button>
+            <button
+              style={styles.tab(tab === 'calories', focusedSection === 'tabs' && focusedTabIndex === 1)}
+              onClick={() => setTab('calories')}
+              onFocus={() => setFocusedSection('tabs')}
+            >
+              Weekly Calories
+            </button>
           </div>
-        )}
 
-        <div style={styles.card}>
-          {listEntries.length === 0 && !isLoading ? (
-            <div style={styles.empty}>No data</div>
-          ) : (
-            <>
-              <div style={{ ...styles.helper, margin: 0, marginBottom: '6px', fontWeight: 900 }}>
-                {listEntries.length > 0 ? `全員表示: ${listEntries.length}人` : ''}
-              </div>
-              {listEntries.map(renderRow)}
-            </>
+          {tab === 'score' && (
+            <div style={styles.difficultyRow}>
+              {DIFFICULTIES.map((d) => (
+                <button
+                  key={d.key}
+                  style={styles.diff(difficulty === d.key, focusedSection === 'difficulty' && focusedDiffIndex === DIFFICULTIES.indexOf(d))}
+                  onClick={() => setDifficulty(d.key)}
+                  onFocus={() => setFocusedSection('difficulty')}
+                >
+                  {d.label}
+                </button>
+              ))}
+            </div>
           )}
+
+          {error && <div style={styles.error}>{error}</div>}
+          {isLoading && <div style={styles.helper}>Loading...</div>}
+
+          {pinnedEntry && (
+            <div style={styles.pinned}>
+              <div style={{ fontWeight: 900, marginBottom: '6px' }}>You</div>
+              {renderRow(pinnedEntry)}
+            </div>
+          )}
+
+          <div style={styles.card}>
+            {listEntries.length === 0 && !isLoading ? (
+              <div style={styles.empty}>No data</div>
+            ) : (
+              <>
+                <div style={{ ...styles.helper, margin: 0, marginBottom: '6px', fontWeight: 900 }}>
+                  {listEntries.length > 0 ? `全員表示: ${listEntries.length}人` : ''}
+                </div>
+                {listEntries.map(renderRow)}
+              </>
+            )}
+          </div>
         </div>
       </div>
     </BrandedConnectionBackground>

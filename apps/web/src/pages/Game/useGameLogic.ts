@@ -16,8 +16,8 @@ type UseGameLogicOptions = {
 export const useGameLogic = (options: UseGameLogicOptions = {}) => {
   const selectedIngredientEmojis = options.selectedIngredientEmojis ?? [];
   const selectedDifficulty = options.selectedDifficulty ?? 'normal';
-  const [phase, setPhase] = useState<Phase>('countdown');
-  const [count, setCount] = useState(3);
+  const [phase, setPhase] = useState<Phase>('ready');
+  const [isStarting, setIsStarting] = useState(false);
   const [activeIngredients, setActiveIngredients] = useState<Ingredient[]>([]);
   const [isChartFlowFinished, setIsChartFlowFinished] = useState(false);
 
@@ -34,6 +34,7 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
   // 処理済みの譜面インデックス
   const chartIndexRef = useRef<number>(0);
   const chartFinishTimerRef = useRef<number | null>(null);
+  const startRequestIdRef = useRef(0);
 
   // スコアと判定のロジックを呼び出す
 
@@ -130,53 +131,43 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
   }, [activeIngredients, startTimeRef, removeIngredient, processJudgment]);
 
 
-  // --- 1. カウントダウン制御 ---
-  useEffect(() => {
-    if (phase === 'countdown' && count > 0) {
-      //Countが0以上の間は、1000msごとに次の1秒のタイマーを予約
-      const timer = setTimeout(() => setCount((c) => c - 1), 1000);
-      return () => clearTimeout(timer);
-    } else if (phase === 'countdown' && count === 0) {
-      let cancelled = false;
-
-      const prepareGameStart = async () => {
-        await new Promise((resolve) => window.setTimeout(resolve, 1000));
-        if (cancelled) {
-          return;
-        }
-
-        let loadedChart: ChartItem[];
-        try {
-          loadedChart = await fetchPlayChart(selectedDifficulty);
-        } catch (error) {
-          console.error('Failed to load play chart. Retrying...', error);
-          if (!cancelled) {
-            window.setTimeout(() => {
-              if (!cancelled) {
-                void prepareGameStart();
-              }
-            }, 3000);
-          }
-          return;
-        }
-
-        if (cancelled) {
-          return;
-        }
-
-        setChart(loadedChart);
-        setPhase('playing'); //譜面切り替えと同時にplayingフェーズに移行
-        startTimeRef.current = performance.now(); // 精度の高い開始時間を記録
-        chartIndexRef.current = 0; // インデックスをリセット
-      };
-
-      void prepareGameStart();
-
-      return () => {
-        cancelled = true;
-      };
+  // [EN] Start game after the player confirms readiness; load chart and switch phase.
+  // [JA] 準備OKの確認後にゲームを開始し、譜面読み込みとフェーズ切替を行います。
+  const startGame = useCallback(() => {
+    if (phase !== 'ready' || isStarting) {
+      return;
     }
-  }, [phase, count, selectedDifficulty]);
+
+    const requestId = startRequestIdRef.current + 1;
+    startRequestIdRef.current = requestId;
+    setIsStarting(true);
+
+    const prepareGameStart = async () => {
+      let loadedChart: ChartItem[];
+      try {
+        loadedChart = await fetchPlayChart(selectedDifficulty);
+      } catch (error) {
+        if (startRequestIdRef.current !== requestId) {
+          return;
+        }
+        console.error('Failed to load play chart.', error);
+        setIsStarting(false);
+        return;
+      }
+
+      if (startRequestIdRef.current !== requestId) {
+        return;
+      }
+
+      setChart(loadedChart);
+      setPhase('playing'); //譜面切り替えと同時にplayingフェーズに移行
+      startTimeRef.current = performance.now(); // 精度の高い開始時間を記録
+      chartIndexRef.current = 0; // インデックスをリセット
+      setIsStarting(false);
+    };
+
+    void prepareGameStart();
+  }, [phase, isStarting, selectedDifficulty]);
 
   useEffect(() => {
     if (chartFinishTimerRef.current !== null) {
@@ -298,7 +289,8 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
 
   return {
     phase,
-    count,
+    isStarting,
+    startGame,
     ingredients: activeIngredients,
     handleAction,
     removeIngredient,
