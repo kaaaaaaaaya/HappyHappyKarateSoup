@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { fetchControllerRoomStatus } from '../api/controllerRoomApi';
 import { fetchCollectionsByUser, type CollectionItem } from '../api/collectionApi';
+import bgLogin from '../assets/backgrounds/bg_login.png';
 
 export default function HomeLoggedIn() {
   const navigate = useNavigate();
@@ -16,6 +17,8 @@ export default function HomeLoggedIn() {
   const connectedRoomId = sessionStorage.getItem('connectedRoomId') ?? '';
   const lastCommandSequenceRef = useRef(0);
   const isSequenceInitializedRef = useRef(false);
+  const pageRef = useRef<HTMLDivElement | null>(null);
+  const [pageScale, setPageScale] = useState(1);
 
   // --- スタイル定義 (MySoupsから継承 + ボタンフォーカス調整) ---
   const styles = {
@@ -25,7 +28,13 @@ export default function HomeLoggedIn() {
       display: 'flex',
       flexDirection: 'column' as const,
       alignItems: 'center',
-      backgroundImage: 'url(./assets/backgrounds/bg_login.png)',
+      justifyContent: 'flex-start',
+      transform: `scale(${pageScale})`,
+      transformOrigin: 'top center' as const,
+      backgroundImage: `url(${bgLogin})`,
+      backgroundSize: 'cover',
+      backgroundRepeat: 'no-repeat',
+      backgroundPosition: 'center center',
       fontFamily: "'DotGothic16', sans-serif",
       color: '#000',
       overflowX: 'hidden' as const,
@@ -37,7 +46,7 @@ export default function HomeLoggedIn() {
       justifyContent: 'space-between',
       alignItems: 'center',
       boxSizing: 'border-box' as const,
-      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+      backgroundColor: 'rgba(255, 255, 255, 0.4)',
       backdropFilter: 'blur(5px)',
       borderBottom: '3px solid #000',
     },
@@ -242,6 +251,25 @@ export default function HomeLoggedIn() {
       .finally(() => setIsLoadingCollections(false));
   }, [userId]);
 
+  useEffect(() => {
+    const updateScale = () => {
+      const pageEl = pageRef.current;
+      if (!pageEl) {
+        setPageScale(1);
+        return;
+      }
+
+      const rect = pageEl.getBoundingClientRect();
+      const heightScale = window.innerHeight / rect.height;
+      const widthScale = window.innerWidth / rect.width;
+      setPageScale(Math.min(1, heightScale, widthScale));
+    };
+
+    updateScale();
+    window.addEventListener('resize', updateScale);
+    return () => window.removeEventListener('resize', updateScale);
+  }, []);
+
   // --- 副作用: コントローラーポーリング (HomeLoggedInそのまま) ---
   useEffect(() => {
     if (!connectedRoomId) return;
@@ -289,7 +317,7 @@ export default function HomeLoggedIn() {
   }, [connectedRoomId, focusedButton]);
 
   return (
-    <div style={styles.page}>
+    <div ref={pageRef} style={styles.page}>
       <link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet" />
 
       <style>
@@ -351,7 +379,16 @@ export default function HomeLoggedIn() {
             ))}
           </div>
         ) : (
-          <p style={{ textAlign: 'center', backgroundImage: 'url(./assets/backgrounds/bg_login.png)', padding: '1rem', border: '2px solid #000', borderRadius: '12px' }}>
+          <p style={{
+            textAlign: 'center',
+            backgroundImage: `url(${bgLogin})`,
+            backgroundSize: 'cover',
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'center center',
+            padding: '1rem',
+            border: '2px solid #000',
+            borderRadius: '12px'
+          }}>
             まだ記録がありません。最初のスープを練りましょう！
           </p>
         )}
