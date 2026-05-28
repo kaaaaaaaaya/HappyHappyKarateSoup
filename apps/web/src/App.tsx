@@ -10,6 +10,7 @@ import Result from './pages/Result/Result';
 import Profile from './pages/Profile';
 import SoupHistory from './pages/SoupHistory';
 import Ranking from './pages/Ranking';
+import VerifyEmail from './pages/VerifyEmail';
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/home-logged-in" element={<HomeLoggedIn />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="/connect" element={<Connect />} />
         <Route path="/difficulty" element={<SelectDifficulty />} />
         <Route path="/select" element={<SelectIngredient />} />

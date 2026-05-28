@@ -49,6 +49,13 @@ HappyHappyKarateSoup の Web バックエンド（Java / Spring Boot）です。
 - バックエンドで Google IDトークンを検証するため、以下を設定します。
   - `GOOGLE_OAUTH_CLIENT_ID`
 - フロントエンド側は `VITE_GOOGLE_CLIENT_ID` を設定してください。
+- 通常は `GOOGLE_OAUTH_CLIENT_ID` と `VITE_GOOGLE_CLIENT_ID` に同じ OAuth 2.0 Web Client ID を設定します。
+
+## 通常メールアドレスの確認設定
+- ローカル登録ユーザーは `email_verified=false` で作成され、確認リンクを開くまで通常ログインできません。
+- 確認リンクのベースURLは `APP_WEB_BASE_URL` で指定します。
+- SMTP を使う場合は `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `APP_MAIL_FROM` を設定します。
+- SMTP 未設定の場合、確認リンクは backend ログに出力されます。
 
 ### POST リクエスト例
 ```json
