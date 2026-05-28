@@ -180,6 +180,13 @@ case "$cmd" in
     ensure_secrets_dir
     load_env_file_if_any
 
+    if [[ -n "$(compose ps -q)" ]]; then
+      echo "[STEP] docker compose down (cleanup running stack)"
+      compose down
+    fi
+    echo "[STEP] docker image prune (dangling only)"
+    docker image prune -f
+
     if [[ "$USE_AI" == "true" ]]; then
       validate_ai_config
     else
