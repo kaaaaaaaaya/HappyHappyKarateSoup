@@ -102,6 +102,15 @@ export default function SelectIngredient() {
   }, [cursorIndex, currentItems]);
 
   useEffect(() => {
+    if (isReady && selectedChar.length === 3) {
+      const cookButtonIndex = currentItems.length + 1;
+      if (cursorIndex !== cookButtonIndex) {
+        setCursorIndex(cookButtonIndex);
+      }
+    }
+  }, [isReady, selectedChar.length, currentItems.length, cursorIndex, setCursorIndex]);
+
+  useEffect(() => {
     if (!sessionStorage.getItem('selectedDifficulty')) {
       sessionStorage.setItem('selectedDifficulty', 'normal');
     }
