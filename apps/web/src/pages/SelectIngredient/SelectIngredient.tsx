@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelectIngredient } from './useSelectIngredient';
@@ -7,7 +8,7 @@ import { Button } from '../../components/Button';
 import bgConnection from '../../assets/backgrounds/bg_connection.png';
 import { postControllerRoomCommand } from '../../api/controllerRoomApi';
 
-// 分類をざっくり定義
+// [JA] 食材の絵文字リストをカテゴリ（野菜、肉・魚、その他）ごとに分割して定義します。
 const CATEGORIES = {
   VEGETABLE: FOOD_EMOJIS.slice(0, 18),
   MEAT_FISH: FOOD_EMOJIS.slice(18, 30),
@@ -15,6 +16,7 @@ const CATEGORIES = {
 };
 
 export default function SelectIngredient() {
+  // [JA] 画面遷移用のフックと、選択された難易度の取得
   const navigate = useNavigate();
   const selectedDifficulty = sessionStorage.getItem('selectedDifficulty') ?? 'normal';
 
@@ -34,6 +36,8 @@ export default function SelectIngredient() {
 
   const connectedRoomId = sessionStorage.getItem('connectedRoomId');
 
+  // [JA] 具材選択完了時の処理。選択した具材をセッションに保存し、ゲーム画面へ遷移します。
+  // [JA] また、コントローラーが連携されている場合は、ゲーム開始のコマンドを送信します。
   const handleComplete = useCallback(() => {
     sessionStorage.setItem('selectedIngredientEmojis', JSON.stringify(selectedChar));
     navigate('/game', { state: { selectedIngredientEmojis: selectedChar } });
@@ -47,6 +51,8 @@ export default function SelectIngredient() {
 
   const currentItems = CATEGORIES[activeTab];
 
+  // [JA] コントローラーから決定ボタンが押されたときの処理
+  // [JA] カーソルのインデックスに応じて、カートの開閉、調理開始、または具材の選択/解除を行います。
   const handleControllerConfirm = useCallback((idx: number) => {
     if (idx === currentItems.length) { // カートボタン
       setShowCart((prev) => !prev);
@@ -62,11 +68,13 @@ export default function SelectIngredient() {
     }
   }, [currentItems, isReady, handleComplete, selectedChar, toggleSelection]);
 
+  // [JA] フォーカス可能な最大インデックス（準備完了時は「調理する」ボタンも含まれる）
   const maxIdx = isReady ? currentItems.length + 1 : currentItems.length;
   const remainingCount = Math.max(0, 3 - selectedChar.length);
 
   const TABS = ['VEGETABLE', 'MEAT_FISH', 'OTHERS'] as const;
-
+  
+  // [JA] コントローラーの左右入力などでタブを切り替える処理
   const handleTabChange = (direction: 'left' | 'right') => {
     setActiveTab(prev => {
       const idx = TABS.indexOf(prev);
@@ -78,6 +86,7 @@ export default function SelectIngredient() {
     });
   };
 
+  // [JA] コントローラーの入力を監視し、カーソル位置や決定操作を管理するカスタムフック
   const { cursorIndex, setCursorIndex } = useIngredientController(
     connectedRoomId,
     maxIdx,
@@ -86,7 +95,10 @@ export default function SelectIngredient() {
     gridColumns
   );
 
-  // Ensure cursor index is bound correctly when maxIdx changes
+  // [JA] スクロール制御のために、表示されている各具材要素の参照を保持します。
+  //const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  // [JA] タブ切り替えなどで maxIdx が変わった際、カーソル位置が範囲外にならないよう補正します。
   useEffect(() => {
     if (cursorIndex > maxIdx) {
       setCursorIndex(maxIdx);
@@ -228,9 +240,7 @@ export default function SelectIngredient() {
               return (
                 <div
                   key={item.id}
-                  ref={(node) => {
-                    itemRefs.current[index] = node;
-                  }}
+                  ref={(el) => { itemRefs.current[index] = el; }}
                   onClick={() => {
                     if (!isSelected && selectedChar.length >= 3) return;
                     toggleSelection(item.emoji);
