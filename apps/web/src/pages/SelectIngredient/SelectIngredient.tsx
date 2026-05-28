@@ -7,7 +7,7 @@ import { Button } from '../../components/Button';
 import bgConnection from '../../assets/backgrounds/bg_connection.png';
 import { postControllerRoomCommand } from '../../api/controllerRoomApi';
 
-// 分類をざっくり定義
+// [JA] 食材の絵文字リストをカテゴリ（野菜、肉・魚、その他）ごとに分割して定義します。
 const CATEGORIES = {
   VEGETABLE: FOOD_EMOJIS.slice(0, 18),
   MEAT_FISH: FOOD_EMOJIS.slice(18, 30),
@@ -15,6 +15,7 @@ const CATEGORIES = {
 };
 
 export default function SelectIngredient() {
+  // [JA] 画面遷移用のフックと、選択された難易度の取得
   const navigate = useNavigate();
   const selectedDifficulty = sessionStorage.getItem('selectedDifficulty') ?? 'normal';
   
@@ -29,6 +30,8 @@ export default function SelectIngredient() {
 
   const connectedRoomId = sessionStorage.getItem('connectedRoomId');
 
+  // [JA] 具材選択完了時の処理。選択した具材をセッションに保存し、ゲーム画面へ遷移します。
+  // [JA] また、コントローラーが連携されている場合は、ゲーム開始のコマンドを送信します。
   const handleComplete = useCallback(() => {
     sessionStorage.setItem('selectedIngredientEmojis', JSON.stringify(selectedChar));
     navigate('/game', { state: { selectedIngredientEmojis: selectedChar } });
@@ -42,6 +45,8 @@ export default function SelectIngredient() {
   
   const currentItems = CATEGORIES[activeTab];
 
+  // [JA] コントローラーから決定ボタンが押されたときの処理
+  // [JA] カーソルのインデックスに応じて、カートの開閉、調理開始、または具材の選択/解除を行います。
   const handleControllerConfirm = useCallback((idx: number) => {
     if (idx === currentItems.length) { // カートボタン
       setShowCart((prev) => !prev);
@@ -57,10 +62,12 @@ export default function SelectIngredient() {
     }
   }, [currentItems, isReady, handleComplete, selectedChar, toggleSelection]);
 
+  // [JA] フォーカス可能な最大インデックス（準備完了時は「調理する」ボタンも含まれる）
   const maxIdx = isReady ? currentItems.length + 1 : currentItems.length;
 
   const TABS = ['VEGETABLE', 'MEAT_FISH', 'OTHERS'] as const;
   
+  // [JA] コントローラーの左右入力などでタブを切り替える処理
   const handleTabChange = (direction: 'left' | 'right') => {
     setActiveTab(prev => {
       const idx = TABS.indexOf(prev);
@@ -72,6 +79,7 @@ export default function SelectIngredient() {
     });
   };
 
+  // [JA] コントローラーの入力を監視し、カーソル位置や決定操作を管理するカスタムフック
   const { cursorIndex, setCursorIndex } = useIngredientController(
     connectedRoomId,
     maxIdx,
@@ -79,15 +87,17 @@ export default function SelectIngredient() {
     handleTabChange
   );
 
+  // [JA] スクロール制御のために、表示されている各具材要素の参照を保持します。
   const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  // Ensure cursor index is bound correctly when maxIdx changes
+  // [JA] タブ切り替えなどで maxIdx が変わった際、カーソル位置が範囲外にならないよう補正します。
   useEffect(() => {
     if (cursorIndex > maxIdx) {
       setCursorIndex(maxIdx);
     }
   }, [maxIdx, cursorIndex, setCursorIndex]);
 
+  // [JA] カーソルが移動した際、対象の具材が画面内に見えるようにスムーズスクロールさせます。
   useEffect(() => {
     if (cursorIndex < 0 || cursorIndex >= currentItems.length) {
       return;
@@ -101,6 +111,7 @@ export default function SelectIngredient() {
     target.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
   }, [cursorIndex, currentItems]);
 
+  // [JA] 具材が3つ選ばれ準備完了状態になったら、自動的に「調理する」ボタンへカーソルを合わせます。
   useEffect(() => {
     if (isReady && selectedChar.length === 3) {
       const cookButtonIndex = currentItems.length + 1;
@@ -110,6 +121,7 @@ export default function SelectIngredient() {
     }
   }, [isReady, selectedChar.length, currentItems.length, cursorIndex, setCursorIndex]);
 
+  // [JA] 初回マウント時に難易度が設定されていない場合は、デフォルトで 'normal' にします。
   useEffect(() => {
     if (!sessionStorage.getItem('selectedDifficulty')) {
       sessionStorage.setItem('selectedDifficulty', 'normal');
