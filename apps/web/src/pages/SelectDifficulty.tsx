@@ -88,7 +88,7 @@ export default function SelectDifficulty() {
           since: lastSequenceRef.current,
         });
         const currentSequence = status.commandSequence ?? 0;
-        const incrementalCommands = status.commands ?? [];
+        const latestCommand = (status.latestCommand ?? '').toLowerCase().trim();
 
         if (!isSequenceInitializedRef.current) {
           lastSequenceRef.current = currentSequence;
@@ -96,28 +96,24 @@ export default function SelectDifficulty() {
           return;
         }
 
-        const commandEntries = incrementalCommands.length > 0
-          ? incrementalCommands
-          : [];
-
-        for (const entry of commandEntries) {
-          const cmd = (entry.command ?? '').toLowerCase().trim();
-          if (cmd === 'up') {
+        if (currentSequence > lastSequenceRef.current) {
+          lastSequenceRef.current = currentSequence;
+          if (latestCommand === 'up') {
             setFocusedButton('back');
-          } else if (cmd === 'down') {
+          } else if (latestCommand === 'down') {
             setFocusedButton('cards');
-          } else if (cmd === 'left') {
+          } else if (latestCommand === 'left') {
             if (focusedButton === 'cards') {
               setFocusedIndex((prev) => Math.max(0, prev - 1));
             }
-          } else if (cmd === 'right') {
+          } else if (latestCommand === 'right') {
             if (focusedButton === 'cards') {
               setFocusedIndex((prev) => Math.min(maxIndex, prev + 1));
             }
-          } else if (cmd === 'confirm' || cmd === 'punch' || cmd === 'chop') {
+          } else if (latestCommand === 'confirm' || latestCommand === 'punch' || latestCommand === 'chop') {
             // 画面遷移直後の押しっぱなし/残留コマンドによる誤選択を防止
             if (Date.now() - pageEnteredAtRef.current < 700) {
-              continue;
+              return;
             }
             if (focusedButton === 'back') {
               handleBackToHome();
@@ -125,10 +121,6 @@ export default function SelectDifficulty() {
               handleSelect(OPTIONS[Math.max(0, Math.min(maxIndex, focusedIndexRef.current))].key);
             }
           }
-        }
-
-        if (currentSequence > lastSequenceRef.current) {
-          lastSequenceRef.current = currentSequence;
         }
       } catch (error) {
         console.error('Failed to poll controller command on difficulty page:', error);
