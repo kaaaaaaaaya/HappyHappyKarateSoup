@@ -56,11 +56,11 @@ export default function SelectDifficulty() {
   const isLoggedIn = !!sessionStorage.getItem('authToken');
   const homePath = isLoggedIn ? '/home-logged-in' : '/';
 
-  const handleSelect = (difficulty: Difficulty) => {
+  const handleSelect = useCallback((difficulty: Difficulty) => {
     sessionStorage.setItem('selectedDifficulty', difficulty);
     sessionStorage.removeItem('referenceImageDataUrl');
     navigate('/select');
-  };
+  }, [navigate]);
 
   // [EN] Provide a manual way to return to home from the difficulty screen.
   // [JA] 難易度選択画面からホームへ戻る導線を用意します。
@@ -130,7 +130,7 @@ export default function SelectDifficulty() {
     return () => {
       window.clearInterval(timerId);
     };
-  }, [connectedRoomId, focusedButton, handleBackToHome]);
+  }, [connectedRoomId, focusedButton, handleBackToHome, handleSelect]);
 
   return (
     <BrandedConnectionBackground>

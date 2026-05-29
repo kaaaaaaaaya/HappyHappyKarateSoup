@@ -1,5 +1,5 @@
 // Game.tsx
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLocation } from 'react-router-dom';
 import { useGameLogic } from './useGameLogic'; // 先ほど作ったフックを読み込む
@@ -329,10 +329,6 @@ export default function Game() {
     handleActionRef.current = handleAction;
   }, [handleAction]);
 
-  const ingredientPayload = selectedIngredientLabels.length > 0
-    ? selectedIngredientLabels
-    : ['tomato', 'onion', 'miso'];
-
   // [EN] Updates reference image based on selected difficulty.
   // [JA] 選択された難易度に応じて参照画像を切り替えます。
   useEffect(() => {
@@ -470,11 +466,9 @@ export default function Game() {
     }
     const connectedRoomId = sessionStorage.getItem('connectedRoomId');
     if (!connectedRoomId) {
-      setIsWaitingForConfirm(false);
       return;
     }
 
-    setIsWaitingForConfirm(true);
     confirmPollInitializedRef.current = false;
 
     const timerId = window.setInterval(async () => {
@@ -522,7 +516,7 @@ export default function Game() {
 
   // [EN] Starts soup generation as soon as gameplay starts to hide model latency.
   // [JA] モデル生成の待ち時間を隠すため、ゲーム開始時に先行生成を開始します。
-  const startSoupGeneration = () => {
+  const startSoupGeneration = useCallback(() => {
     if (soupGenerationPromiseRef.current || soupGenerationResultRef.current) {
       return;
     }
@@ -533,6 +527,10 @@ export default function Game() {
     }
 
     setGenerationError(null);
+
+    const ingredientPayload = selectedIngredientLabels.length > 0
+      ? selectedIngredientLabels
+      : ['tomato', 'onion', 'miso'];
 
     soupGenerationPromiseRef.current = (async () => {
       const referenceImageDataUrl = sessionStorage.getItem('referenceImageDataUrl') ?? undefined;
@@ -566,7 +564,7 @@ export default function Game() {
 
         return null;
       });
-  };
+  }, [selectedIngredientLabels, selectedDifficulty]);
 
   useEffect(() => {
     if (phase !== 'playing') {
@@ -574,7 +572,7 @@ export default function Game() {
     }
 
     startSoupGeneration();
-  }, [phase]);
+  }, [phase, startSoupGeneration]);
 
   useEffect(() => {
     return () => {
@@ -586,7 +584,7 @@ export default function Game() {
 
   // [EN] Sends ingredients to backend and moves to result screen with generated data.
   // [JA] 材料をバックエンドへ送信し、生成結果を持ってリザルト画面へ遷移します。
-  const handleFinishGame = async () => {
+  const handleFinishGame = useCallback(async () => {
     if (isFinishingRef.current || hasNavigatedRef.current) {
       return;
     }
@@ -678,7 +676,7 @@ export default function Game() {
       setIsGenerating(false);
       isFinishingRef.current = false;
     }
-  };
+  }, [battleStats, navigate, rank, submitScore, totalScore]);
 
   useEffect(() => {
     if (!isChartFlowFinished) {
@@ -703,7 +701,7 @@ export default function Game() {
     }, 4000);
 
     return () => window.clearTimeout(fallbackTimerId);
-  }, [isGameFinished, isImageReady, generationError, isGenerating]);
+  }, [isGameFinished, isImageReady, generationError, isGenerating, handleFinishGame]);
 
   useEffect(() => {
     const connectedRoomId = sessionStorage.getItem('connectedRoomId');
