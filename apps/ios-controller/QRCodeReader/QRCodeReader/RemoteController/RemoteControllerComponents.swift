@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 
 /// レトロスタイルのドット絵風矢印ラベル
@@ -29,13 +30,11 @@ struct CardButton<Content: View>: View {
     let action: () -> Void
     @ViewBuilder let content: () -> Content
     @State private var isPressed = false
+    @State private var hasTriggeredHaptic = false
+    private let feedbackGenerator = UIImpactFeedbackGenerator(style: .medium)
 
     var body: some View {
         Button(action: {
-            withAnimation(.spring(response: 0.1, dampingFraction: 0.6)) { isPressed = true }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                withAnimation { isPressed = false }
-            }
             action()
         }) {
             ZStack {
@@ -55,6 +54,23 @@ struct CardButton<Content: View>: View {
         }
         .buttonStyle(PlainButtonStyle())
         .scaleEffect(isPressed ? 0.95 : 1.0)
+        .onLongPressGesture(minimumDuration: 0, maximumDistance: 50, pressing: { pressing in
+            if pressing {
+                if !hasTriggeredHaptic {
+                    feedbackGenerator.prepare()
+                    feedbackGenerator.impactOccurred()
+                    hasTriggeredHaptic = true
+                }
+                withAnimation(.spring(response: 0.1, dampingFraction: 0.6)) {
+                    isPressed = true
+                }
+            } else {
+                hasTriggeredHaptic = false
+                withAnimation {
+                    isPressed = false
+                }
+            }
+        }, perform: {})
     }
 }
 

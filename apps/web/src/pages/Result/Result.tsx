@@ -76,7 +76,7 @@ export default function Result() {
   // [EN] Move focus across result actions for controller navigation.
   // [JA] コントローラー操作に合わせて結果ボタンのフォーカスを移動します。
   const moveResultFocus = (direction: 'prev' | 'next') => {
-    const order: Array<'retry' | 'ranking' | 'home'> = ['retry', 'ranking', 'home'];
+    const order: Array<'retry' | 'home' | 'ranking'> = ['retry', 'home', 'ranking'];
     setFocusedResultAction((prev) => {
       const index = order.indexOf(prev);
       const nextIndex = direction === 'prev'
@@ -109,9 +109,9 @@ export default function Result() {
         if (currentSequence > lastCommandSequenceRef.current) {
           lastCommandSequenceRef.current = currentSequence;
           const normalizedCommand = latestCommand.toLowerCase().trim();
-          if (normalizedCommand === 'left' || normalizedCommand === 'up') {
+          if (normalizedCommand === 'left') {
             moveResultFocus('prev');
-          } else if (normalizedCommand === 'right' || normalizedCommand === 'down') {
+          } else if (normalizedCommand === 'right') {
             moveResultFocus('next');
           } else if (normalizedCommand === 'confirm' || normalizedCommand === 'punch' || normalizedCommand === 'chop') {
             if (focusedResultAction === 'retry') {

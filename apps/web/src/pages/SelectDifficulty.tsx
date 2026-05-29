@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BrandedConnectionBackground from '../components/BrandedConnectionBackground';
 import type { Difficulty } from '../api/chartApi';
@@ -6,6 +6,7 @@ import { fetchControllerRoomStatus } from '../api/controllerRoomApi';
 
 type DifficultyOption = {
   key: Difficulty;
+  difficultyLabel: string;
   soupName: string;
   buttonLabel: string;
   imagePath: string;
@@ -16,6 +17,7 @@ type DifficultyOption = {
 const OPTIONS: DifficultyOption[] = [
   {
     key: 'easy',
+    difficultyLabel: 'EASY',
     soupName: 'Miso',
     buttonLabel: 'use Miso',
     imagePath: '/images/miso.png',
@@ -24,6 +26,7 @@ const OPTIONS: DifficultyOption[] = [
   },
   {
     key: 'normal',
+    difficultyLabel: 'NORMAL',
     soupName: 'Tomato',
     buttonLabel: 'use Tomato',
     imagePath: '/images/tomato.png',
@@ -32,6 +35,7 @@ const OPTIONS: DifficultyOption[] = [
   },
   {
     key: 'hard',
+    difficultyLabel: 'HARD',
     soupName: 'Mala',
     buttonLabel: 'use Mala',
     imagePath: '/images/malatang.png',
@@ -43,17 +47,26 @@ const OPTIONS: DifficultyOption[] = [
 export default function SelectDifficulty() {
   const navigate = useNavigate();
   const [focusedIndex, setFocusedIndex] = useState(0);
+  const [focusedButton, setFocusedButton] = useState<'back' | 'cards'>('cards');
   const focusedIndexRef = useRef(0);
   const connectedRoomId = sessionStorage.getItem('connectedRoomId');
   const lastSequenceRef = useRef(0);
   const isSequenceInitializedRef = useRef(false);
   const pageEnteredAtRef = useRef(Date.now());
+  const isLoggedIn = !!sessionStorage.getItem('authToken');
+  const homePath = isLoggedIn ? '/home-logged-in' : '/';
 
   const handleSelect = (difficulty: Difficulty) => {
     sessionStorage.setItem('selectedDifficulty', difficulty);
     sessionStorage.removeItem('referenceImageDataUrl');
     navigate('/select');
   };
+
+  // [EN] Provide a manual way to return to home from the difficulty screen.
+  // [JA] 難易度選択画面からホームへ戻る導線を用意します。
+  const handleBackToHome = useCallback(() => {
+    navigate(homePath);
+  }, [homePath, navigate]);
 
   useEffect(() => {
     focusedIndexRef.current = focusedIndex;
@@ -89,16 +102,28 @@ export default function SelectDifficulty() {
 
         for (const entry of commandEntries) {
           const cmd = (entry.command ?? '').toLowerCase().trim();
-          if (cmd === 'left' || cmd === 'up') {
-            setFocusedIndex((prev) => Math.max(0, prev - 1));
-          } else if (cmd === 'right' || cmd === 'down') {
-            setFocusedIndex((prev) => Math.min(maxIndex, prev + 1));
+          if (cmd === 'up') {
+            setFocusedButton('back');
+          } else if (cmd === 'down') {
+            setFocusedButton('cards');
+          } else if (cmd === 'left') {
+            if (focusedButton === 'cards') {
+              setFocusedIndex((prev) => Math.max(0, prev - 1));
+            }
+          } else if (cmd === 'right') {
+            if (focusedButton === 'cards') {
+              setFocusedIndex((prev) => Math.min(maxIndex, prev + 1));
+            }
           } else if (cmd === 'confirm' || cmd === 'punch' || cmd === 'chop') {
             // 画面遷移直後の押しっぱなし/残留コマンドによる誤選択を防止
             if (Date.now() - pageEnteredAtRef.current < 700) {
               continue;
             }
-            handleSelect(OPTIONS[Math.max(0, Math.min(maxIndex, focusedIndexRef.current))].key);
+            if (focusedButton === 'back') {
+              handleBackToHome();
+            } else {
+              handleSelect(OPTIONS[Math.max(0, Math.min(maxIndex, focusedIndexRef.current))].key);
+            }
           }
         }
 
@@ -113,7 +138,7 @@ export default function SelectDifficulty() {
     return () => {
       window.clearInterval(timerId);
     };
-  }, [connectedRoomId]);
+  }, [connectedRoomId, focusedButton, handleBackToHome]);
 
   return (
     <BrandedConnectionBackground>
@@ -130,22 +155,47 @@ export default function SelectDifficulty() {
           overflow: 'visible',
         }}
       >
-        <h1
+        <div
           style={{
-            margin: 0,
-            marginTop: '5px',
-            marginBottom: 0,
-            padding: 0,
-            textAlign: 'left',
-            fontFamily: 'VT323',
-            fontSize: 'clamp(36px, 5.0vw, 112px)',
-            lineHeight: 0.9,
-            letterSpacing: '1px',
-            color: '#111',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginTop: '8px',
           }}
         >
-          Select Soup-base!
-        </h1>
+          <h1
+            style={{
+              margin: 0,
+              padding: 0,
+              textAlign: 'left',
+              fontFamily: 'VT323',
+              fontSize: 'clamp(36px, 5.0vw, 112px)',
+              lineHeight: 0.9,
+              letterSpacing: '1px',
+              color: '#111',
+            }}
+          >
+            Select Level!
+          </h1>
+          <button
+            type="button"
+            onClick={handleBackToHome}
+            onFocus={() => setFocusedButton('back')}
+            onBlur={() => setFocusedButton('cards')}
+            style={{
+              border: '3px solid #1c1c1c',
+              width: 48,
+              height: 48,
+              borderRadius: 6,
+              background: focusedButton === 'back' ? '#ffde00' : '#f9f9f9',
+              boxShadow: focusedButton === 'back' ? '5px 5px 0 0 #000' : '3px 3px 0 0 #000',
+              cursor: 'pointer',
+              fontSize: '1.5rem',
+            }}
+          >
+            ↩
+          </button>
+        </div>
         <p
           style={{
             margin: 0,
@@ -177,7 +227,7 @@ export default function SelectDifficulty() {
                 minHeight: 'clamp(320px, 25vw, 500px)',
                 marginTop: 'clamp(5px, 1.0vw, 20px)',
                 backgroundColor: option.cardColor,
-                border: focusedIndex === index ? '4px solid #ffffff' : '3px solid #141414',
+                border: focusedButton === 'cards' && focusedIndex === index ? '4px solid #ffffff' : '3px solid #141414',
                 borderRadius: 'clamp(14px, 1.6vw, 20px)',
                 boxSizing: 'border-box',
                 padding: 'clamp(12px, 1.2vw, 20px) clamp(10px, 1.0vw, 16px) 0',
@@ -186,10 +236,27 @@ export default function SelectDifficulty() {
                 alignItems: 'center',
                 justifyContent: 'flex-start',
                 overflow: 'visible',
-                boxShadow: focusedIndex === index ? '0 0 0 3px #111, 2px 2px 0 0 #000' : '2px 2px 0 0 #000',
+                boxShadow: focusedButton === 'cards' && focusedIndex === index ? '0 0 0 3px #111, 2px 2px 0 0 #000' : '2px 2px 0 0 #000',
               }}
             >
               <div style={{ width: '100%' }}>
+                <div
+                  style={{
+                    width: 'fit-content',
+                    margin: '0 auto clamp(4px, 0.5vw, 8px)',
+                    padding: 'clamp(3px, 0.4vw, 6px) clamp(10px, 1vw, 16px)',
+                    borderRadius: '999px',
+                    border: '2px solid #111',
+                    backgroundColor: '#ffde00',
+                    color: '#111',
+                    fontFamily: 'VT323',
+                    fontSize: 'clamp(18px, 2.4vw, 42px)',
+                    lineHeight: 1,
+                    boxShadow: '2px 2px 0 #000',
+                  }}
+                >
+                  {option.difficultyLabel}
+                </div>
                 <h3
                   style={{
                     margin: 0,
@@ -267,7 +334,7 @@ export default function SelectDifficulty() {
                     width: '92%',
                     borderRadius: 'clamp(12px, 1.4vw, 18px)',
                     border: '3px solid #202020',
-                    backgroundColor: focusedIndex === index ? '#ffde00' : '#efefef',
+                    backgroundColor: focusedButton === 'cards' && focusedIndex === index ? '#ffde00' : '#efefef',
                     color: '#101010',
                     fontFamily: 'VT323',
                     fontSize: 'clamp(16px, 3vw, 40px)',
@@ -289,6 +356,6 @@ export default function SelectDifficulty() {
           ))}
         </div>
       </div>
-    </BrandedConnectionBackground>
+    </BrandedConnectionBackground >
   );
 }

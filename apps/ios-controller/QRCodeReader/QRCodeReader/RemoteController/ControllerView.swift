@@ -20,19 +20,19 @@ struct ControllerView: View {
     }
 
     /// 物理的な攻撃時の視覚的フィードバックの種類を定義
-    private enum ActionFlash: Equatable {
-        case punch
-        case chop
+    ///private enum ActionFlash: Equatable {
+    ///    case punch
+    ///    case chop
 
-        var imageName: String {
-            switch self {
-            case .punch:
-                return "PunchIllustration"
-            case .chop:
-                return "ChopIllustration"
-            }
-        }
-    }
+    ///    var imageName: String {
+    ///        switch self {
+    ///        case .punch:
+    ///            return "PunchIllustration"
+    ///        case .chop:
+    ///            return "ChopIllustration"
+    ///        }
+    ///    }
+    ///}
 
     // MARK: - ネットワークモデル
     
@@ -65,7 +65,7 @@ struct ControllerView: View {
 
     @State private var aimX: CGFloat = 0.5
     @State private var aimY: CGFloat = 0.55
-    @State private var currentActionFlash: ActionFlash? = nil
+    //@State private var currentActionFlash: ActionFlash? = nil
     @State private var hideFlashTask: Task<Void, Never>? = nil
     
     // 加速度計とジャイロスコープのデータを監視
@@ -104,13 +104,13 @@ struct ControllerView: View {
         // motionDetectorによって検知されたモーションイベントに反応
         .onChange(of: motionDetector.punchEventId) { _, _ in
             if mode == .action {
-                showActionFlash(.punch)
+                //showActionFlash(.punch)
                 sendActionCommand("punch", acceleration: motionDetector.lastActionAcceleration)
             }
         }
         .onChange(of: motionDetector.chopEventId) { _, _ in
             if mode == .action {
-                showActionFlash(.chop)
+                //showActionFlash(.chop)
                 sendActionCommand("chop", acceleration: motionDetector.lastActionAcceleration)
             }
         }
@@ -149,7 +149,7 @@ struct ControllerView: View {
             VStack(spacing: 20) {
                 HStack {
                     Text("Controller")
-                        .font(.system(size: 26, weight: .heavy, design: .rounded))
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
                     Spacer()
                     Button("終了") {
@@ -157,9 +157,10 @@ struct ControllerView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(.pink)
+                    .disabled(true)
+                    .opacity(0.55)
                 }
-
-                Spacer()
+                .padding(.horizontal, 40)
 
                 // 操作説明パネル
                 VStack(spacing: 16) {
@@ -171,7 +172,7 @@ struct ControllerView: View {
                         Image(systemName: "iphone.radiowaves.left.and.right")
                             .font(.system(size: 64, weight: .bold))
                             .foregroundStyle(.white)
-                        
+
                         Text("パンチ: 突き出し")
                             .font(.title3.weight(.bold))
                             .foregroundStyle(.red.opacity(0.95))
@@ -182,7 +183,23 @@ struct ControllerView: View {
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.white.opacity(0.9))
                             .padding(.top, 6)
+
+                        Button(action: {
+                            onConfirm()
+                        }) {
+                            Text("準備OK")
+                                .font(.custom("DotGothic16-Regular", size: 18))
+                                .fontWeight(.bold)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(Color.green.opacity(0.95))
+                                .foregroundColor(.white)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                        }
+                        .padding(.top, 8)
                     }
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 18)
                     .background(Color.white.opacity(0.12))
@@ -194,46 +211,41 @@ struct ControllerView: View {
                 if showsSimulatorTestButtons {
                     HStack(spacing: 12) {
                         Button("TEST PUNCH") {
-                            showActionFlash(.punch)
+                            //showActionFlash(.punch)
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(.red)
 
                         Button("TEST CHOP") {
-                            showActionFlash(.chop)
+                            //showActionFlash(.chop)
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(.cyan)
                     }
                 }
-
-                Spacer()
-
-                Text("オートエイム中。モーションだけで攻撃できます")
-                    .font(.footnote)
-                    .foregroundStyle(.white.opacity(0.8))
             }
             .padding(20)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
 
             // 攻撃時の視覚フィードバック（パンチ/チョップの画像）
-            if let flash = currentActionFlash {
-                actionFlashOverlay(for: flash)
-                    .transition(
-                        .asymmetric(
-                            insertion: .scale(scale: 0.55).combined(with: .opacity),
-                            removal: .scale(scale: 1.08).combined(with: .opacity)
-                        )
-                    )
-            }
+            //if let flash = currentActionFlash {
+            //    actionFlashOverlay(for: flash)
+            //        .transition(
+            //            .asymmetric(
+            //                insertion: .scale(scale: 0.55).combined(with: .opacity),
+            //                removal: .scale(scale: 1.08).combined(with: .opacity)
+            //            )
+            //        )
+            //}
         }
         .animation(
             .interactiveSpring(response: 0.14, dampingFraction: 0.58, blendDuration: 0.06),
-            value: currentActionFlash
+            //value: currentActionFlash
         )
     }
 
     /// 攻撃アニメーションのオーバーレイを描画
+    /*
     @ViewBuilder
     private func actionFlashOverlay(for flash: ActionFlash) -> some View {
         VStack {
@@ -251,6 +263,7 @@ struct ControllerView: View {
         )
         .allowsHitTesting(false) // オーバーレイがタッチをブロックしないように設定
     }
+    */
 
     // MARK: - ロジック & ヘルパー関数
     
@@ -258,13 +271,14 @@ struct ControllerView: View {
     private func sendActionCommand(_ action: String, acceleration: Double?) {
         let x = String(format: "%.3f", max(0, min(1, aimX)))
         let y = String(format: "%.3f", max(0, min(1, aimY)))
+        let sentAtMs = Int(Date().timeIntervalSince1970 * 1000)
         
         // 攻撃の威力を判定するため、利用可能な場合は加速度を追加
         if let acceleration {
             let a = String(format: "%.3f", max(0, acceleration))
-            onDirection("\(action)@\(x),\(y),\(a)")
+            onDirection("\(action)@\(x),\(y),\(a),\(sentAtMs)")
         } else {
-            onDirection("\(action)@\(x),\(y)")
+            onDirection("\(action)@\(x),\(y),\(sentAtMs)")
         }
         
         // 技を繰り出したユーザーへの触覚フィードバック
@@ -273,6 +287,7 @@ struct ControllerView: View {
     }
 
     /// 攻撃時の画像を画面上に短時間表示する
+    /*
     private func showActionFlash(_ flash: ActionFlash) {
         hideFlashTask?.cancel()
         currentActionFlash = flash
@@ -284,6 +299,7 @@ struct ControllerView: View {
             }
         }
     }
+    */
 
     /// ルームステータスの更新を確認するバックグラウンドループを開始
     private func startPollingRoomStatus() {

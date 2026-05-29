@@ -148,7 +148,7 @@ const toUserFriendlyGenerationError = (rawMessage: string): string => {
 
 type ParsedControllerCommand =
   | { kind: 'aim'; xNorm: number }
-  | { kind: 'action'; action: 'punch' | 'chop'; xNorm?: number; acceleration?: number };
+  | { kind: 'action'; action: 'punch' | 'chop'; xNorm?: number; acceleration?: number; sentAtMs?: number };
 
 const parseCommandXNorm = (normalizedCommand: string): number | undefined => {
   const payload = normalizedCommand.split('@')[1] ?? '';
@@ -163,7 +163,7 @@ const parseCommandXNorm = (normalizedCommand: string): number | undefined => {
 const parseCommandAcceleration = (normalizedCommand: string): number | undefined => {
   const payload = normalizedCommand.split('@')[1] ?? '';
   const parts = payload.split(',');
-  const raw = parts[2];
+  const raw = parts.length >= 4 ? parts[2] : parts.length === 3 ? parts[2] : undefined;
   if (!raw) {
     return undefined;
   }
@@ -171,7 +171,29 @@ const parseCommandAcceleration = (normalizedCommand: string): number | undefined
   if (!Number.isFinite(acceleration)) {
     return undefined;
   }
+  // [EN] Heuristic: distinguish legacy acceleration vs. timestamp-only payloads.
+  // [JA] ヒューリスティックで旧形式の加速度とタイムスタンプのみの形式を判別します。
+  if (parts.length === 3 && acceleration >= 1_000_000_000) {
+    return undefined;
+  }
   return Math.max(0, acceleration);
+};
+
+const parseCommandSentAtMs = (normalizedCommand: string): number | undefined => {
+  const payload = normalizedCommand.split('@')[1] ?? '';
+  const parts = payload.split(',');
+  const raw = parts.length >= 4 ? parts[3] : parts.length === 3 ? parts[2] : undefined;
+  if (!raw) {
+    return undefined;
+  }
+  const sentAtMs = Number.parseFloat(raw);
+  if (!Number.isFinite(sentAtMs)) {
+    return undefined;
+  }
+  if (parts.length === 3 && sentAtMs < 1_000_000_000) {
+    return undefined;
+  }
+  return Math.max(0, sentAtMs);
 };
 
 const CONTROLLER_MIN_ACTION_ACCELERATION = 1.9;
@@ -185,6 +207,7 @@ const parseControllerCommand = (command: string): ParsedControllerCommand | null
 
   if (normalized.startsWith('punch')) {
     const acceleration = parseCommandAcceleration(normalized);
+    const sentAtMs = parseCommandSentAtMs(normalized);
     if (acceleration !== undefined && acceleration < CONTROLLER_MIN_ACTION_ACCELERATION) {
       return null;
     }
@@ -193,11 +216,13 @@ const parseControllerCommand = (command: string): ParsedControllerCommand | null
       action: 'punch',
       xNorm: parseCommandXNorm(normalized),
       acceleration,
+      sentAtMs,
     };
   }
 
   if (normalized.startsWith('chop')) {
     const acceleration = parseCommandAcceleration(normalized);
+    const sentAtMs = parseCommandSentAtMs(normalized);
     if (acceleration !== undefined && acceleration < CONTROLLER_MIN_ACTION_ACCELERATION) {
       return null;
     }
@@ -206,6 +231,7 @@ const parseControllerCommand = (command: string): ParsedControllerCommand | null
       action: 'chop',
       xNorm: parseCommandXNorm(normalized),
       acceleration,
+      sentAtMs,
     };
   }
 
@@ -253,6 +279,8 @@ export default function Game() {
   const lastControllerCommandSequenceRef = useRef(0);
   const lastControllerRawCommandRef = useRef('');
   const isControllerSequenceInitializedRef = useRef(false);
+  const pollStatsRef = useRef({ count: 0, totalMs: 0, maxMs: 0 });
+  const commandLatencyStatsRef = useRef({ count: 0, totalMs: 0, maxMs: 0 });
   const retryTimerRef = useRef<number | null>(null);
   const soupGenerationPromiseRef = useRef<Promise<SoupGenerateResponse | null> | null>(null);
   const soupGenerationResultRef = useRef<SoupGenerateResponse | null>(null);
@@ -342,9 +370,18 @@ export default function Game() {
 
     const timerId = window.setInterval(async () => {
       try {
+        const pollStartMs = performance.now();
         const status = await fetchControllerRoomStatus(connectedRoomId, {
           since: lastControllerCommandSequenceRef.current,
         });
+        const pollDurationMs = performance.now() - pollStartMs;
+        const pollStats = pollStatsRef.current;
+        pollStats.count += 1;
+        pollStats.totalMs += pollDurationMs;
+        pollStats.maxMs = Math.max(pollStats.maxMs, pollDurationMs);
+        if (pollStats.count % 50 === 0) {
+          console.log(`[poll] avg=${(pollStats.totalMs / pollStats.count).toFixed(1)}ms max=${pollStats.maxMs.toFixed(1)}ms`);
+        }
         const currentSequence = status.commandSequence ?? 0;
         const latestCommand = status.latestCommand ?? '';
         const incrementalCommands = status.commands ?? [];
@@ -380,6 +417,18 @@ export default function Game() {
           }
 
           if (parsedCommand.kind === 'action') {
+            if (parsedCommand.sentAtMs !== undefined) {
+              const latencyMs = Date.now() - parsedCommand.sentAtMs;
+              if (latencyMs >= 0 && latencyMs < 10000) {
+                const latencyStats = commandLatencyStatsRef.current;
+                latencyStats.count += 1;
+                latencyStats.totalMs += latencyMs;
+                latencyStats.maxMs = Math.max(latencyStats.maxMs, latencyMs);
+                if (latencyStats.count % 20 === 0) {
+                  console.log(`[command] avg=${(latencyStats.totalMs / latencyStats.count).toFixed(1)}ms max=${latencyStats.maxMs.toFixed(1)}ms`);
+                }
+              }
+            }
             if (phase === 'playing') {
               // Use controller x input for lane-aware target selection when available.
               handleActionRef.current(parsedCommand.action, parsedCommand.xNorm, parsedCommand.acceleration);
@@ -394,7 +443,7 @@ export default function Game() {
       } catch (error) {
         console.error('Failed to poll controller action on game page:', error);
       }
-    }, 80);
+    }, 40);
 
     return () => {
       window.clearInterval(timerId);
@@ -446,7 +495,7 @@ export default function Game() {
         }, 3000);
 
         return null;
-        });
+      });
   };
 
   useEffect(() => {
@@ -646,354 +695,354 @@ export default function Game() {
       />
 
       <div style={{ position: 'relative', zIndex: 2 }}>
-      {phase === 'countdown' ? (
-        <div>
-          <h2 style={{ color: '#fff' }}>ゲーム準備</h2>
-          <p>スマホをこっち向き（反時計回りに90度）に回して、こうやって持ってね！</p>
-          <div style={{ fontSize: '80px', fontWeight: 'bold', margin: '50px 0', color: '#ff5722' }}>
-            {count > 0 ? count : 'START!'}
-          </div>
-        </div>
-      ) : (
-        <div>
-          <h2 style={{ color: '#fff' }}>ゲームプレイ（パンチ画面）</h2>
-          {totalScore !== null && <p>最新スコア: {totalScore}</p>}
-
-          <div
-            style={{
-              margin: '12px auto 18px',
-              width: '90%',
-              maxWidth: '720px',
-              textAlign: 'left',
-              fontFamily: "'DotGothic16', sans-serif",
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', color: '#fff' }}>
-              <span>進行度</span>
-              <span>{progressPercent}%</span>
+        {phase === 'countdown' ? (
+          <div>
+            <h2 style={{ color: '#fff' }}>ゲーム準備</h2>
+            <p>スマホをこっち向き（反時計回りに90度）に回して、こうやって持ってね！</p>
+            <div style={{ fontSize: '80px', fontWeight: 'bold', margin: '50px 0', color: '#ff5722' }}>
+              {count > 0 ? count : 'START!'}
             </div>
+          </div>
+        ) : (
+          <div>
+            <h2 style={{ color: '#fff' }}>ゲームプレイ（パンチ画面）</h2>
+            {totalScore !== null && <p>最新スコア: {totalScore}</p>}
+
             <div
-              role="progressbar"
-              aria-valuenow={progressPercent}
-              aria-valuemin={0}
-              aria-valuemax={100}
               style={{
-                width: '100%',
-                height: '12px',
-                backgroundColor: 'rgba(255, 255, 255, 0.35)',
-                borderRadius: '999px',
-                overflow: 'hidden',
-                boxShadow: '0 0 6px rgba(0, 0, 0, 0.25) inset',
+                margin: '12px auto 18px',
+                width: '90%',
+                maxWidth: '720px',
+                textAlign: 'left',
+                fontFamily: "'DotGothic16', sans-serif",
               }}
             >
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', color: '#fff' }}>
+                <span>進行度</span>
+                <span>{progressPercent}%</span>
+              </div>
               <div
+                role="progressbar"
+                aria-valuenow={progressPercent}
+                aria-valuemin={0}
+                aria-valuemax={100}
                 style={{
-                  width: `${progressPercent}%`,
-                  height: '100%',
-                  background: 'linear-gradient(90deg, #ffe082 0%, #ffb74d 50%, #ff7043 100%)',
-                  transition: 'width 80ms linear',
-                }}
-              />
-            </div>
-          </div>
-
-          {/*ゲーム画面内の設定*/}
-          <div style={{
-            margin: '30px auto',
-            width: "100%",
-            aspectRatio: '16 / 9',
-            backgroundImage: `url("${kitchenImageUrl}")`,
-            backgroundColor: 'transparent', // 透明に変更
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat',
-            position: 'relative',
-            overflow: 'hidden',
-            perspective: '500px'
-          }}>
-
-            {/* 1. 判定表示 */}
-            {lastJudgment && (
-              <div
-                key={lastJudgment.key} // keyを変えることでアニメーションが毎回リセットされる
-                style={{
-                  position: 'absolute',
-                  top: '60%',
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  fontSize: '48px',
-                  fontWeight: 'bold',
-                  fontFamily: "'DotGothic16', sans-serif",
-                  color: lastJudgment.text.includes('MISS') ? '#9e9e9e' : '#ffeb3b',
-                  textShadow: '3px 3px 0 #000',
-                  zIndex: 200,
-                  pointerEvents: 'none',
-                  animation: 'judgmentPop 0.2s ease-out forwards'
+                  width: '100%',
+                  height: '12px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.35)',
+                  borderRadius: '999px',
+                  overflow: 'hidden',
+                  boxShadow: '0 0 6px rgba(0, 0, 0, 0.25) inset',
                 }}
               >
-                {lastJudgment.text}
-              </div>
-            )}
-
-            {/* コンボ表示（例: 3 Combo!） */}
-            {combo > 0 && (
-              <div
-                key={`combo-${combo}`}
-                style={{
-                  position: 'absolute',
-                  top: '10%',
-                  right: '5%',
-                  textAlign: 'right',
-                  fontFamily: "'DotGothic16', sans-serif",
-                  zIndex: 200,
-                  pointerEvents: 'none',
-                  animation: 'comboPop 0.1s ease-out'
-                }}
-              >
-                <div style={{ fontSize: '20px', color: '#fff', textShadow: '2px 2px 0 #000' }}>COMBO</div>
-                <div style={{ fontSize: '60px', color: '#ff5722', textShadow: '3px 3px 0 #000', lineHeight: '1' }}>
-                  {combo}
-                </div>
-              </div>
-            )}
-
-            {ingredients.map((item) => {
-              const dataUrl = emojiToDataUrl(item.emoji, 64);
-              const isBursting = burstingIds.has(item.id);
-              const isChopSplit = isBursting && item.type === 'chop';
-
-              const fragStyle = (posX: number, posY: number): React.CSSProperties => ({
-                position: 'absolute',
-                width: '48px',        // 32px → 48px
-                height: '48px',       // 32px → 48px
-                backgroundImage: `url(${dataUrl})`,
-                backgroundSize: '96px 96px',  // 64px → 96px
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: `${posX}px ${posY}px`,
-              });
-              const finishBurst = () => {
-                setBurstingIds(prev => {
-                  const next = new Set(prev);
-                  next.delete(item.id);
-                  return next;
-                });
-                removeIngredient(item.id);
-              };
-
-              // lane(-100〜100) をコンテナ幅の割合に変換
-              // lane=0 → 中央(50%), lane=-100 → 左端, lane=100 → 右端
-              // 判定ゾーンの中心に合わせる
-              const burstLeftPercent = 50 + (item.startX / 100) * 25; // 5%〜95% の範囲にマップ
-              const burstTopPercent = judgeZoneCenter;
-
-              return (
                 <div
-                  key={item.id}
-                  onAnimationEnd={() => !isBursting && removeIngredient(item.id)}
+                  style={{
+                    width: `${progressPercent}%`,
+                    height: '100%',
+                    background: 'linear-gradient(90deg, #ffe082 0%, #ffb74d 50%, #ff7043 100%)',
+                    transition: 'width 80ms linear',
+                  }}
+                />
+              </div>
+            </div>
+
+            {/*ゲーム画面内の設定*/}
+            <div style={{
+              margin: '30px auto',
+              width: "100%",
+              aspectRatio: '16 / 9',
+              backgroundImage: `url("${kitchenImageUrl}")`,
+              backgroundColor: 'transparent', // 透明に変更
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat',
+              position: 'relative',
+              overflow: 'hidden',
+              perspective: '500px'
+            }}>
+
+              {/* 1. 判定表示 */}
+              {lastJudgment && (
+                <div
+                  key={lastJudgment.key} // keyを変えることでアニメーションが毎回リセットされる
                   style={{
                     position: 'absolute',
-                    left: isBursting ? `${burstLeftPercent}%` : '50%',
-                    top: isBursting ? `${burstTopPercent}%` : '0%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    transform: isBursting ? 'translate(-50%, -50%)' : undefined,
-                    animation: isBursting ? 'none' : `moveForward ${NOTE_ANIMATION_MS}ms ease-in forwards`,
-                    zIndex: 100,
-                    opacity: item.missed ? 0.2 : 1,
-                    filter: item.missed ? 'grayscale(100%)' : 'none',
-                    '--start-x': `${item.startX}px`,
-                    '--end-x': `${item.startX * 7}px`,
-                  } as React.CSSProperties}
+                    top: '60%',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    fontSize: '48px',
+                    fontWeight: 'bold',
+                    fontFamily: "'DotGothic16', sans-serif",
+                    color: lastJudgment.text.includes('MISS') ? '#9e9e9e' : '#ffeb3b',
+                    textShadow: '3px 3px 0 #000',
+                    zIndex: 200,
+                    pointerEvents: 'none',
+                    animation: 'judgmentPop 0.2s ease-out forwards'
+                  }}
                 >
-                  {isBursting ? (
-                    <div style={{ position: 'relative', width: '96px', height: '96px' }}>
-                      {isChopSplit ? (
-                        <>
-                          <div
-                            style={{
-                              position: 'absolute',
-                              top: 0,
-                              left: 0,
-                              width: '48px',
-                              height: '96px',
-                              backgroundImage: `url(${dataUrl})`,
-                              backgroundSize: '96px 96px',
-                              backgroundRepeat: 'no-repeat',
-                              backgroundPosition: '0 0',
-                              animation: 'chop-left-fall 0.30s ease-in forwards',
-                            }}
-                          />
-                          <div
-                            style={{
-                              position: 'absolute',
-                              top: 0,
-                              left: '48px',
-                              width: '48px',
-                              height: '96px',
-                              backgroundImage: `url(${dataUrl})`,
-                              backgroundSize: '96px 96px',
-                              backgroundRepeat: 'no-repeat',
-                              backgroundPosition: '-48px 0',
-                              animation: 'chop-right-fall 0.30s ease-in forwards',
-                            }}
-                            onAnimationEnd={finishBurst}
-                          />
-                        </>
-                      ) : (
-                        [
-                          { cls: 'tl', x: 0, y: 0, anim: 'parabola-tl' },
-                          { cls: 'tr', x: -48, y: 0, anim: 'parabola-tr' },
-                          { cls: 'bl', x: 0, y: -48, anim: 'parabola-bl' },
-                          { cls: 'br', x: -48, y: -48, anim: 'parabola-br' },
-                        ].map(({ cls, x, y, anim }) => (
-                          <div
-                            key={cls}
-                            style={{
-                              ...fragStyle(x, y),
-                              top: cls.startsWith('b') ? '48px' : '0',
-                              left: cls.endsWith('r') ? '48px' : '0',
-                              // 変更後
-                              animation: `${anim} 0.5s cubic-bezier(0.25, 0.8, 0.5, 1) forwards`,
-                            }}
-                            onAnimationEnd={() => {
-                              if (cls === 'br') {
-                                finishBurst();
-                              }
-                            }}
-                          />
-                        ))
-                      )}
-                    </div>
-                  ) : (
-                    <>
-                      <div style={{ fontSize: '50px', lineHeight: '1' }}>
-                        {item.emoji}
-                      </div>
-                      <div style={{
-                        fontFamily: "'DotGothic16', sans-serif",
-                        fontSize: '20px',
-                        color: item.type === 'punch' ? '#ff3b3b' : '#32cd32',
-                        textShadow: '1px 1px 0 #fff, -1px -1px 0 #fff',
-                        marginTop: '5px'
-                      }}>
-                        {item.type === 'punch' ? 'Punch!!' : 'Chop!'}
-                      </div>
-                    </>
-                  )}
+                  {lastJudgment.text}
                 </div>
-              );
-            })}
-            {/* 鍋の画像 */}
-            <div style={{
-              position: 'absolute',
-              bottom: '0',
-              left: '0',
-              width: '103.5%',
-              height: '12%', /* 画像がしっかり見えるように高さを広げました */
-              display: 'flex',
-              alignItems: 'flex-start',
-              justifyContent: 'center',
-              transform: 'scale(4)', /* 画像を大きくして存在感アップ！ */
-              transformOrigin: 'center bottom',
-              zIndex: 10,
-              pointerEvents: 'none',
-            }}>
+              )}
 
-              <img
-                src={potImageUrl}
-                style={{
-                  height: '100%', /* 親のdivの高さに合わせる */
-                  objectFit: 'contain', /* 画像の縦横比を崩さずに綺麗に収める */
-                }}
-              />
+              {/* コンボ表示（例: 3 Combo!） */}
+              {combo > 0 && (
+                <div
+                  key={`combo-${combo}`}
+                  style={{
+                    position: 'absolute',
+                    top: '10%',
+                    right: '5%',
+                    textAlign: 'right',
+                    fontFamily: "'DotGothic16', sans-serif",
+                    zIndex: 200,
+                    pointerEvents: 'none',
+                    animation: 'comboPop 0.1s ease-out'
+                  }}
+                >
+                  <div style={{ fontSize: '20px', color: '#fff', textShadow: '2px 2px 0 #000' }}>COMBO</div>
+                  <div style={{ fontSize: '60px', color: '#ff5722', textShadow: '3px 3px 0 #000', lineHeight: '1' }}>
+                    {combo}
+                  </div>
+                </div>
+              )}
+
+              {ingredients.map((item) => {
+                const dataUrl = emojiToDataUrl(item.emoji, 64);
+                const isBursting = burstingIds.has(item.id);
+                const isChopSplit = isBursting && item.type === 'chop';
+
+                const fragStyle = (posX: number, posY: number): React.CSSProperties => ({
+                  position: 'absolute',
+                  width: '48px',        // 32px → 48px
+                  height: '48px',       // 32px → 48px
+                  backgroundImage: `url(${dataUrl})`,
+                  backgroundSize: '96px 96px',  // 64px → 96px
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: `${posX}px ${posY}px`,
+                });
+                const finishBurst = () => {
+                  setBurstingIds(prev => {
+                    const next = new Set(prev);
+                    next.delete(item.id);
+                    return next;
+                  });
+                  removeIngredient(item.id);
+                };
+
+                // lane(-100〜100) をコンテナ幅の割合に変換
+                // lane=0 → 中央(50%), lane=-100 → 左端, lane=100 → 右端
+                // 判定ゾーンの中心に合わせる
+                const burstLeftPercent = 50 + (item.startX / 100) * 25; // 5%〜95% の範囲にマップ
+                const burstTopPercent = judgeZoneCenter;
+
+                return (
+                  <div
+                    key={item.id}
+                    onAnimationEnd={() => !isBursting && removeIngredient(item.id)}
+                    style={{
+                      position: 'absolute',
+                      left: isBursting ? `${burstLeftPercent}%` : '50%',
+                      top: isBursting ? `${burstTopPercent}%` : '0%',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      transform: isBursting ? 'translate(-50%, -50%)' : undefined,
+                      animation: isBursting ? 'none' : `moveForward ${NOTE_ANIMATION_MS}ms ease-in forwards`,
+                      zIndex: 100,
+                      opacity: item.missed ? 0.2 : 1,
+                      filter: item.missed ? 'grayscale(100%)' : 'none',
+                      '--start-x': `${item.startX}px`,
+                      '--end-x': `${item.startX * 7}px`,
+                    } as React.CSSProperties}
+                  >
+                    {isBursting ? (
+                      <div style={{ position: 'relative', width: '96px', height: '96px' }}>
+                        {isChopSplit ? (
+                          <>
+                            <div
+                              style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                width: '48px',
+                                height: '96px',
+                                backgroundImage: `url(${dataUrl})`,
+                                backgroundSize: '96px 96px',
+                                backgroundRepeat: 'no-repeat',
+                                backgroundPosition: '0 0',
+                                animation: 'chop-left-fall 0.30s ease-in forwards',
+                              }}
+                            />
+                            <div
+                              style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: '48px',
+                                width: '48px',
+                                height: '96px',
+                                backgroundImage: `url(${dataUrl})`,
+                                backgroundSize: '96px 96px',
+                                backgroundRepeat: 'no-repeat',
+                                backgroundPosition: '-48px 0',
+                                animation: 'chop-right-fall 0.30s ease-in forwards',
+                              }}
+                              onAnimationEnd={finishBurst}
+                            />
+                          </>
+                        ) : (
+                          [
+                            { cls: 'tl', x: 0, y: 0, anim: 'parabola-tl' },
+                            { cls: 'tr', x: -48, y: 0, anim: 'parabola-tr' },
+                            { cls: 'bl', x: 0, y: -48, anim: 'parabola-bl' },
+                            { cls: 'br', x: -48, y: -48, anim: 'parabola-br' },
+                          ].map(({ cls, x, y, anim }) => (
+                            <div
+                              key={cls}
+                              style={{
+                                ...fragStyle(x, y),
+                                top: cls.startsWith('b') ? '48px' : '0',
+                                left: cls.endsWith('r') ? '48px' : '0',
+                                // 変更後
+                                animation: `${anim} 0.5s cubic-bezier(0.25, 0.8, 0.5, 1) forwards`,
+                              }}
+                              onAnimationEnd={() => {
+                                if (cls === 'br') {
+                                  finishBurst();
+                                }
+                              }}
+                            />
+                          ))
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ fontSize: '50px', lineHeight: '1' }}>
+                          {item.emoji}
+                        </div>
+                        <div style={{
+                          fontFamily: "'DotGothic16', sans-serif",
+                          fontSize: '20px',
+                          color: item.type === 'punch' ? '#ff3b3b' : '#32cd32',
+                          textShadow: '1px 1px 0 #fff, -1px -1px 0 #fff',
+                          marginTop: '5px'
+                        }}>
+                          {item.type === 'punch' ? 'Punch!!' : 'Chop!'}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+              {/* 鍋の画像 */}
+              <div style={{
+                position: 'absolute',
+                bottom: '0',
+                left: '0',
+                width: '103.5%',
+                height: '12%', /* 画像がしっかり見えるように高さを広げました */
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'center',
+                transform: 'scale(4)', /* 画像を大きくして存在感アップ！ */
+                transformOrigin: 'center bottom',
+                zIndex: 10,
+                pointerEvents: 'none',
+              }}>
+
+                <img
+                  src={potImageUrl}
+                  style={{
+                    height: '100%', /* 親のdivの高さに合わせる */
+                    objectFit: 'contain', /* 画像の縦横比を崩さずに綺麗に収める */
+                  }}
+                />
+              </div>
+
+              {/*レール背景*/}
+              <div style={{
+                position: 'absolute',
+                top: '0',
+                left: '0',
+                width: '100%',
+                height: '100%',
+                backgroundImage: 'linear-gradient(to bottom, rgba(255, 255, 255, 0) 40%, rgba(255, 255, 255, 0.2) 50%, rgba(255, 255, 255, 0.4) 100%)',
+                zIndex: 50, // 背景画像より手前、絵文字(zIndex:100)より奥に配置
+
+                // 4つの頂点(X Y)を指定して台形に切り抜く
+                // 1: 左上 (中央から左に50px)
+                // 2: 右上 (中央から右に50px)
+                // 3: 右下 (画面の右下スミ)
+                // 4: 左下 (画面の左下スミ)
+                clipPath: 'polygon(calc(50% - 10%) 40%, calc(50% + 10%) 40%, 100% 100%, 0% 100%)'
+              }}></div>
+
+              {/* 判定ゾーン（鍋の上面に合わせて横幅調整） */}
+              <div style={{
+                position: 'absolute',
+                top: '0',
+                left: '0',
+                width: '100%',
+                height: '100%',
+                backgroundColor: 'rgba(255, 180, 45, 0.3)',
+                zIndex: 55,
+                // レールの左右線に合わせて幅を補正
+                clipPath: `polygon(${judgeLeftTop}% ${judgeZoneTop}%, ${judgeRightTop}% ${judgeZoneTop}%, ${judgeRightBottom}% ${judgeZoneBottom}%, ${judgeLeftBottom}% ${judgeZoneBottom}%)`
+              }}></div>
+
+              {/* 2. レーンの線（SVGで描画） */}
+              <svg style={{
+                position: 'absolute',
+                top: '0',
+                left: '0',
+                width: '100%',
+                height: '100%',
+                zIndex: 60,
+                pointerEvents: 'none'
+              }}>
+                {/* 1. 「線のグラデーション」を定義 */}
+                <defs>
+                  <linearGradient id="lineFade" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="white" stopOpacity="0" />
+                    <stop offset="45%" stopColor="white" stopOpacity="1" />
+                    <stop offset="100%" stopColor="white" stopOpacity="1" />
+                  </linearGradient>
+                </defs>
+
+                {/* 2. 線のスタート(y1)を40%に伸ばし、色(stroke)に上で作ったグラデーションを指定します */}
+                {/* 左端の線 */}
+                <line x1="calc(50% - 10%)" y1="40%" x2="0%" y2="100%" stroke="url(#lineFade)" strokeWidth="2" />
+
+                {/* 左から1/3の線 */}
+                <line x1="calc(50% - 3.3%)" y1="40%" x2="33.33%" y2="100%" stroke="url(#lineFade)" strokeWidth="2" />
+
+                {/* 左から2/3の線 */}
+                <line x1="calc(50% + 3.3%)" y1="40%" x2="66.67%" y2="100%" stroke="url(#lineFade)" strokeWidth="2" />
+
+                {/* 右端の線 */}
+                <line x1="calc(50% + 10%)" y1="40%" x2="100%" y2="100%" stroke="url(#lineFade)" strokeWidth="2" />
+
+                {/* 上側のライン (y=80% の位置) */}
+                <line
+                  x1={`${judgeLeftTop}%`} y1={`${judgeZoneTop}%`}
+                  x2={`${judgeRightTop}%`} y2={`${judgeZoneTop}%`}
+                  stroke="rgba(255, 220, 180, 0.8)"
+                  strokeWidth="3"
+                  style={{ filter: 'drop-shadow(0 0 10px rgba(255, 220, 180, 1))' }}
+                />
+
+                {/* 下側のライン (y=90% の位置) */}
+                <line
+                  x1={`${judgeLeftBottom}%`} y1={`${judgeZoneBottom}%`}
+                  x2={`${judgeRightBottom}%`} y2={`${judgeZoneBottom}%`}
+                  stroke="rgba(255, 220, 180, 1)"
+                  strokeWidth="6"
+                  style={{ filter: 'drop-shadow(0 0 10px rgba(255, 220, 180, 1))' }}
+                />
+
+              </svg>
             </div>
-
-            {/*レール背景*/}
-            <div style={{
-              position: 'absolute',
-              top: '0',
-              left: '0',
-              width: '100%',
-              height: '100%',
-              backgroundImage: 'linear-gradient(to bottom, rgba(255, 255, 255, 0) 40%, rgba(255, 255, 255, 0.2) 50%, rgba(255, 255, 255, 0.4) 100%)',
-              zIndex: 50, // 背景画像より手前、絵文字(zIndex:100)より奥に配置
-
-              // 4つの頂点(X Y)を指定して台形に切り抜く
-              // 1: 左上 (中央から左に50px)
-              // 2: 右上 (中央から右に50px)
-              // 3: 右下 (画面の右下スミ)
-              // 4: 左下 (画面の左下スミ)
-              clipPath: 'polygon(calc(50% - 10%) 40%, calc(50% + 10%) 40%, 100% 100%, 0% 100%)'
-            }}></div>
-
-            {/* 判定ゾーン（鍋の上面に合わせて横幅調整） */}
-            <div style={{
-              position: 'absolute',
-              top: '0',
-              left: '0',
-              width: '100%',
-              height: '100%',
-              backgroundColor: 'rgba(255, 180, 45, 0.3)',
-              zIndex: 55,
-              // レールの左右線に合わせて幅を補正
-              clipPath: `polygon(${judgeLeftTop}% ${judgeZoneTop}%, ${judgeRightTop}% ${judgeZoneTop}%, ${judgeRightBottom}% ${judgeZoneBottom}%, ${judgeLeftBottom}% ${judgeZoneBottom}%)`
-            }}></div>
-
-            {/* 2. レーンの線（SVGで描画） */}
-            <svg style={{
-              position: 'absolute',
-              top: '0',
-              left: '0',
-              width: '100%',
-              height: '100%',
-              zIndex: 60,
-              pointerEvents: 'none'
-            }}>
-              {/* 1. 「線のグラデーション」を定義 */}
-              <defs>
-                <linearGradient id="lineFade" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="white" stopOpacity="0" />
-                  <stop offset="45%" stopColor="white" stopOpacity="1" />
-                  <stop offset="100%" stopColor="white" stopOpacity="1" />
-                </linearGradient>
-              </defs>
-
-              {/* 2. 線のスタート(y1)を40%に伸ばし、色(stroke)に上で作ったグラデーションを指定します */}
-              {/* 左端の線 */}
-              <line x1="calc(50% - 10%)" y1="40%" x2="0%" y2="100%" stroke="url(#lineFade)" strokeWidth="2" />
-
-              {/* 左から1/3の線 */}
-              <line x1="calc(50% - 3.3%)" y1="40%" x2="33.33%" y2="100%" stroke="url(#lineFade)" strokeWidth="2" />
-
-              {/* 左から2/3の線 */}
-              <line x1="calc(50% + 3.3%)" y1="40%" x2="66.67%" y2="100%" stroke="url(#lineFade)" strokeWidth="2" />
-
-              {/* 右端の線 */}
-              <line x1="calc(50% + 10%)" y1="40%" x2="100%" y2="100%" stroke="url(#lineFade)" strokeWidth="2" />
-
-              {/* 上側のライン (y=80% の位置) */}
-              <line
-                x1={`${judgeLeftTop}%`} y1={`${judgeZoneTop}%`}
-                x2={`${judgeRightTop}%`} y2={`${judgeZoneTop}%`}
-                stroke="rgba(255, 220, 180, 0.8)"
-                strokeWidth="3"
-                style={{ filter: 'drop-shadow(0 0 10px rgba(255, 220, 180, 1))' }}
-              />
-
-              {/* 下側のライン (y=90% の位置) */}
-              <line
-                x1={`${judgeLeftBottom}%`} y1={`${judgeZoneBottom}%`}
-                x2={`${judgeRightBottom}%`} y2={`${judgeZoneBottom}%`}
-                stroke="rgba(255, 220, 180, 1)"
-                strokeWidth="6"
-                style={{ filter: 'drop-shadow(0 0 10px rgba(255, 220, 180, 1))' }}
-              />
-
-            </svg>
           </div>
-        </div>
-      )}
+        )}
       </div>
     </div>
   );
