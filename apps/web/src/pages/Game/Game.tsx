@@ -335,9 +335,9 @@ export default function Game() {
   useEffect(() => {
     let cancelled = false;
     const imageByDifficulty: Record<Difficulty, string> = {
-      easy: '/images/miso.png',
-      normal: '/images/tomato.png',
-      hard: '/images/malatang.png',
+      easy: '/images/miso_white.png',
+      normal: '/images/tomato_white.png',
+      hard: '/images/malatang_white.png',
     };
 
     const setReferenceImageByDifficulty = async () => {
