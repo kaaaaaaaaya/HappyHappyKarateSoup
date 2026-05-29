@@ -223,7 +223,7 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
 
         // 経過時間がターゲット時間の2000ms前に達したら具材を出現させる
         // デプロイ先ではラグがあるので、具材の出現を譜面の1000ms前倒しする
-        if (elapsed >= targetTime - animationDuration - 800) {
+        if (elapsed >= targetTime - animationDuration - 400) {
           const newIngredient: Ingredient = { //ingredient型のオブジェクトを新規生成
             id: targetTime, // 判定時に使うため、ターゲットとなる時間をIDにする
             emoji: resolveIngredientEmoji(chartIngredient, chartIndexRef.current),
