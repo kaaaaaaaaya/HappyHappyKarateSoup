@@ -24,7 +24,7 @@ Return JSON only in the exact format below:
 Rules:
 - The comment MUST be under 100 Japanese characters.
 - The comment should vividly describe the synergy of the ingredients, the anticipated aroma, and the eating experience.
-- Use an enthusiastic, appetizing tone (e.g., "一口食べれば〜", "〜の絶妙なハーモニーが〜").
+- Use an enthusiastic, appetizing tone.
 - Describe the dish vibe and overall flavor profile, do not just list all ingredients.
 - The spicy score must reflect the selected difficulty/base (easy < normal < hard).
 - Output strictly raw JSON. No markdown (do not use ```json), no code blocks, no extra keys.

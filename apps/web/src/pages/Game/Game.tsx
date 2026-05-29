@@ -276,6 +276,7 @@ export default function Game() {
   const confirmPollInitializedRef = useRef(false);
   const [isGameFinished, setIsGameFinished] = useState(false);
   const [isImageReady, setIsImageReady] = useState(false);
+  const [isReadyFocused, setIsReadyFocused] = useState(false);
   const hasNavigatedRef = useRef(false);
   const isFinishingRef = useRef(false);
   const handleActionRef = useRef<(action: 'punch' | 'chop', horizontalTargetNorm?: number, acceleration?: number) => void>(() => { });
@@ -292,7 +293,7 @@ export default function Game() {
   // Ingredient 型に位置情報を追加
   // フックから必要な状態を受け取る
   // useGameLogic の戻り値に burstingIds, setBurstingIds を追加して受け取る
-  const { phase, count, ingredients, handleAction, removeIngredient,
+  const { phase, isStarting, startGame, ingredients, handleAction, removeIngredient,
     combo, lastJudgment, submitScore, totalScore, rank,
     battleStats,
     isChartFlowFinished,
@@ -304,6 +305,7 @@ export default function Game() {
   const assetBase = import.meta.env.BASE_URL ?? '/';
   const kitchenImageUrl = `${assetBase}images/kitchen.png`;
   const potImageUrl = `${assetBase}images/cooking_pot.png`;
+  const explanationImageUrl = `${assetBase}images/game_explanation.png`;
   const railTopY = 40;
   const railBottomY = 100;
   const railTopInset = 10;
@@ -336,9 +338,9 @@ export default function Game() {
   useEffect(() => {
     let cancelled = false;
     const imageByDifficulty: Record<Difficulty, string> = {
-      easy: '/images/miso.png',
-      normal: '/images/tomato.png',
-      hard: '/images/malatang.png',
+      easy: '/images/miso_white.png',
+      normal: '/images/tomato_white.png',
+      hard: '/images/malatang_white.png',
     };
 
     const setReferenceImageByDifficulty = async () => {
@@ -367,7 +369,7 @@ export default function Game() {
 
   useEffect(() => {
     const connectedRoomId = sessionStorage.getItem('connectedRoomId');
-    if (!connectedRoomId || (phase !== 'countdown' && phase !== 'playing')) {
+    if (!connectedRoomId || (phase !== 'ready' && phase !== 'playing')) {
       return;
     }
 
@@ -383,7 +385,7 @@ export default function Game() {
         pollStats.totalMs += pollDurationMs;
         pollStats.maxMs = Math.max(pollStats.maxMs, pollDurationMs);
         if (pollStats.count % 50 === 0) {
-          console.log(`[poll] avg=${(pollStats.totalMs / pollStats.count).toFixed(1)}ms max=${pollStats.maxMs.toFixed(1)}ms`);
+          console.log(`[poll] avg = ${(pollStats.totalMs / pollStats.count).toFixed(1)}ms max = ${pollStats.maxMs.toFixed(1)} ms`);
         }
         const currentSequence = status.commandSequence ?? 0;
         const latestCommand = status.latestCommand ?? '';
@@ -414,6 +416,14 @@ export default function Game() {
           }
 
           maxProcessedSequence = Math.max(maxProcessedSequence, entry.sequence);
+          const normalizedCommand = (entry.command ?? '').trim().toLowerCase();
+          // [EN] Allow controller OK/confirm to start the game on the ready screen.
+          // [JA] 準備画面ではコントローラーのOK/confirm入力でゲーム開始。
+          if (phase === 'ready' && normalizedCommand === 'confirm') {
+            startGame();
+            continue;
+          }
+
           const parsedCommand = parseControllerCommand(entry.command ?? '');
           if (!parsedCommand) {
             continue;
@@ -428,7 +438,7 @@ export default function Game() {
                 latencyStats.totalMs += latencyMs;
                 latencyStats.maxMs = Math.max(latencyStats.maxMs, latencyMs);
                 if (latencyStats.count % 20 === 0) {
-                  console.log(`[command] avg=${(latencyStats.totalMs / latencyStats.count).toFixed(1)}ms max=${latencyStats.maxMs.toFixed(1)}ms`);
+                  console.log(`[command] avg = ${(latencyStats.totalMs / latencyStats.count).toFixed(1)}ms max = ${latencyStats.maxMs.toFixed(1)} ms`);
                 }
               }
             }
@@ -716,6 +726,12 @@ export default function Game() {
     });
   }, [lastJudgment]);
 
+  // [EN] Start gameplay after the player confirms readiness.
+  // [JA] プレイヤーの準備OKを受けてゲームを開始します。
+  const handleReadyClick = () => {
+    startGame();
+  };
+
   return (
     <div
       style={{
@@ -749,52 +765,56 @@ export default function Game() {
         style={{
           position: 'absolute',
           inset: 0,
-          backgroundColor: 'rgba(255, 220, 180, 0.18)', // 明るいベージュの半透明
           zIndex: 1,
         }}
       />
 
       <div style={{ position: 'relative', zIndex: 2 }}>
-        {phase === 'countdown' ? (
-          <div>
-            {isWaitingForConfirm ? (
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '24px',
-                padding: '60px 20px',
-              }}>
-                <div style={{ fontSize: '48px' }}>📱</div>
-                <p style={{
-                  fontFamily: "'DotGothic16', sans-serif",
-                  fontSize: '22px',
-                  color: '#fff',
-                  textShadow: '2px 2px 0 #000',
-                  margin: 0,
-                }}>
-                  スマホで「準備OK」を押してください
-                </p>
-                <div style={{
-                  width: '40px',
-                  height: '40px',
-                  border: '5px solid rgba(255,255,255,0.3)',
-                  borderTop: '5px solid #fff',
-                  borderRadius: '50%',
-                  animation: 'spin 0.9s linear infinite',
-                }} />
-                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-              </div>
-            ) : (
-              <div>
-                <h2 style={{ color: '#fff' }}>ゲーム準備</h2>
-                <p>スマホをこっち向き（反時計回りに90度）に回して、こうやって持ってね！</p>
-                <div style={{ fontSize: '80px', fontWeight: 'bold', margin: '50px 0', color: '#ff5722' }}>
-                  {count > 0 ? count : 'START!'}
-                </div>
-              </div>
-            )}
+        {phase === 'ready' ? (
+          <div style={{ display: 'grid', placeItems: 'center', gap: '24px' }}>
+            <h1 style={{ color: '#fff', fontFamily: "'DotGothic16', sans-serif", marginTop: '4dvh', marginBottom: '4dvh' }}>ゲーム準備</h1>
+            <div
+              style={{
+                width: 'min(85vw, 1000px)',
+                borderRadius: '24px',
+                overflow: 'hidden',
+                boxShadow: '0 18px 40px rgba(0, 0, 0, 0.35)',
+                border: '4px solid rgba(255, 255, 255, 0.75)',
+                backgroundColor: 'rgba(255, 255, 255, 0.12)',
+              }}
+            >
+              <img
+                src={explanationImageUrl}
+                alt="ゲームの操作説明"
+                style={{ width: '100%', height: '100%', display: 'block' }}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleReadyClick}
+              onMouseEnter={() => setIsReadyFocused(true)}
+              onMouseLeave={() => setIsReadyFocused(false)}
+              disabled={isStarting}
+              style={{
+                fontFamily: "'DotGothic16', monospace",
+                fontSize: '30px',
+                padding: '18px 36px',
+                borderRadius: '9999px',
+                border: '4px solid #1d0c0d',
+                background: isStarting
+                  ? 'linear-gradient(90deg, #9e9e9e 0%, #bdbdbd 100%)'
+                  : 'linear-gradient(90deg, #ffb74d 0%, #ff7043 100%)',
+                color: '#1d0c0d',
+                cursor: isStarting ? 'not-allowed' : 'pointer',
+                boxShadow: isReadyFocused ? '0 8px 0 #1d0c0d' : '0 5px 0 #1d0c0d',
+                outline: 'none',
+                transform: isReadyFocused ? 'translateY(-2px) scale(1.03)' : 'none',
+                transition: 'transform 120ms ease, box-shadow 120ms ease, outline-color 120ms ease',
+                letterSpacing: '0.04em',
+              }}
+            >
+              {isStarting ? '準備中...' : '準備OK!'}
+            </button>
           </div>
         ) : (
           <div>

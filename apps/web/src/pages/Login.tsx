@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { postGoogleLogin, postLogin, postRegister } from '../api/authApi';
+import { postGoogleLogin, postLogin, postRegister, postResendVerification, type AuthResponse } from '../api/authApi';
 import { Button } from '../components/Button';
 import bgLogin from '../assets/backgrounds/bg_login.png';
 import logoSmall from '../assets/ui/logo_small.png';
@@ -26,6 +26,15 @@ declare global {
   }
 }
 
+const toFriendlyAuthError = (message: string) => {
+  if (message.includes('username already taken')) return 'このユーザー名はすでに使われています。';
+  if (message.includes('email already registered')) return 'このメールアドレスはすでに登録されています。';
+  if (message.includes('email is not verified')) return 'メール確認がまだ完了していません。確認メールのリンクを開いてください。';
+  if (message.includes('invalid credentials')) return 'メールアドレスまたはパスワードが違います。';
+  if (message.includes('use google login')) return 'このアカウントはGoogleログインを使ってください。';
+  return message;
+};
+
 export default function Login() {
   const navigate = useNavigate();
   const [mode, setMode] = useState<AuthMode>('login');
@@ -35,6 +44,9 @@ export default function Login() {
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+  const [pendingVerificationEmail, setPendingVerificationEmail] = useState<string | null>(null);
+  const [devVerificationUrl, setDevVerificationUrl] = useState<string | null>(null);
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
 
   const canSubmit = useMemo(() => {
@@ -50,7 +62,7 @@ export default function Login() {
     return true;
   }, [email, isLoading, mode, password, passwordConfirm, username]);
 
-  const storeAuth = (payload: { token: string; userId: number; username: string; email: string; provider: string }) => {
+  const storeAuth = (payload: AuthResponse) => {
     sessionStorage.setItem('authToken', payload.token);
     sessionStorage.setItem('authUser', JSON.stringify(payload));
     sessionStorage.removeItem('connectedRoomId');
@@ -130,17 +142,48 @@ export default function Login() {
     try {
       setIsLoading(true);
       setError(null);
+      setInfo(null);
 
-      const authResponse = mode === 'register'
-        ? await postRegister(username.trim(), email.trim(), password)
-        : await postLogin(email.trim(), password);
+      if (mode === 'register') {
+        const registerResponse = await postRegister(username.trim(), email.trim(), password);
+        setMode('login');
+        setPassword('');
+        setPasswordConfirm('');
+        setPendingVerificationEmail(registerResponse.email);
+        setDevVerificationUrl(registerResponse.devVerificationUrl ?? null);
+        setInfo('確認メールを送信しました。メール内のリンクを開いてからログインしてください。');
+        return;
+      }
 
+      const authResponse = await postLogin(email.trim(), password);
       storeAuth(authResponse);
       // ログイン成功後は QR 接続画面へ遷移
       navigate('/home-logged-in');
     } catch (e) {
       const message = e instanceof Error ? e.message : 'ログイン処理に失敗しました。';
-      setError(message);
+      if (message.includes('email is not verified')) {
+        setPendingVerificationEmail(email.trim());
+        setInfo('メール確認がまだ完了していません。確認メールのリンクを開いてください。');
+      }
+      setError(toFriendlyAuthError(message));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    if (!pendingVerificationEmail) {
+      return;
+    }
+    try {
+      setIsLoading(true);
+      setError(null);
+      const response = await postResendVerification(pendingVerificationEmail);
+      setDevVerificationUrl(response.devVerificationUrl ?? null);
+      setInfo('確認メールを再送しました。メール内のリンクを開いてください。');
+    } catch (e) {
+      const message = e instanceof Error ? e.message : '確認メールの再送に失敗しました。';
+      setError(toFriendlyAuthError(message));
     } finally {
       setIsLoading(false);
     }
@@ -195,7 +238,11 @@ export default function Login() {
         <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
           <button
             type="button"
-            onClick={() => setMode('login')}
+            onClick={() => {
+              setMode('login');
+              setError(null);
+              setInfo(null);
+            }}
             style={{
               flex: 1,
               padding: '12px',
@@ -212,7 +259,11 @@ export default function Login() {
           </button>
           <button
             type="button"
-            onClick={() => setMode('register')}
+            onClick={() => {
+              setMode('register');
+              setError(null);
+              setInfo(null);
+            }}
             style={{
               flex: 1,
               padding: '12px',
@@ -277,7 +328,35 @@ export default function Login() {
             </div>
           )}
 
+          {info && (
+            <div style={{ color: 'var(--c-slate-700)', backgroundColor: 'var(--c-orange-100)', border: '1px solid var(--c-orange-500)', borderRadius: 'var(--radius-sm)', padding: '12px', fontFamily: 'var(--f-dotgothic)', fontSize: '14px', lineHeight: 1.5 }}>
+              {info}
+              {devVerificationUrl && (
+                <a href={devVerificationUrl} style={{ display: 'block', marginTop: '8px', color: 'var(--c-red)', wordBreak: 'break-all' }}>
+                  開発用確認リンクを開く
+                </a>
+              )}
+            </div>
+          )}
           {error && <div style={{ color: 'var(--c-red)', fontFamily: 'var(--f-dotgothic)', fontSize: '14px' }}>{error}</div>}
+          {pendingVerificationEmail && (
+            <button
+              type="button"
+              onClick={handleResendVerification}
+              disabled={isLoading}
+              style={{
+                border: 'none',
+                background: 'transparent',
+                color: 'var(--c-teal)',
+                cursor: isLoading ? 'default' : 'pointer',
+                fontFamily: 'var(--f-dotgothic)',
+                fontSize: '14px',
+                textDecoration: 'underline',
+              }}
+            >
+              確認メールを再送する
+            </button>
+          )}
           
           <Button 
             type="submit" 

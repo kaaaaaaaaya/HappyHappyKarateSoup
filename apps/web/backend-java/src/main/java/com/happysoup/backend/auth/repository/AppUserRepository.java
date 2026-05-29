@@ -11,4 +11,6 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long> {
     Optional<AppUser> findByUsername(String username);
 
     Optional<AppUser> findByGoogleSubject(String googleSubject);
+
+    Optional<AppUser> findByEmailVerificationTokenHash(String emailVerificationTokenHash);
 }
