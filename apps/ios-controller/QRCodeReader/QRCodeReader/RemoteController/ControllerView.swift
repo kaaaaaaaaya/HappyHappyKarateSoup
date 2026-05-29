@@ -147,6 +147,21 @@ struct ControllerView: View {
             .ignoresSafeArea()
 
             VStack(spacing: 20) {
+                HStack {
+                    Text("Controller")
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                    Spacer()
+                    Button("終了") {
+                        onClose()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.pink)
+                    .disabled(true)
+                    .opacity(0.55)
+                }
+                .padding(.horizontal, 40)
+
                 // 操作説明パネル
                 VStack(spacing: 16) {
                     Text("ゲームモード")
@@ -168,6 +183,20 @@ struct ControllerView: View {
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.white.opacity(0.9))
                             .padding(.top, 6)
+
+                        Button(action: {
+                            onConfirm()
+                        }) {
+                            Text("準備OK")
+                                .font(.custom("DotGothic16-Regular", size: 18))
+                                .fontWeight(.bold)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(Color.green.opacity(0.95))
+                                .foregroundColor(.white)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                        }
+                        .padding(.top, 8)
                     }
                     .frame(maxWidth: .infinity, alignment: .center)
                     .multilineTextAlignment(.center)
