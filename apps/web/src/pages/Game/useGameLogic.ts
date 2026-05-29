@@ -222,7 +222,7 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
         const [targetTime, type, chartIngredient, lane] = chart[chartIndexRef.current];
 
         // 経過時間がターゲット時間の2000ms前に達したら具材を出現させる
-        if (elapsed >= targetTime - animationDuration) {
+        if (elapsed >= targetTime - animationDuration - 500) {
           const newIngredient: Ingredient = { //ingredient型のオブジェクトを新規生成
             id: targetTime, // 判定時に使うため、ターゲットとなる時間をIDにする
             emoji: resolveIngredientEmoji(chartIngredient, chartIndexRef.current),
