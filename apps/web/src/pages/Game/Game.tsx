@@ -271,7 +271,6 @@ export default function Game() {
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
-  const [isWaitingForConfirm, setIsWaitingForConfirm] = useState(true);
   const confirmPollSequenceRef = useRef(0);
   const confirmPollInitializedRef = useRef(false);
   const [isGameFinished, setIsGameFinished] = useState(false);
@@ -457,11 +456,11 @@ export default function Game() {
     return () => {
       window.clearInterval(timerId);
     };
-  }, [phase]);
+  }, [phase, startGame]);
 
-  // コントローラーの「準備OK」確認を待つポーリング（countdownフェーズのみ）
+  // コントローラーの「準備OK」確認を待つポーリング（readyフェーズのみ）
   useEffect(() => {
-    if (phase !== 'countdown') {
+    if (phase !== 'ready') {
       return;
     }
     const connectedRoomId = sessionStorage.getItem('connectedRoomId');
@@ -496,7 +495,6 @@ export default function Game() {
           if (entry.sequence <= confirmPollSequenceRef.current) continue;
           if (entry.command.trim().toLowerCase() === 'confirm') {
             window.clearInterval(timerId);
-            setIsWaitingForConfirm(false);
             return;
           }
         }
@@ -512,7 +510,7 @@ export default function Game() {
     return () => {
       window.clearInterval(timerId);
     };
-  }, [phase]);
+  }, [phase, startGame]);
 
   // [EN] Starts soup generation as soon as gameplay starts to hide model latency.
   // [JA] モデル生成の待ち時間を隠すため、ゲーム開始時に先行生成を開始します。

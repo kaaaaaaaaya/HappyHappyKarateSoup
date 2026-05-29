@@ -199,7 +199,7 @@ export default function Ranking() {
     if (tab !== 'score' && focusedSection === 'difficulty') {
       setFocusedSection('tabs');
     }
-  }, [tab]);
+  }, [tab, focusedSection]);
 
   useEffect(() => {
     const index = DIFFICULTIES.findIndex((d) => d.key === difficulty);
