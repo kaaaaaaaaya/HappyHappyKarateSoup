@@ -20,19 +20,24 @@ struct ControllerView: View {
     }
 
     /// 物理的な攻撃時の視覚的フィードバックの種類を定義
-    ///private enum ActionFlash: Equatable {
-    ///    case punch
-    ///    case chop
+    private enum ActionFlash: Equatable {
+        case punch
+        case chop
 
-    ///    var imageName: String {
-    ///        switch self {
-    ///        case .punch:
-    ///            return "PunchIllustration"
-    ///        case .chop:
-    ///            return "ChopIllustration"
-    ///        }
-    ///    }
-    ///}
+        var imageName: String {
+            switch self {
+            case .punch: return "punch_transparented"
+            case .chop:  return "cho_transparented"
+            }
+        }
+
+        var displayName: String {
+            switch self {
+            case .punch: return "Punch!"
+            case .chop:  return "Chop!"
+            }
+        }
+    }
 
     // MARK: - ネットワークモデル
     
@@ -65,7 +70,7 @@ struct ControllerView: View {
 
     @State private var aimX: CGFloat = 0.5
     @State private var aimY: CGFloat = 0.55
-    //@State private var currentActionFlash: ActionFlash? = nil
+    @State private var currentActionFlash: ActionFlash? = nil
     @State private var hideFlashTask: Task<Void, Never>? = nil
     
     // 加速度計とジャイロスコープのデータを監視
@@ -104,13 +109,13 @@ struct ControllerView: View {
         // motionDetectorによって検知されたモーションイベントに反応
         .onChange(of: motionDetector.punchEventId) { _, _ in
             if mode == .action {
-                //showActionFlash(.punch)
+                showActionFlash(.punch)
                 sendActionCommand("punch", acceleration: motionDetector.lastActionAcceleration)
             }
         }
         .onChange(of: motionDetector.chopEventId) { _, _ in
             if mode == .action {
-                //showActionFlash(.chop)
+                showActionFlash(.chop)
                 sendActionCommand("chop", acceleration: motionDetector.lastActionAcceleration)
             }
         }
@@ -211,13 +216,13 @@ struct ControllerView: View {
                 if showsSimulatorTestButtons {
                     HStack(spacing: 12) {
                         Button("TEST PUNCH") {
-                            //showActionFlash(.punch)
+                            showActionFlash(.punch)
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(.red)
 
                         Button("TEST CHOP") {
-                            //showActionFlash(.chop)
+                            showActionFlash(.chop)
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(.cyan)
@@ -228,42 +233,46 @@ struct ControllerView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
 
             // 攻撃時の視覚フィードバック（パンチ/チョップの画像）
-            //if let flash = currentActionFlash {
-            //    actionFlashOverlay(for: flash)
-            //        .transition(
-            //            .asymmetric(
-            //                insertion: .scale(scale: 0.55).combined(with: .opacity),
-            //                removal: .scale(scale: 1.08).combined(with: .opacity)
-            //            )
-            //        )
-            //}
+            if let flash = currentActionFlash {
+                actionFlashOverlay(for: flash)
+                    .transition(
+                        .asymmetric(
+                            insertion: .scale(scale: 0.55).combined(with: .opacity),
+                            removal: .scale(scale: 1.08).combined(with: .opacity)
+                        )
+                    )
+            }
         }
         .animation(
             .interactiveSpring(response: 0.14, dampingFraction: 0.58, blendDuration: 0.06),
-            //value: currentActionFlash
+            value: currentActionFlash
         )
     }
 
-    /// 攻撃アニメーションのオーバーレイを描画
-    /*
+    /// 攻撃アニメーションのオーバーレイを描画（背景変更なし、右半分に画像・左半分に技名テキストを表示）
     @ViewBuilder
     private func actionFlashOverlay(for flash: ActionFlash) -> some View {
-        VStack {
-            Spacer()
+        GeometryReader { geo in
+            let halfWidth = geo.size.width / 2
+            let halfHeight = geo.size.height / 2
+
+            // 左半分：技名テキスト
+            Text(flash.displayName)
+                .font(.custom("DotGothic16-Regular", size: 72))
+                .fontWeight(.bold)
+                .foregroundStyle(flash == .punch ? Color.red : Color.cyan)
+                .frame(width: halfWidth, height: geo.size.height)
+                .position(x: halfWidth / 2, y: geo.size.height / 2)
+
+            // 右半分：透過画像
             Image(flash.imageName)
                 .resizable()
                 .scaledToFit()
-                .frame(maxWidth: 520, maxHeight: 320)
-                .padding(.horizontal, 24)
-            Spacer()
+                .frame(width: halfWidth, height: halfHeight)
+                .position(x: geo.size.width * 0.75, y: geo.size.height / 2)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(
-            Color.white.ignoresSafeArea()
-        )
-        .allowsHitTesting(false) // オーバーレイがタッチをブロックしないように設定
+        .allowsHitTesting(false)
     }
-    */
 
     // MARK: - ロジック & ヘルパー関数
     
@@ -287,7 +296,6 @@ struct ControllerView: View {
     }
 
     /// 攻撃時の画像を画面上に短時間表示する
-    /*
     private func showActionFlash(_ flash: ActionFlash) {
         hideFlashTask?.cancel()
         currentActionFlash = flash
@@ -299,7 +307,6 @@ struct ControllerView: View {
             }
         }
     }
-    */
 
     /// ルームステータスの更新を確認するバックグラウンドループを開始
     private func startPollingRoomStatus() {
