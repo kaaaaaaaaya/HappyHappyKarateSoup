@@ -182,7 +182,7 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
     }
 
     const lastNoteTime = chart[chart.length - 1][0];
-    const chartFinishBufferMs = 3000;
+    const chartFinishBufferMs = 2000;
     const finishTimeMs = lastNoteTime + chartFinishBufferMs;
     const remainingMs = Math.max(0, finishTimeMs - elapsedRef.current);
 
@@ -280,7 +280,7 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
   // [EN] True when enough time has passed after the last note timing.
   // [JA] 最終ノート時刻を過ぎ、十分なバッファ時間が経過したら true になります。
   const lastNoteTime = chart.length > 0 ? chart[chart.length - 1][0] : 0;
-  const chartFinishBufferMs = 3000; // 具材アニメーション完了待ちバッファ
+  const chartFinishBufferMs = 2000; // 具材アニメーション完了待ちバッファ
   const totalDurationMs = chart.length > 0 ? lastNoteTime + chartFinishBufferMs : 0;
   const progress =
     phase === 'playing' && totalDurationMs > 0
