@@ -271,6 +271,9 @@ export default function Game() {
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
+  const [isWaitingForConfirm, setIsWaitingForConfirm] = useState(true);
+  const confirmPollSequenceRef = useRef(0);
+  const confirmPollInitializedRef = useRef(false);
   const [isGameFinished, setIsGameFinished] = useState(false);
   const [isImageReady, setIsImageReady] = useState(false);
   const hasNavigatedRef = useRef(false);
@@ -444,6 +447,63 @@ export default function Game() {
         console.error('Failed to poll controller action on game page:', error);
       }
     }, 40);
+
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, [phase]);
+
+  // コントローラーの「準備OK」確認を待つポーリング（countdownフェーズのみ）
+  useEffect(() => {
+    if (phase !== 'countdown') {
+      return;
+    }
+    const connectedRoomId = sessionStorage.getItem('connectedRoomId');
+    if (!connectedRoomId) {
+      setIsWaitingForConfirm(false);
+      return;
+    }
+
+    setIsWaitingForConfirm(true);
+    confirmPollInitializedRef.current = false;
+
+    const timerId = window.setInterval(async () => {
+      try {
+        const status = await fetchControllerRoomStatus(connectedRoomId, {
+          since: confirmPollSequenceRef.current,
+        });
+        const currentSequence = status.commandSequence ?? 0;
+        const incrementalCommands = status.commands ?? [];
+        const latestCommand = status.latestCommand ?? '';
+
+        if (!confirmPollInitializedRef.current) {
+          confirmPollSequenceRef.current = currentSequence;
+          confirmPollInitializedRef.current = true;
+          return;
+        }
+
+        const entries = incrementalCommands.length > 0
+          ? incrementalCommands
+          : currentSequence > confirmPollSequenceRef.current && latestCommand !== ''
+            ? [{ sequence: currentSequence, command: latestCommand }]
+            : [];
+
+        for (const entry of entries) {
+          if (entry.sequence <= confirmPollSequenceRef.current) continue;
+          if (entry.command.trim().toLowerCase() === 'confirm') {
+            window.clearInterval(timerId);
+            setIsWaitingForConfirm(false);
+            return;
+          }
+        }
+
+        if (currentSequence > confirmPollSequenceRef.current) {
+          confirmPollSequenceRef.current = currentSequence;
+        }
+      } catch {
+        // polling failure is non-fatal
+      }
+    }, 500);
 
     return () => {
       window.clearInterval(timerId);
@@ -697,11 +757,44 @@ export default function Game() {
       <div style={{ position: 'relative', zIndex: 2 }}>
         {phase === 'countdown' ? (
           <div>
-            <h2 style={{ color: '#fff' }}>ゲーム準備</h2>
-            <p>スマホをこっち向き（反時計回りに90度）に回して、こうやって持ってね！</p>
-            <div style={{ fontSize: '80px', fontWeight: 'bold', margin: '50px 0', color: '#ff5722' }}>
-              {count > 0 ? count : 'START!'}
-            </div>
+            {isWaitingForConfirm ? (
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '24px',
+                padding: '60px 20px',
+              }}>
+                <div style={{ fontSize: '48px' }}>📱</div>
+                <p style={{
+                  fontFamily: "'DotGothic16', sans-serif",
+                  fontSize: '22px',
+                  color: '#fff',
+                  textShadow: '2px 2px 0 #000',
+                  margin: 0,
+                }}>
+                  スマホで「準備OK」を押してください
+                </p>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  border: '5px solid rgba(255,255,255,0.3)',
+                  borderTop: '5px solid #fff',
+                  borderRadius: '50%',
+                  animation: 'spin 0.9s linear infinite',
+                }} />
+                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+              </div>
+            ) : (
+              <div>
+                <h2 style={{ color: '#fff' }}>ゲーム準備</h2>
+                <p>スマホをこっち向き（反時計回りに90度）に回して、こうやって持ってね！</p>
+                <div style={{ fontSize: '80px', fontWeight: 'bold', margin: '50px 0', color: '#ff5722' }}>
+                  {count > 0 ? count : 'START!'}
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div>

@@ -72,6 +72,7 @@ struct ControllerView: View {
     @State private var aimY: CGFloat = 0.55
     @State private var currentActionFlash: ActionFlash? = nil
     @State private var hideFlashTask: Task<Void, Never>? = nil
+    @State private var isConfirmSent: Bool = false
     
     // 加速度計とジャイロスコープのデータを監視
     @StateObject private var motionDetector = ControllerMotionDetector()
@@ -190,6 +191,7 @@ struct ControllerView: View {
                             .padding(.top, 6)
 
                         Button(action: {
+                            isConfirmSent = true
                             onConfirm()
                         }) {
                             Text("準備OK")
@@ -197,10 +199,12 @@ struct ControllerView: View {
                                 .fontWeight(.bold)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
-                                .background(Color.green.opacity(0.95))
-                                .foregroundColor(.white)
+                                .background(isConfirmSent ? Color.gray.opacity(0.5) : Color.green.opacity(0.95))
+                                .foregroundColor(isConfirmSent ? .white.opacity(0.5) : .white)
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
+                                .grayscale(isConfirmSent ? 1.0 : 0.0)
                         }
+                        .disabled(isConfirmSent)
                         .padding(.top, 8)
                     }
                     .frame(maxWidth: .infinity, alignment: .center)
@@ -364,6 +368,7 @@ struct ControllerView: View {
                 let cmd = entry.command
                 if cmd == "start_game" {
                     mode = .action
+                    isConfirmSent = false
                 } else if ["end_game", "return_remote"].contains(cmd) {
                     mode = .remote
                 } else if cmd == "hit" && mode == .action {
