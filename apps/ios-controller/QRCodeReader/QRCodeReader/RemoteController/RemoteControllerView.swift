@@ -6,6 +6,7 @@ struct RemoteControllerView: View {
     var onDirection: (String) -> Void
     var onConfirm: () -> Void
     var onClose: () -> Void
+    var isDisconnected: Bool = false
 
     var body: some View {
         ZStack {
@@ -14,10 +15,21 @@ struct RemoteControllerView: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                // 上部のマーキー（流れる文字）バー
+                // 上部のマーキー（流れる文字）バー / 切断時は警告メッセージを表示
                 ZStack {
-                    Color(hex: "#8A9BAD").opacity(0.88)
-                    MarqueeView(text: "Now Playing Happy Happy Karate Soup!")
+                    Color(hex: isDisconnected ? "#5C1A1A" : "#8A9BAD").opacity(0.88)
+                    if isDisconnected {
+                        HStack(spacing: 8) {
+                            Image(systemName: "wifi.slash")
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundColor(.red)
+                            Text("Controller Disconnected")
+                                .font(.custom("DotGothic16-Regular", size: 16))
+                                .foregroundColor(.red)
+                        }
+                    } else {
+                        MarqueeView(text: "Now Playing Happy Happy Karate Soup!")
+                    }
                 }
                 .frame(maxWidth: .infinity, minHeight: 40, maxHeight: 40)
 
