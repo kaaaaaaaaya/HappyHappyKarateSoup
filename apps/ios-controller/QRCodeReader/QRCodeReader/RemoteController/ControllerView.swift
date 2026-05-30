@@ -208,6 +208,7 @@ struct ControllerView: View {
 
                         Button(action: {
                             isConfirmSent = true
+                            notifyConfirmHaptic()
                             onConfirm()
                         }) {
                             Text("準備OK")
@@ -409,6 +410,18 @@ struct ControllerView: View {
         let impactGenerator = UIImpactFeedbackGenerator(style: .heavy)
         impactGenerator.prepare() // レイテンシを最小化
         impactGenerator.impactOccurred()
+    }
+
+    /// 「準備OK」ボタン押下時に少し長めのバイブレーションを発生させる
+    private func notifyConfirmHaptic() {
+        let impactGenerator = UIImpactFeedbackGenerator(style: .heavy)
+        impactGenerator.prepare()
+        impactGenerator.impactOccurred()
+
+        Task {
+            try? await Task.sleep(nanoseconds: 180_000_000) // 180ms
+            impactGenerator.impactOccurred()
+        }
     }
 }
 

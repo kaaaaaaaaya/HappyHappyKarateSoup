@@ -222,7 +222,7 @@ export const useGameLogic = (options: UseGameLogicOptions = {}) => {
         const [targetTime, type, chartIngredient, lane] = chart[chartIndexRef.current];
 
         // 経過時間がターゲット時間の2000ms前に達したら具材を出現させる
-        // デプロイ先ではラグがあるので、具材の出現を譜面の1000ms前倒しする
+        // ラグを考慮し、早めに出現させることで、具材が画面外に出る前に叩けるようにしたい
         if (elapsed >= targetTime - animationDuration) {
           const newIngredient: Ingredient = { //ingredient型のオブジェクトを新規生成
             id: targetTime, // 判定時に使うため、ターゲットとなる時間をIDにする
