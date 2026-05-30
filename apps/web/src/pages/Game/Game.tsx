@@ -271,6 +271,7 @@ export default function Game() {
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
+  const [isControllerDisconnected, setIsControllerDisconnected] = useState(false);
   const confirmPollSequenceRef = useRef(0);
   const confirmPollInitializedRef = useRef(false);
   const [isGameFinished, setIsGameFinished] = useState(false);
@@ -374,6 +375,7 @@ export default function Game() {
         const status = await fetchControllerRoomStatus(connectedRoomId, {
           since: lastControllerCommandSequenceRef.current,
         });
+        setIsControllerDisconnected(!status.connected);
         const pollDurationMs = performance.now() - pollStartMs;
         const pollStats = pollStatsRef.current;
         pollStats.count += 1;
@@ -450,6 +452,7 @@ export default function Game() {
         }
       } catch (error) {
         console.error('Failed to poll controller action on game page:', error);
+        setIsControllerDisconnected(true);
       }
     }, 40);
 
@@ -741,6 +744,29 @@ export default function Game() {
       }}
     >
       <style>{animationStyles}</style>
+
+      {/* コントローラー切断バナー */}
+      {isControllerDisconnected && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100%',
+            zIndex: 9999,
+            backgroundColor: 'rgba(120, 0, 0, 0.92)',
+            color: '#ff6b6b',
+            fontFamily: "'DotGothic16', sans-serif",
+            fontSize: '16px',
+            textAlign: 'center',
+            padding: '8px 16px',
+            letterSpacing: '0.05em',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
+          }}
+        >
+          ⚠ Controller Disconnected
+        </div>
+      )}
 
       <img
         src={kitchenImageUrl}

@@ -73,6 +73,7 @@ struct ControllerView: View {
     @State private var currentActionFlash: ActionFlash? = nil
     @State private var hideFlashTask: Task<Void, Never>? = nil
     @State private var isConfirmSent: Bool = false
+    @State private var isDisconnected: Bool = false
     
     // 加速度計とジャイロスコープのデータを監視
     @StateObject private var motionDetector = ControllerMotionDetector()
@@ -129,7 +130,7 @@ struct ControllerView: View {
     private var controllerContent: some View {
         ZStack {
             if mode == .remote {
-                RemoteControllerView(onDirection: onDirection, onConfirm: onConfirm, onClose: onClose)
+                RemoteControllerView(onDirection: onDirection, onConfirm: onConfirm, onClose: onClose, isDisconnected: isDisconnected)
             } else {
                 modernActionView
             }
@@ -153,6 +154,21 @@ struct ControllerView: View {
             .ignoresSafeArea()
 
             VStack(spacing: 20) {
+                // 切断時の警告バナー
+                if isDisconnected {
+                    HStack(spacing: 8) {
+                        Image(systemName: "wifi.slash")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.red)
+                        Text("Controller Disconnected")
+                            .font(.custom("DotGothic16-Regular", size: 14))
+                            .foregroundColor(.red)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .background(Color(red: 0.35, green: 0.05, blue: 0.05).opacity(0.9))
+                }
+
                 HStack {
                     Text("Controller")
                         .font(.system(size: 24, weight: .bold, design: .rounded))
@@ -351,6 +367,7 @@ struct ControllerView: View {
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
             let res = try JSONDecoder().decode(RoomStatusResponse.self, from: data)
+            isDisconnected = !res.connected
             let seq = res.commandSequence ?? 0
 
             // コマンドのリストがあるか、最新のものだけかを確認
@@ -382,7 +399,9 @@ struct ControllerView: View {
             if seq > lastSeenSequence {
                 lastSeenSequence = seq
             }
-        } catch {}
+        } catch {
+            isDisconnected = true
+        }
     }
 
     /// ダメージを受けたことをシミュレートするために物理的な振動（ハプティクス）を作動させる
