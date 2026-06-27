@@ -1,73 +1,121 @@
-# React + TypeScript + Vite
+# HappyHappyKarateSoup - Web Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + TypeScript + Vite で構築されたリズムゲームの Web フロントエンド。iOS コントローラーからの入力を受け取り、リアルタイムなゲーム体験を提供する。
 
-Currently, two official plugins are available:
+## 技術スタック
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+| カテゴリ | 技術 |
+|---------|------|
+| フレームワーク | React 19 |
+| 言語 | TypeScript 5.9 |
+| ビルドツール | Vite 8 |
+| スタイリング | Tailwind CSS 4 |
+| ルーティング | React Router v7 |
+| チャート | Chart.js / react-chartjs-2 |
+| QR コード | qrcode.react |
 
-## React Compiler
+## セットアップ
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+# 依存関係のインストール
+npm install
 
-## Expanding the ESLint configuration
+# 開発サーバーの起動（http://localhost:5173）
+npm run dev
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+# 型チェック & プロダクションビルド
+npm run build
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# リント
+npm run lint
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+開発サーバーは `/api` へのリクエストを `http://localhost:8080`（バックエンド）にプロキシする。
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## ディレクトリ構成
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
 ```
+src/
+├── api/                    # バックエンド API クライアント
+│   ├── apiBase.ts          #   Axios/fetch ベース設定
+│   ├── authApi.ts          #   認証（ログイン・登録）
+│   ├── chartApi.ts         #   チャートデータ取得
+│   ├── collectionApi.ts    #   コレクション管理
+│   ├── controllerRoomApi.ts#   コントローラー接続ルーム
+│   ├── profileApi.ts       #   プロフィール操作
+│   ├── rankingApi.ts       #   ランキング取得
+│   ├── scoreApi.ts         #   スコア送信・取得
+│   └── soupApi.ts          #   スープ（レシピ）操作
+├── assets/                 # 静的アセット
+│   ├── backgrounds/        #   画面別背景画像
+│   ├── characters/         #   キャラクター画像
+│   ├── icons/              #   アイコン素材
+│   └── ui/                 #   ロゴ等 UI パーツ
+├── components/             # 共通コンポーネント
+│   ├── BrandedBackground.tsx
+│   ├── BrandedConnectionBackground.tsx
+│   ├── Button.tsx
+│   └── WeeklyCaloriesChart.tsx
+├── pages/                  # ページコンポーネント（画面単位）
+│   ├── Home.tsx            #   トップ画面
+│   ├── Login.tsx           #   ログイン
+│   ├── VerifyEmail.tsx     #   メール認証
+│   ├── HomeLoggedIn.tsx    #   ログイン後ホーム
+│   ├── SelectDifficulty.tsx#   難易度選択
+│   ├── SelectIngredient/   #   具材選択（複数ファイル）
+│   ├── Connect.tsx         #   iOS コントローラー接続
+│   ├── Game/               #   ゲーム本体（複数ファイル）
+│   │   ├── Game.tsx        #     メインゲーム画面
+│   │   ├── useGameLogic.ts #     ゲームループ・判定ロジック
+│   │   ├── useScoreLogic.tsx#    スコア計算
+│   │   ├── timing.ts       #    タイミング定数
+│   │   └── types.ts        #    ゲーム関連型定義
+│   ├── Result/             #   リザルト画面
+│   ├── Ranking.tsx         #   ランキング
+│   ├── Profile.tsx         #   プロフィール
+│   └── SoupHistory.tsx     #   スープ履歴
+├── App.tsx                 # ルーティング定義
+├── main.tsx                # エントリーポイント
+└── index.css               # グローバルスタイル
+```
+
+## 画面フロー
+
+```
+Home → Login → SelectDifficulty → SelectIngredient → Connect → Game → Result
+                                                                       ↓
+                                                              Ranking / Profile / SoupHistory
+```
+
+---
+
+## フロントエンドの工夫
+
+### 状態管理
+
+- **状態管理ライブラリ（Redux/Zustand/Jotai）を不使用。** sessionStorage + `location.state` + カスタムフックだけで完結。画面遷移が一方向のリニアなフローなので Context が必要な状況を作らない設計。
+- **`parseDifficulty` による防御的な型強制：** `sessionStorage.getItem()` は常に `string | null` を返すが、ランタイムで検証しながらコンパイル時型に昇格する関数を作り、`as Difficulty` の型アサーションで逃げない設計。
+
+### レンダリング性能（ゲーム固有）
+
+- **`useRef` による再レンダー回避：** `Game.tsx` に18個の `useRef`。40msポーリングと60fpsゲームループが同時に走る中で、表示に反映しなくていい値は `useRef` で持ち React のレンダリングサイクルから切り離す。
+- **`handleActionRef` パターン：** 40msポーリングの `useEffect` に `handleAction` を依存配列に入れると具材リストが変わるたびに Interval が破棄→再作成される。ref を1枚噛ませることでポーリングループを状態変化から完全に切り離す。
+- **`requestAnimationFrame`：** `setInterval` ではなく VSync に同期、バックグラウンドタブで自動停止。
+- **`performance.now()`：** `Date.now()`（ミリ秒精度）ではなくマイクロ秒精度を使用。判定窓が 200ms / 350ms / 500ms と細かいため必須。
+- **`translate3d` による GPU アクセラレーション：** ノート移動を CSS `@keyframes` で処理、JS での位置計算と分離。
+- **シーケンス番号による差分取得：** ポーリング結果に変化がなければ即 return。
+- **`burstingIds` Set による二重判定防止：** バーストアニメーション中の同一具材の Miss 二重判定を O(1) ルックアップで防止。
+
+### その他
+
+- **`withAbsoluteIconUrl` ジェネリクス関数：** 2つの異なる型に対して同じ URL 変換処理を1関数で行いながら、戻り値の型が入力の型 `T` のまま保たれる。
+- **`useMemo` / `useCallback` を適切な箇所に使用**（フォームバリデーション、ゲームループ内関数など）。
+
+---
+
+## iOS コントローラーの工夫
+
+- **CoreMotion** の加速度センサーでパンチ/チョップを検出し、コマンドをバックエンドに送信。
+- **AVFoundation** で QR コードを読み取り、カスタム URL スキーム（`happykaratesoup://connect?roomId=...`）でバックエンドに接続。
+- iOS の**バイブレーション機能**を使ったヒットフィードバック。
+- **`sentAtMs`** をコマンドに埋め込み、Web が `Date.now()` との差分で E2E レイテンシを計測。
